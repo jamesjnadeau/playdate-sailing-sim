@@ -67,7 +67,14 @@ fi
 
 if [ "$RUN" -eq 1 ]; then
     echo "== launching"
-    for _ in $(seq 1 20); do [ -e "$PORT" ] && break; sleep 0.5; done
+    # leaving data-disk mode re-enumerates the device, so the port may change
+    PORT=""
+    for _ in $(seq 1 40); do
+        PORT=$(ls /dev/serial/by-id/*Playdate* /dev/ttyACM* 2>/dev/null | head -n 1 || true)
+        [ -n "$PORT" ] && [ -e "$PORT" ] && break
+        sleep 0.5
+    done
+    [ -n "$PORT" ] || die "Playdate serial port did not come back; start SailingSim from its menu"
     sleep 2
     "$PDUTIL" "$PORT" run "/Games/$PDX" ||
         echo "deploy: launch failed; start SailingSim from the Playdate menu" >&2

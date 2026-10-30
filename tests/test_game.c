@@ -200,6 +200,22 @@ static void test_autopilot_frozen_when_capsized(void) {
     T_ASSERT(g.ap.on);
 }
 
+static void test_b_tap_anchors_and_hold_autotrims(void) {
+    fresh(1);
+    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(g.in.anchor && !g.at.on);
+    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(!g.in.anchor);
+    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
+    for (int i = 0; i < 30; i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(g.at.on && !g.in.anchor);
+    game_restart(&g, 2);
+    T_ASSERT(!g.at.on);
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -217,5 +233,6 @@ int main(void) {
     T_RUN(test_held_a_without_press_does_not_engage);
     T_RUN(test_autopilot_cleared_on_restart);
     T_RUN(test_autopilot_frozen_when_capsized);
+    T_RUN(test_b_tap_anchors_and_hold_autotrims);
     T_DONE();
 }

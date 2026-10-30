@@ -121,15 +121,10 @@ static void test_bad_inputs_stay_finite(void) {
     T_ASSERT(r.c.sail >= 0 && r.c.sail < r.cfg.sail_count);
 }
 
-static void test_b_toggles_anchor(void) {
+static void test_b_is_left_to_game(void) {   /* the anchor tap lives with the autotrim hold, see test_game */
     Rig r; rig_init(&r);
+    tick(&r, BTN_B, 0);
     T_ASSERT(!r.in.anchor);
-    tick(&r, BTN_A, 0); T_ASSERT(!r.in.anchor);     /* A is the autopilot button now */
-    tick(&r, BTN_B, 0); T_ASSERT(r.in.anchor);
-    tick(&r, 0, 0);     T_ASSERT(r.in.anchor);      /* held state, not a pulse */
-    tick(&r, BTN_B, 0); T_ASSERT(!r.in.anchor);
-    tick(&r, BTN_B | BTN_RIGHT, 0);                 /* B alongside a mode button still toggles */
-    T_ASSERT(r.in.anchor && r.c.mode == MODE_TRIM);
 }
 
 int main(void) {
@@ -142,6 +137,6 @@ int main(void) {
     T_RUN(test_crank_clamps_ranges);
     T_RUN(test_single_sail_ignores_repress);
     T_RUN(test_bad_inputs_stay_finite);
-    T_RUN(test_b_toggles_anchor);
+    T_RUN(test_b_is_left_to_game);
     return T_DONE();
 }

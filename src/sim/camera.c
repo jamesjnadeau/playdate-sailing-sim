@@ -14,7 +14,9 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     const CameraCfg *k = &cfg->camera;
     const BoatState *b = &g->b;
 
-    float fwd_x = cosf(b->heading), fwd_y = sinf(b->heading);
+    /* trailing view orbits the boat with the look yaw; the near view turns in place */
+    float orbit = c->trail ? b->heading + g->ctl.camera_yaw : b->heading;
+    float fwd_x = cosf(orbit), fwd_y = sinf(orbit);
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
     float xo = c->trail ? k->far_offset : k->x_offset;

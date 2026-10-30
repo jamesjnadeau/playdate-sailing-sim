@@ -89,6 +89,18 @@ static void test_camera_yaw_turns_view_not_boat(void) {
     T_NEAR(g.b.heading, 0.3f, 1e-9);
 }
 
+static void test_trailing_view_orbits_boat_with_look_yaw(void) {
+    fresh();
+    cp.trail = true;
+    g.b.heading = 0.3f;
+    g.ctl.camera_yaw = 1.0f;
+    settle();
+    float a = 1.3f, r = bc.camera.far_offset;
+    T_NEAR(cp.x, g.b.x + cosf(a) * r, 1e-3);
+    T_NEAR(cp.y, g.b.y + sinf(a) * r, 1e-3);
+    T_NEAR(cp.yaw, a, 1e-3);
+}
+
 static void test_position_follows_boat_offset_aft(void) {
     fresh();
     g.b.x = 100000.0; g.b.y = -50000.0; g.b.heading = 0;
@@ -116,6 +128,7 @@ int main(void) {
     T_RUN(test_points_behind_rejected);
     T_RUN(test_starboard_point_is_right_of_centre);
     T_RUN(test_camera_yaw_turns_view_not_boat);
+    T_RUN(test_trailing_view_orbits_boat_with_look_yaw);
     T_RUN(test_position_follows_boat_offset_aft);
     T_DONE();
 }

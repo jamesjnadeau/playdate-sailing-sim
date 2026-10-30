@@ -59,13 +59,13 @@ static int update(void *ud) {
     pd->system->resetElapsedTime();
     float crank = pd->system->getCrankChange();
 
-    /* A restarts once the run is over; while sailing it is the anchor button. */
+    /* A restarts once the run is over; while sailing A is the autopilot and B the anchor. */
     if (game.run != RUN_SAILING && (pushed & kButtonA)) {
         game_restart(&game, fresh_seed());
         pushed = 0;
         dt = 1.0f / 30;
     }
-    game_update(&game, (uint32_t)pushed, crank, dt);
+    game_update(&game, (uint32_t)pushed, (uint32_t)cur, crank, dt);
     camera_update(&cam, &game, &game.boat, dt);
 
     render_frame(pd, &game, &cam);

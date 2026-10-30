@@ -105,7 +105,7 @@ static void run(int preset, bool trail, float secs, const char *tag) {
     int imin = 0, imax = 0, iheel = 0;
     double sh = 0, sc = 0, shh = 0, sch = 0; int cnt = 0;
     for (int i = 0; i < n; i++) {
-        game_update(&g, 0, 0, 1.0f / 30);
+        game_update(&g, 0, 0, 0, 1.0f / 30);
         camera_update(&cp, &g, &g.boat, 1.0f / 30);
         if (i < 60) continue;
         float h = g.b.heave;
@@ -124,7 +124,7 @@ static void run(int preset, bool trail, float secs, const char *tag) {
         game_init(&g, &bc, &wc, &wo, preset, 1);
         memset(&cp, 0, sizeof cp); cp.trail = trail;
         camera_update(&cp, &g, &g.boat, 1.0f / 30);
-        for (int i = 0; i <= want[k]; i++) { game_update(&g, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
+        for (int i = 0; i <= want[k]; i++) { game_update(&g, 0, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
         char nmb[128]; snprintf(nmb, sizeof nmb, "%s_%s", tag, nm[k]);
         shoot(nmb);
     }
@@ -139,7 +139,7 @@ static void side_views(void) {
         game_init(&g, &bc, &wc, &wo, WEATHER_CHOPPY, 1);
         memset(&cp, 0, sizeof cp); cp.trail = true;
         g.ctl.camera_yaw = yaws[k];
-        for (int i = 0; i < 300; i++) { game_update(&g, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
+        for (int i = 0; i < 300; i++) { game_update(&g, 0, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
         shoot(nm[k]);
     }
 }

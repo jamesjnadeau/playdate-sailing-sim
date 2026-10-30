@@ -17,6 +17,7 @@ static void reset(Game *g) {
     boat_init(&g->b, &g->boat);
     boat_inputs_init(&g->in, &g->boat);
     controls_init(&g->ctl);
+    autopilot_init(&g->ap);
     start_weather(g);
     g->t = 0.0;
     g->run = RUN_SAILING;
@@ -46,13 +47,18 @@ void game_set_preset(Game *g, int preset) {
     start_weather(g);
 }
 
-void game_update(Game *g, uint32_t pressed, float crank_delta, float frame_dt) {
+void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
     g->last_hit = HIT_NONE;
 
-    if (g->run == RUN_SAILING)   /* capsized or wrecked: controls are frozen */
+    if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
         controls_update(&g->ctl, &g->boat, pressed, crank_delta, dt, &g->in);
+        autopilot_buttons(&g->ap, &g->boat.controls, pressed, held, dt, g->b.heading,
+                          wrap_pi(g->wind.dir + (float)M_PI));
+        if (g->ap.on)
+            g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r);
+    }
 
     wind_step(&g->wind, &g->weather.preset[g->preset], dt);
     g->wf = sea_hull_forces(&g->sea, &g->b, &g->boat, (float)fmod(g->t, g->sea.period));

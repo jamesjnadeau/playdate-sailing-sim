@@ -2,6 +2,7 @@
 #define GAME_H
 #include <stdint.h>
 #include "boat.h"
+#include "autopilot.h"
 #include "boatcfg.h"
 #include "controls.h"
 #include "rocks.h"
@@ -25,6 +26,7 @@ typedef struct {
     BoatState b;
     BoatInputs in;
     Controls ctl;
+    Autopilot ap;
     Wind wind;
     Sea sea;
     WaveForces wf;          /* sampled once per frame, held across substeps */
@@ -40,9 +42,9 @@ typedef struct {
 void game_init(Game *g, const BoatCfg *boat, const WeatherCfg *weather, const WorldCfg *world,
                int preset, uint32_t seed);
 
-/* pressed: BTN_* mask of buttons newly pressed this frame. frame_dt is clamped to
+/* pressed: BTN_* mask of buttons newly pressed this frame; held: buttons down now. frame_dt is clamped to
    [GAME_DT_MIN, GAME_DT_MAX] (non-finite counts as 1/30) and run in at most GAME_MAX_SUBSTEPS. */
-void game_update(Game *g, uint32_t pressed, float crank_delta, float frame_dt);
+void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt);
 
 /* One call back to the start state with a new seed (rocks, wind and sea follow the seed). */
 void game_restart(Game *g, uint32_t new_seed);

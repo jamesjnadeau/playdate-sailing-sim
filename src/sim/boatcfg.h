@@ -54,6 +54,10 @@ typedef struct {
     float rudder_rate_deg, trim_rate_deg, hoist_rate;
     float weather_helm;                   /* 0..1 feel of rudder load on the wheel */
     float anchor_time;
+    float autopilot_hold_s;               /* hold A this long to toggle the autopilot */
+    float autopilot_step_deg;             /* a tap of A advances the target heading by this */
+    float autopilot_no_go_deg;            /* targets this close to the wind's source are skipped */
+    float autopilot_kp, autopilot_kd;     /* wheel per rad of heading error / per rad/s of yaw rate */
 } ControlsCfg;
 
 typedef struct {

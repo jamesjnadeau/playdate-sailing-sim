@@ -104,6 +104,11 @@ static const Field CONTROLS_F[] = {
     FF(ControlsCfg, hoist_rate, 0.25f, 0.01f, 5),
     FF(ControlsCfg, weather_helm, 0.5f, 0, 1),
     FF(ControlsCfg, anchor_time, 2.5f, 0.1f, 30),
+    FF(ControlsCfg, autopilot_hold_s, 0.6f, 0.1f, 3),
+    FF(ControlsCfg, autopilot_step_deg, 45, 5, 180),
+    FF(ControlsCfg, autopilot_no_go_deg, 45, 0, 90),
+    FF(ControlsCfg, autopilot_kp, 2.0f, 0, 20),
+    FF(ControlsCfg, autopilot_kd, 1.0f, 0, 20),
 };
 
 static const Field LOOK_F[] = {

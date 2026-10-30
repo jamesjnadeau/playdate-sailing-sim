@@ -207,7 +207,7 @@ static int mogul_cmp(const void *x, const void *y) {
    slant and converge with the swell. Every corner is lifted to its own wave height, and a hexagon can
    be split into six facets around a centre sampled at its own height, so each facet tilts and shades
    on its own. */
-#define LAT_MAX 800
+#define LAT_MAX 500
 
 typedef struct { const CameraPose *c; double fx, fy; float half, sgain, vis, dfar; int n; } Lat;
 static Lat lat;
@@ -281,7 +281,7 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
 
     /* keep the polygon count roughly constant: a facet covers k * size^2 of ground */
     float area = 1.1f * (dfar * dfar - CREST_NEAR * CREST_NEAR);
-    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 450.0f : 650.0f;
+    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 320.0f : 420.0f;
     float size = bw * (sea_style == SEA_HEX ? 0.8f : sea_style == SEA_HEXC ? 1.7f : 1.6f);
     size = fmaxf(size, sqrtf(area / (budget * kfacet)));
 

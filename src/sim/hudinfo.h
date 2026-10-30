@@ -7,9 +7,6 @@
 
 /* Presentation-free HUD decisions, so the headless tests can cover them. */
 
-/* UTF-8 d-pad glyph for the mode's button; "?" for an out-of-range Mode. */
-const char *hud_mode_glyph(Mode m);
-
 /* true only for MODE_WHEEL: speed/heading/heel/AWS cells are shown. */
 bool hud_shows_nav(Mode m);
 

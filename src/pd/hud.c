@@ -12,8 +12,24 @@ static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
-static void text_utf8(PlaydateAPI *pd, const char *s, int x, int y) {
-    pd->graphics->drawText(s, strlen(s), kUTF8Encoding, x, y);
+/* The system font has no reliable arrow, degree or angle glyphs, so these are drawn as shapes. */
+static void mode_arrow(PlaydateAPI *pd, Mode m, int cx, int cy) {
+    const int r = 5;
+    switch (m) {
+    case MODE_WHEEL:  pd->graphics->fillTriangle(cx, cy - r, cx - r, cy + r, cx + r, cy + r, kColorBlack); break;
+    case MODE_TRIM:   pd->graphics->fillTriangle(cx + r, cy, cx - r, cy - r, cx - r, cy + r, kColorBlack); break;
+    case MODE_HOIST:  pd->graphics->fillTriangle(cx - r, cy, cx + r, cy - r, cx + r, cy + r, kColorBlack); break;
+    case MODE_CAMERA: pd->graphics->fillTriangle(cx, cy + r, cx - r, cy - r, cx + r, cy - r, kColorBlack); break;
+    }
+}
+
+static void degree_mark(PlaydateAPI *pd, int x, int y) {
+    pd->graphics->drawEllipse(x, y, 5, 5, 1, 0, 0, kColorWhite);
+}
+
+static void angle_mark(PlaydateAPI *pd, int x, int y) {   /* y = baseline of the little angle */
+    pd->graphics->drawLine(x, y, x + 8, y, 1, kColorWhite);
+    pd->graphics->drawLine(x, y, x + 6, y - 7, 1, kColorWhite);
 }
 
 /* One-row status bar: mode glyph, then the mode's cells, then AP/AT badges and the wind dial. */
@@ -28,10 +44,9 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
 
     pd->graphics->fillRect(0, top, CAM_W, HUD_H, kColorBlack);
 
-    /* selected mode: its d-pad glyph in an inverted cell */
+    /* selected mode: its d-pad direction in an inverted cell */
     pd->graphics->fillRect(0, top, HUD_GLYPH_W, HUD_H, kColorWhite);
-    pd->graphics->setDrawMode(kDrawModeFillBlack);
-    text_utf8(pd, hud_mode_glyph(mode), 6, ty);
+    mode_arrow(pd, mode, HUD_GLYPH_W / 2, top + HUD_H / 2);
 
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     if (hud_shows_nav(mode)) {
@@ -39,11 +54,13 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         snprintf(line, sizeof line, "%.1fkn", fabsf(b->u) * 1.94384f);
         text(pd, line, 22 + HUD_PAD, ty);
         pd->graphics->drawLine(74, top, 74, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "%03d\xC2\xB0", hud_heading_deg(b->heading));   /* U+00B0 degree sign */
-        text_utf8(pd, line, 75 + HUD_PAD, ty);
+        snprintf(line, sizeof line, "%03d", hud_heading_deg(b->heading));
+        text(pd, line, 75 + HUD_PAD, ty);
+        degree_mark(pd, 75 + HUD_PAD + 3 * 7, ty + 1);
         pd->graphics->drawLine(119, top, 119, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "\xE2\x88\xA0%+.0f", b->heel * 57.29578f);       /* U+2220 angle */
-        text_utf8(pd, line, 120 + HUD_PAD, ty);
+        angle_mark(pd, 120 + HUD_PAD, ty + 11);
+        snprintf(line, sizeof line, "%+.0f", b->heel * 57.29578f);
+        text(pd, line, 120 + HUD_PAD + 12, ty);
         snprintf(line, sizeof line, "%.0f", b->aws);
         text(pd, line, CAM_W - 12 - 8 - 26, ty);
     } else if (mode == MODE_TRIM || mode == MODE_HOIST) {

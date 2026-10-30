@@ -4,14 +4,6 @@
 #include "hudinfo.h"
 #include "mathx.h"
 
-static void test_glyph_per_mode(void) {
-    T_ASSERT(strcmp(hud_mode_glyph(MODE_WHEEL), "\xE2\xAC\x86") == 0);   /* U+2B06 up */
-    T_ASSERT(strcmp(hud_mode_glyph(MODE_TRIM), "\xE2\x9E\xA1") == 0);    /* U+27A1 right */
-    T_ASSERT(strcmp(hud_mode_glyph(MODE_HOIST), "\xE2\xAC\x85") == 0);   /* U+2B05 left */
-    T_ASSERT(strcmp(hud_mode_glyph(MODE_CAMERA), "\xE2\xAC\x87") == 0);  /* U+2B07 down */
-    T_ASSERT(strcmp(hud_mode_glyph((Mode)99), "?") == 0);
-}
-
 static void test_shows_nav_only_for_wheel(void) {
     T_ASSERT(hud_shows_nav(MODE_WHEEL));
     T_ASSERT(!hud_shows_nav(MODE_TRIM));
@@ -87,7 +79,6 @@ static void test_fmt_mark(void) {
 }
 
 int main(void) {
-    T_RUN(test_glyph_per_mode);
     T_RUN(test_shows_nav_only_for_wheel);
     T_RUN(test_heading_wraps_and_rounds);
     T_RUN(test_heading_non_finite_is_zero);

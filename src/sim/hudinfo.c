@@ -5,16 +5,6 @@
 
 #define R2D 57.29578f
 
-const char *hud_mode_glyph(Mode m) {
-    switch (m) {
-    case MODE_WHEEL:  return "\xE2\xAC\x86";   /* U+2B06 up: matches BTN_UP */
-    case MODE_TRIM:   return "\xE2\x9E\xA1";   /* U+27A1 right: matches BTN_RIGHT */
-    case MODE_HOIST:  return "\xE2\xAC\x85";   /* U+2B05 left: matches BTN_LEFT */
-    case MODE_CAMERA: return "\xE2\xAC\x87";   /* U+2B07 down: matches BTN_DOWN */
-    }
-    return "?";
-}
-
 bool hud_shows_nav(Mode m) {
     return m == MODE_WHEEL;
 }

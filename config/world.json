@@ -1,0 +1,9 @@
+{
+  "rock_cell_size": 40,
+  "rock_density": 0.25,
+  "rock_r_min": 1.5,
+  "rock_r_max": 5,
+  "rock_bump_speed": 1,
+  "rock_wreck_speed": 2.8,
+  "start_clear_radius": 60
+}

@@ -1,9 +1,9 @@
 {
   "world_units_per_metre": 10,
   "hull": {
-    "length": 4,
+    "length": 10,
     "beam": 1.5,
-    "mass": 120,
+    "mass": 360,
     "crew_mass": 80,
     "hiking_arm": 0.8,
     "hull_speed": 3.2,

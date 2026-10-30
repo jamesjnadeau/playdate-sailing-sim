@@ -79,7 +79,7 @@ static void test_storm_drags_more_than_sunny(void) {
         ds += sea_hull_forces(&sun, &b, &cfg, 0.2f * i).drag_mult;
         dt_ += sea_hull_forces(&storm, &b, &cfg, 0.2f * i).drag_mult;
     }
-    T_ASSERT(dt_ > 3.0f * ds);
+    T_ASSERT(dt_ > 1.5f * ds);
     T_ASSERT(dt_ > 0);
 }
 

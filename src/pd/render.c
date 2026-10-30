@@ -104,17 +104,25 @@ static uint32_t fleck_hash(int32_t a, int32_t b) {
     return h;
 }
 
+/* Dominant wave: unit travel direction (nx, ny) and wavelength in metres. */
+static bool dominant_wave(const Sea *sea, float *nx, float *ny, float *wl) {
+    if (sea->n == 0) return false;
+    int dom = 0;
+    for (int k = 1; k < sea->n; k++) if (sea->c[k].amp > sea->c[dom].amp) dom = k;
+    float wm = (float)sea->c[dom].m, wn = (float)sea->c[dom].n;
+    float wk = hypotf(wm, wn);
+    if (wk < 1e-3f) return false;
+    *nx = wm / wk; *ny = wn / wk;
+    *wl = (float)SEA_WRAP / wk;
+    return true;
+}
+
 static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                             float half, float vis) {
     const Sea *sea = &g->sea;
-    int dom = 0;
-    for (int k = 1; k < sea->n; k++) if (sea->c[k].amp > sea->c[dom].amp) dom = k;
-    if (sea->n == 0) return;
-    float wm = (float)sea->c[dom].m, wn = (float)sea->c[dom].n;
-    float wk = hypotf(wm, wn);
-    if (wk < 1e-3f) return;
-    float wl = (float)SEA_WRAP / wk;                  /* dominant wavelength, m */
-    float cx = -wn / wk, cy = wm / wk;                /* along the crest line */
+    float wnx, wny, wl;
+    if (!dominant_wave(sea, &wnx, &wny, &wl)) return;
+    float cx = -wny, cy = wnx;                        /* along the crest line */
     double fx = cos(c->yaw), fy = sin(c->yaw);
     float maxd = fminf(vis * 0.8f, FLECK_CELL * FLECK_RADIUS);
     int ci = (int)floor(c->x / FLECK_CELL), cj = (int)floor(c->y / FLECK_CELL);
@@ -147,6 +155,97 @@ static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c,
     }
 }
 
+/* Near the camera the sea is cut into bands parallel to the dominant wave's crest lines, fixed
+   in the world, so the pattern slants and converges with the waves and turns as the camera
+   orbits. Bands beyond the horizon haze are still lateral lines (they are too far to show it). */
+#define CREST_BANDS_MAX 28
+#define CREST_NEAR 3.0f
+#define CREST_SPREAD 2.2f    /* lateral half-width of the ground drawn, per metre ahead */
+
+typedef struct { float a, b; } Gp;                    /* ground point: metres ahead, metres right */
+typedef struct { float depth; int n; int pts[2 * 8]; int level; } CrestBand;
+
+/* Sutherland-Hodgman against sgn * (u - lo) >= 0, where u = a*na + b*nb. */
+static int clip_u(const Gp *in, int n, Gp *out, float na, float nb, float lo, float sgn) {
+    int m = 0;
+    for (int i = 0; i < n; i++) {
+        Gp p = in[i], q = in[(i + 1) % n];
+        float fp = sgn * (p.a * na + p.b * nb - lo), fq = sgn * (q.a * na + q.b * nb - lo);
+        if (fp >= 0.0f) out[m++] = p;
+        if ((fp >= 0.0f) != (fq >= 0.0f)) {
+            float k = fp / (fp - fq);
+            out[m].a = p.a + (q.a - p.a) * k;
+            out[m].b = p.b + (q.b - p.b) * k;
+            m++;
+        }
+    }
+    return m;
+}
+
+static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
+                             float dfar, float half, float sgain, float vis, float wnx, float wny,
+                             float wl) {
+    double fx = cos(c->yaw), fy = sin(c->yaw);
+    float na = (float)(wnx * fx + wny * fy), nb = (float)(-wnx * fy + wny * fx);
+    float bw = clampf(wl * 0.16f, 3.0f, 12.0f);
+    Gp trap[4] = { { CREST_NEAR, -CREST_SPREAD * CREST_NEAR }, { CREST_NEAR, CREST_SPREAD * CREST_NEAR },
+                   { dfar, CREST_SPREAD * dfar }, { dfar, -CREST_SPREAD * dfar } };
+    float umin = 1e9f, umax = -1e9f;
+    for (int i = 0; i < 4; i++) {
+        float u = trap[i].a * na + trap[i].b * nb;
+        if (u < umin) umin = u;
+        if (u > umax) umax = u;
+    }
+    double s = c->x * wnx + c->y * wny;               /* camera's position along the wave normal */
+    int span = (int)ceilf((umax - umin) / bw) + 1;
+    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); }
+    long k0 = (long)floor((s + umin) / bw), k1 = (long)floor((s + umax) / bw);
+    CrestBand bands[CREST_BANDS_MAX + 2];
+    int nb_ = 0;
+    for (long k = k0; k <= k1 && nb_ < CREST_BANDS_MAX + 2; k++) {
+        Gp p1[8], p2[8];
+        float lo = (float)(k * (double)bw - s), hi = (float)((k + 1) * (double)bw - s);
+        int n = clip_u(trap, 4, p1, na, nb, lo, 1.0f);
+        if (n >= 3) n = clip_u(p1, n, p2, na, nb, hi, -1.0f);
+        if (n < 3) continue;
+        float ca = 0.0f, cb = 0.0f;
+        CrestBand *cbnd = &bands[nb_];
+        bool ok = n <= 8;
+        for (int i = 0; i < n && ok; i++) {
+            ca += p2[i].a; cb += p2[i].b;
+            double wx = c->x + p2[i].a * fx - p2[i].b * fy, wy = c->y + p2[i].a * fy + p2[i].b * fx;
+            float z = sea_height(&g->sea, (float)fmod(wx, SEA_WRAP), (float)fmod(wy, SEA_WRAP), t);
+            float sx, sy;
+            if (!camera_project(c, wx, wy, z, &sx, &sy, NULL)) { ok = false; break; }
+            cbnd->pts[2 * i] = iround(sx);
+            cbnd->pts[2 * i + 1] = iround(sy);
+        }
+        if (!ok) continue;
+        ca /= (float)n; cb /= (float)n;
+        double mx = c->x + ca * fx - cb * fy, my = c->y + ca * fy + cb * fx;
+        float hz = sea_height(&g->sea, (float)fmod(mx, SEA_WRAP), (float)fmod(my, SEA_WRAP), t);
+        float hp = sea_height(&g->sea, (float)fmod(mx + wnx, SEA_WRAP), (float)fmod(my + wny, SEA_WRAP), t);
+        float hm = sea_height(&g->sea, (float)fmod(mx - wnx, SEA_WRAP), (float)fmod(my - wny, SEA_WRAP), t);
+        float slope = 0.5f * (hp - hm) * na;          /* rise per metre away from the eye */
+        float fog = clampf(ca / vis, 0.0f, 1.0f);
+        float base = 10.0f - 3.0f * clampf(ca / 300.0f, 0.0f, 1.0f);
+        float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 1.2f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
+        int level = (int)lroundf(base + shade + ((k & 1) ? 2.0f : -2.0f));
+        cbnd->level = (int)(level * (1.0f - 0.9f * fog * fog));
+        cbnd->depth = ca;
+        cbnd->n = n;
+        nb_++;
+    }
+    for (int i = 1; i < nb_; i++) {                    /* far to near */
+        CrestBand tmp = bands[i];
+        int j = i;
+        while (j > 0 && bands[j - 1].depth < tmp.depth) { bands[j] = bands[j - 1]; j--; }
+        bands[j] = tmp;
+    }
+    for (int i = 0; i < nb_; i++)
+        pd->graphics->fillPolygon(bands[i].n, bands[i].pts, render_pattern(bands[i].level), kPolygonFillNonZero);
+}
+
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float vis = fvis(g);
     float t = (float)fmod(g->t, g->sea.period);
@@ -155,12 +254,18 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float half = fmaxf(0.5f * wp->wave_height, 0.05f);
     float wl = 1.56f * wp->wave_period * wp->wave_period;
     float sgain = 5.0f / fmaxf((float)PI_D * wp->wave_height / wl, 0.03f);
+    float wnx, wny, wlen;
+    bool crest = dominant_wave(&g->sea, &wnx, &wny, &wlen);
     float fy0, fy1;
     if (!sea_line(c, 20000.0f, 0.0f, &fy0, &fy1)) { fy0 = fy1 = CAM_HORIZON_Y; }
     float dist[SEA_BANDS];
     for (int i = 0; i < SEA_BANDS; i++) dist[SEA_BANDS - 1 - i] = 3.0f * powf(1.5f, (float)i);
-    /* far -> near; dist[0] is the farthest band */
-    for (int i = 0; i < SEA_BANDS; i++) {
+    /* far -> near; dist[0] is the farthest band. Lateral bands run out to the first one inside
+       the crest-band range, which then takes over. */
+    float cap = fminf(vis * 0.9f, 60.0f);
+    int last = SEA_BANDS - 1;
+    if (crest) { last = 0; while (last < SEA_BANDS - 1 && dist[last] > cap) last++; }
+    for (int i = 0; i <= last; i++) {
         float d = dist[i];
         double fx = cos(c->yaw), fy = sin(c->yaw);
         float hz = sea_height(&g->sea, (float)fmod(c->x + fx * d, SEA_WRAP), (float)fmod(c->y + fy * d, SEA_WRAP), t);
@@ -176,9 +281,10 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         level = (int)(level * (1.0f - 0.9f * fog * fog));
         strip(pd, fy0, fy1, y0, y1, level);
         fy0 = y0; fy1 = y1;
-        if (d > vis * 1.2f) { /* beyond visibility the sea is just sky-coloured haze */ }
     }
     strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
+    if (crest && dist[last] > CREST_NEAR + 0.5f)
+        draw_crest_bands(pd, g, c, t, dist[last], half, sgain, vis, wnx, wny, wlen);
     draw_sea_flecks(pd, g, c, t, half, vis);
 }
 
@@ -288,6 +394,16 @@ static bool water_pt(const Game *g, const CameraPose *c, float fwd, float lat, f
     return camera_project(c, b->x + ch * fwd - sh * lat, b->y + sh * fwd + ch * lat, 0.0f, sx, sy, NULL);
 }
 
+/* Which hull side is hidden from the eye: +1 (starboard) or -1 (port), 0 when the eye is close
+ * enough to the centreline that both rails show beside the hull (eg. straight astern). */
+static int far_side(const Game *g, const CameraPose *c) {
+    const BoatState *b = &g->b;
+    double ch = cos(b->heading), sh = sin(b->heading);
+    float lat = (float)(-sh * (c->x - b->x) + ch * (c->y - b->y));   /* eye offset to starboard */
+    if (fabsf(lat) < 0.35f * g->boat.hull.beam) return 0;
+    return lat > 0.0f ? -1 : 1;
+}
+
 /* Foam where the hull meets the water, a bow wave peeling off the stem and a wake that
  * widens and fades astern. Strength follows speed; heel lifts one rail and buries the other. */
 static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -301,7 +417,9 @@ static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) 
 
     /* waterline ring: the hull outline at the surface, thicker on the buried (leeward) side */
     float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
+    int hidden = far_side(g, c);                             /* its ring is behind the hull */
     for (int side = -1; side <= 1; side += 2) {
+        if (side == hidden) continue;
         float bury = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
         int thick = 1 + (int)(bury * 2.0f + k * 1.0f);
         bool have = false;
@@ -314,7 +432,7 @@ static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) 
         }
     }
     float tx, ty;                                            /* foam across the transom */
-    if (water_pt(g, c, -0.5f * L, -hb, &px, &py) && water_pt(g, c, -0.5f * L, hb, &tx, &ty))
+    if (hidden == 0 && water_pt(g, c, -0.5f * L, -hb, &px, &py) && water_pt(g, c, -0.5f * L, hb, &tx, &ty))
         pd->graphics->drawLine((int)px, (int)py, (int)tx, (int)ty, 1, kColorWhite);
 
     if (sp < 0.5f) return;
@@ -479,6 +597,8 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 /* ---- hull and rudder ---- */
 
 /* rudder blade seen from above and behind: stock at the stern, trailing edge swung by the helm */
+static float rel_surface(const Game *g, float fwd, float lat);
+
 static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
     const float chord = 0.55f;
@@ -486,8 +606,9 @@ static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float d = g->b.wheel * g->boat.foils.rudder_max_deg * 0.017453f;
     float tx = rx - chord * cosf(d), ty = chord * sinf(d);
     float x0, y0, x1, y1, x2, y2, x3, y3;
+    float zw = clampf(rel_surface(g, rx, 0.0f), -0.2f, 0.9f);   /* the blade below the surface is not drawn */
     if (!boat_pt(&k, rx, 0, 0.9f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.9f, &x1, &y1) ||
-        !boat_pt(&k, tx, ty, -0.2f, &x2, &y2) || !boat_pt(&k, rx, 0, -0.2f, &x3, &y3)) return;
+        !boat_pt(&k, tx, ty, zw, &x2, &y2) || !boat_pt(&k, rx, 0, zw, &x3, &y3)) return;
     int pts[8] = { (int)x0, (int)y0, (int)x1, (int)y1, (int)x2, (int)y2, (int)x3, (int)y3 };
     pd->graphics->fillPolygon(4, pts, kColorBlack, kPolygonFillNonZero);
     pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, kColorBlack);   /* stock */
@@ -500,56 +621,6 @@ static float rel_surface(const Game *g, float fwd, float lat) {
     float wx = (float)fmod(b->x + ch * fwd - sh * lat, SEA_WRAP);
     float wy = (float)fmod(b->y + sh * fwd + ch * lat, SEA_WRAP);
     return sea_height(&g->sea, wx, wy, (float)fmod(g->t, g->sea.period)) - b->heave;
-}
-
-/* Water closing over the hull: everything below the local wave surface is painted over with
- * sea, so the topsides sink into troughs and the transom disappears behind a rising crest. */
-static void draw_submerged(PlaydateAPI *pd, const Game *g, const CameraPose *c, float keel, float tuck) {
-    Ctx k = { pd, g, c };
-    const LookCfg *lk = &g->boat.look;
-    float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam, fb = lk->freeboard;
-    LCDColor sea_col = render_pattern(8);
-    enum { N = 9 };
-    float sx, sy;
-    for (int sgn = -1; sgn <= 1; sgn += 2) {
-        int q[4 * N], m = 0;
-        bool ok = true;
-        int foam[2 * N], nf = 0;
-        for (int i = 0; i < N && ok; i++) {
-            float u = (float)i / (N - 1);
-            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
-            float x = L * (0.5f - u);
-            float zr = clampf(rel_surface(g, x, sgn * w), keel, fb);
-            float f = (fb - zr) / (fb - keel);
-            ok = boat_pt(&k, x, sgn * w * (1.0f - (1.0f - tuck) * f), zr, &sx, &sy);
-            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
-            foam[2 * nf] = (int)sx; foam[2 * nf + 1] = (int)sy; nf++;
-        }
-        for (int i = N - 1; i >= 0 && ok; i--) {
-            float u = (float)i / (N - 1);
-            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * tuck;
-            ok = boat_pt(&k, L * (0.5f - u), sgn * w, keel, &sx, &sy);
-            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
-        }
-        if (!ok) continue;
-        pd->graphics->fillPolygon(m, q, sea_col, kPolygonFillNonZero);
-        for (int i = 0; i + 1 < nf; i++)
-            pd->graphics->drawLine(foam[2 * i], foam[2 * i + 1], foam[2 * i + 2], foam[2 * i + 3], 1, kColorWhite);
-    }
-    float xs = -0.5f * L, wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
-    float zr = clampf(rel_surface(g, xs, 0.0f), keel, fb);
-    float f = (fb - zr) / (fb - keel), wr = wt * (1.0f - (1.0f - tuck) * f);
-    float tx[4][3] = { { xs, -wr, zr }, { xs, wr, zr }, { xs, wt * tuck, keel }, { xs, -wt * tuck, keel } };
-    int q[8];
-    bool ok = true;
-    for (int i = 0; i < 4 && ok; i++) {
-        ok = boat_pt(&k, tx[i][0], tx[i][1], tx[i][2], &sx, &sy);
-        q[2 * i] = (int)sx; q[2 * i + 1] = (int)sy;
-    }
-    if (ok) {
-        pd->graphics->fillPolygon(4, q, sea_col, kPolygonFillNonZero);
-        pd->graphics->drawLine(q[0], q[1], q[2], q[3], 1, kColorWhite);
-    }
 }
 
 /* the hull seen from behind */
@@ -572,10 +643,13 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (boat_pt(&k, L * (0.5f - u), -w, fb, &sx, &sy)) { pts[2 * n] = (int)sx; pts[2 * n + 1] = (int)sy; n++; }
     }
     if (n < 3) return;
-    /* topsides and bottom: gunwale line down to a narrower keel line, one panel per side, plus the transom */
+    /* topsides only: each panel runs from the gunwale down to the local wave surface, so nothing
+     * below the water is drawn and the hull sinks into troughs. The far side faces away. */
     const float keel = -0.3f, tuck = 0.45f;
     LCDColor side_col = render_pattern((int)(lk->hull_shade * 16.0f) + 5);
+    int hidden = far_side(g, c);
     for (int sgn = -1; sgn <= 1; sgn += 2) {
+        if (sgn == hidden) continue;
         int q[4 * N], m = 0;
         bool ok = true;
         for (int i = 0; i < N && ok; i++) {
@@ -584,20 +658,31 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
             ok = boat_pt(&k, L * (0.5f - u), sgn * w, fb, &sx, &sy);
             q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
         }
+        int top = m;
         for (int i = N - 1; i >= 0 && ok; i--) {
             float u = (float)i / (N - 1);
-            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * tuck;
-            ok = boat_pt(&k, L * (0.5f - u), sgn * w, keel, &sx, &sy);
+            float x = L * (0.5f - u);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
+            float zr = clampf(rel_surface(g, x, sgn * w), keel, fb);
+            float f = (fb - zr) / (fb - keel);
+            ok = boat_pt(&k, x, sgn * w * (1.0f - (1.0f - tuck) * f), zr, &sx, &sy);
             q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
         }
         if (!ok) continue;
         pd->graphics->fillPolygon(m, q, side_col, kPolygonFillNonZero);
-        for (int i = 0; i < m; i++)
-            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * ((i + 1) % m)], q[2 * ((i + 1) % m) + 1], 1, kColorBlack);
+        for (int i = 0; i + 1 < top; i++)   /* gunwale */
+            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, kColorBlack);
+        for (int i = top; i + 1 < m; i++)   /* waterline: foam */
+            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, kColorWhite);
+        pd->graphics->drawLine(q[0], q[1], q[2 * (m - 1)], q[2 * (m - 1) + 1], 1, kColorBlack);                  /* stem */
+        pd->graphics->drawLine(q[2 * (top - 1)], q[2 * (top - 1) + 1], q[2 * top], q[2 * top + 1], 1, kColorBlack);   /* stern */
     }
     {
         float wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
-        float xs = -0.5f * L, tx[4][3] = { { xs, -wt, fb }, { xs, wt, fb }, { xs, wt * tuck, keel }, { xs, -wt * tuck, keel } };
+        float xs = -0.5f * L;
+        float zr = clampf(rel_surface(g, xs, 0.0f), keel, fb), f = (fb - zr) / (fb - keel);
+        float wr = wt * (1.0f - (1.0f - tuck) * f);
+        float tx[4][3] = { { xs, -wt, fb }, { xs, wt, fb }, { xs, wr, zr }, { xs, -wr, zr } };
         int q[8];
         bool ok = true;
         for (int i = 0; i < 4 && ok; i++) {
@@ -606,11 +691,12 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         }
         if (ok) {
             pd->graphics->fillPolygon(4, q, side_col, kPolygonFillNonZero);
-            for (int i = 0; i < 4; i++)
-                pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * ((i + 1) % 4)], q[2 * ((i + 1) % 4) + 1], 1, kColorBlack);
+            for (int i = 0; i < 3; i++)
+                pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * (i + 1)], q[2 * (i + 1) + 1], 1, kColorBlack);
+            if (hidden == 0) pd->graphics->drawLine(q[4], q[5], q[6], q[7], 1, kColorWhite);
+            else pd->graphics->drawLine(q[6], q[7], q[0], q[1], 1, kColorBlack);
         }
     }
-    draw_submerged(pd, g, c, keel, tuck);   /* before the deck, so the deck and rails stay on top */
     pd->graphics->fillPolygon(n, pts, render_pattern((int)(lk->hull_shade * 16.0f)), kPolygonFillNonZero);
     for (int i = 0; i < n; i++)
         pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) % n)], pts[2 * ((i + 1) % n) + 1], 2, kColorBlack);

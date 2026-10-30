@@ -130,6 +130,20 @@ static void run(int preset, bool trail, float secs, const char *tag) {
     }
 }
 
+static void side_views(void) {
+    BoatCfg bc; WeatherCfg wc; WorldCfg wo;
+    boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
+    const float yaws[3] = { 1.5708f, -1.5708f, 0.7854f };
+    const char *nm[3] = { "side_port", "side_stbd", "side_quarter" };
+    for (int k = 0; k < 3; k++) {
+        game_init(&g, &bc, &wc, &wo, WEATHER_CHOPPY, 1);
+        memset(&cp, 0, sizeof cp); cp.trail = true;
+        g.ctl.camera_yaw = yaws[k];
+        for (int i = 0; i < 300; i++) { game_update(&g, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
+        shoot(nm[k]);
+    }
+}
+
 int main(void) {
     memset(&gfx, 0, sizeof gfx);
     gfx.clear = s_clear; gfx.drawLine = s_drawLine; gfx.drawRect = s_drawRect; gfx.fillRect = s_fillRect;
@@ -141,5 +155,6 @@ int main(void) {
     run(WEATHER_CHOPPY, true, 30, "choppy_trail");
     run(WEATHER_HURRICANE, true, 30, "hurr_trail");
     run(WEATHER_CHOPPY, false, 30, "choppy_near");
+    side_views();
     return 0;
 }

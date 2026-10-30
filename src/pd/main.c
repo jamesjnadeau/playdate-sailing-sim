@@ -14,7 +14,7 @@ static CameraPose cam;
 static BoatCfg boat_cfg;
 static WeatherCfg weather_cfg;
 static WorldCfg world_cfg;
-static int boat_index, preset_index;
+static int boat_index, preset_index = WEATHER_CHOPPY;
 static uint32_t restart_count;
 static char warn[ASSETS_WARN_LEN];
 static float warn_left;
@@ -91,6 +91,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
         boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
         weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
+        pd->system->setMenuItemValue(weather_item, preset_index);
         pd->system->addMenuItem("restart", menu_restart, NULL);
         pd->system->addMenuItem("reload config", menu_reload, NULL);
         pd->display->setRefreshRate(30.0f);

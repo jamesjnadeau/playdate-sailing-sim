@@ -5,4 +5,5 @@ build/
 .superpowers/
 Source/boats/
 Source/config/
+Source/tracks/
 Source/pdex.*

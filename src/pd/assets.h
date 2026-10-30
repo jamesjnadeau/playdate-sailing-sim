@@ -16,4 +16,7 @@ extern const char *const ASSET_BOAT_NAMES[ASSETS_BOATS];
 bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *weather,
                  WorldCfg *world, char *warn, size_t warnlen);
 
+/* Returns bytes read, or -1 when missing or too large. *buf is a shared buffer, valid until the next read. */
+int assets_read_file(PlaydateAPI *pd, const char *path, char **buf);
+
 #endif

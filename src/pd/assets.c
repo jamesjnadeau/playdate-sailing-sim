@@ -27,6 +27,12 @@ static int read_file(PlaydateAPI *pd, const char *path) {
     return n;
 }
 
+int assets_read_file(PlaydateAPI *pd, const char *path, char **buf) {
+    int n = read_file(pd, path);
+    *buf = filebuf;
+    return n;
+}
+
 bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *weather,
                  WorldCfg *world, char *warn, size_t warnlen) {
     char path[96], msg[160];

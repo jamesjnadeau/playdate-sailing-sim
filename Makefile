@@ -15,6 +15,7 @@ endif
 VPATH += src/pd:src/sim
 
 SRC = src/pd/main.c src/pd/assets.c src/pd/render.c src/pd/hud.c \
+      src/pd/tracks.c src/pd/menu_draw.c \
       $(wildcard src/sim/*.c)
 
 UINCDIR = src/sim src/pd
@@ -25,7 +26,7 @@ ULIBDIR =
 ULIBS = --specs=nosys.specs
 
 # Runtime configs ship inside the .pdx as plain files the game reads at start
-# and from the Reload config menu item.
-STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config && cp -r boats config Source/)
+# and when the boat changes.
+STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks && cp -r boats config tracks Source/)
 
 include $(SDK)/C_API/buildsupport/common.mk

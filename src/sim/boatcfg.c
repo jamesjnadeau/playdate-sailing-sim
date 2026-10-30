@@ -120,7 +120,7 @@ static const Field LOOK_F[] = {
 
 static const Field CAMERA_F[] = {
     FF(CameraCfg, height, 1.2f, 0.2f, 10),
-    FF(CameraCfg, x_offset, -0.8f, -10, 10),
+    FF(CameraCfg, x_offset, -2.7f, -10, 10),
     FF(CameraCfg, heel_bias, 0.25f, -3, 3),
     FF(CameraCfg, far_offset, -7.0f, -40, 0),
     FF(CameraCfg, far_height, 2.5f, 0.2f, 20),

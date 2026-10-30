@@ -65,7 +65,8 @@ typedef struct {
 
 typedef struct {
     float height, x_offset, heel_bias;
-    float far_offset, far_height;   /* trailing view: metres aft of the boat, eye height */
+    float far_height;               /* trailing view: eye height, m */
+    float frame_margin;             /* trailing view: px kept between mast/hull and the screen edge or status panel */
     float roll_limit_deg, roll_smooth, pitch_smooth;
     float yaw_range_deg, return_rate;
 } CameraCfg;

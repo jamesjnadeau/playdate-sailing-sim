@@ -57,6 +57,7 @@ typedef struct {
     float autopilot_hold_s;               /* hold A this long to toggle the autopilot */
     float autopilot_step_deg;             /* a tap of A advances the target heading by this */
     float autopilot_no_go_deg;            /* targets this close to the wind's source are skipped */
+    float autopilot_crank_deg;            /* one full crank turn moves the autopilot target this far */
     float autopilot_kp, autopilot_kd;     /* wheel per rad of heading error / per rad/s of yaw rate */
 } ControlsCfg;
 

@@ -39,6 +39,11 @@ void autopilot_buttons(Autopilot *ap, const ControlsCfg *k, uint32_t pressed, ui
     }
 }
 
+void autopilot_crank(Autopilot *ap, const ControlsCfg *k, float crank_delta_deg) {
+    if (!ap->on || !isfinite(crank_delta_deg) || !isfinite(ap->target)) return;
+    ap->target = wrap_pi(ap->target + deg2rad(crank_delta_deg / 360.0f * k->autopilot_crank_deg));
+}
+
 float autopilot_wheel(const Autopilot *ap, const ControlsCfg *k, float heading, float yaw_rate,
                       float wind_from) {
     if (!isfinite(ap->target) || !isfinite(heading) || !isfinite(yaw_rate)) return 0.0f;

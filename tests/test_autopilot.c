@@ -120,6 +120,25 @@ static void test_buttons_nonfinite_dt_and_heading_safe(void) {
     T_ASSERT(isfinite(ap.target) && isfinite(ap.a_time));
 }
 
+static void test_crank_adjusts_target(void) {
+    fresh();
+    ap.on = true; ap.target = 1.0f;
+    autopilot_crank(&ap, K, 360.0f);
+    T_NEAR(ap.target, 1.0f + deg2rad(10), 1e-5);
+    autopilot_crank(&ap, K, -180.0f);
+    T_NEAR(ap.target, 1.0f + deg2rad(5), 1e-5);
+}
+static void test_crank_wraps_and_ignores_nonfinite(void) {
+    fresh();
+    ap.on = true; ap.target = PI_F - 0.01f;
+    autopilot_crank(&ap, K, 360.0f);
+    T_ASSERT(ap.target > -PI_F && ap.target <= PI_F);
+    T_NEAR(ap.target, PI_F - 0.01f + deg2rad(10) - 2 * PI_F, 1e-5);
+    float t = ap.target;
+    autopilot_crank(&ap, K, NAN);
+    T_NEAR(ap.target, t, 1e-9);
+}
+
 int main(void) {
     T_RUN(test_next_heading_steps_clockwise);
     T_RUN(test_next_heading_skips_no_go);
@@ -136,5 +155,7 @@ int main(void) {
     T_RUN(test_wheel_damping);
     T_RUN(test_wheel_nonfinite_is_zero);
     T_RUN(test_buttons_nonfinite_dt_and_heading_safe);
+    T_RUN(test_crank_adjusts_target);
+    T_RUN(test_crank_wraps_and_ignores_nonfinite);
     return T_DONE();
 }

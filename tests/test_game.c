@@ -154,6 +154,20 @@ static void test_autopilot_holds_heading(void) {
     T_ASSERT(fabsf(wrap_pi(g.b.heading - g.ap.target)) < deg2rad(5));
 }
 
+static void test_autopilot_crank_turns_target_in_wheel_mode(void) {
+    fresh(1);
+    engage();
+    float t0 = g.ap.target;
+    game_update(&g, BTN_UP, 0, 360.0f, 1.0f / 30);
+    T_NEAR(wrap_pi(g.ap.target - t0), deg2rad(10), 1e-4);
+}
+static void test_autopilot_crank_in_trim_mode_leaves_target(void) {
+    fresh(1);
+    engage();
+    float t0 = g.ap.target;
+    game_update(&g, BTN_RIGHT, 0, 360.0f, 1.0f / 30);
+    T_NEAR(g.ap.target, t0, 1e-6);
+}
 static void test_autopilot_overrides_crank_wheel(void) {
     fresh(1);
     engage();
@@ -197,6 +211,8 @@ int main(void) {
     T_RUN(test_set_preset_changes_weather);
     T_RUN(test_calm_start_sails_on);
     T_RUN(test_autopilot_holds_heading);
+    T_RUN(test_autopilot_crank_turns_target_in_wheel_mode);
+    T_RUN(test_autopilot_crank_in_trim_mode_leaves_target);
     T_RUN(test_autopilot_overrides_crank_wheel);
     T_RUN(test_held_a_without_press_does_not_engage);
     T_RUN(test_autopilot_cleared_on_restart);

@@ -520,7 +520,8 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     float stay = clampf((hz - tz) / fmaxf(cfg->look.mast_height - tz, 0.1f), 0.0f, 1.0f);
     float hx = s->shape == 0 ? tx : tx + (cfg->look.mast_x - tx) * stay;
     float tr = b->trims[i];
-    float cx = tx - s->foot * cosf(tr), cy = side * s->foot * sinf(tr);
+    float foot = s->foot * hoist;                                  /* reefing shrinks the foot with the luff */
+    float cx = tx - foot * cosf(tr), cy = side * foot * sinf(tr);
     float lufft = b->luff[i];
     int mw = s->mesh_w < 1 ? 1 : s->mesh_w > 12 ? 12 : s->mesh_w;
     int mh = s->mesh_h < 1 ? 1 : s->mesh_h > 16 ? 16 : s->mesh_h;

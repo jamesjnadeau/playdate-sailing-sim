@@ -89,60 +89,60 @@ static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, i
     pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
 }
 
-/* Near sea as a heightfield mesh: a grid in the camera's frame, every vertex lifted by the wave
-   height there, each quad shaded by its slope against a fixed light, so the wave shape turns as the camera orbits. */
-#define MESH_ROWS 22
-#define MESH_COLS 28
-#define MESH_NEAR 2.0f
-#define MESH_FAR 70.0f
-#define MESH_LAT 1.7f        /* half-width of the grid as a multiple of distance */
-
 static int iround(float v) { return (int)lroundf(clampf(v, -2000.0f, 2000.0f)); }
 
-static void draw_sea_mesh(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
-                          float half, float sgain, float vis) {
-    static float SX[MESH_ROWS + 1][MESH_COLS + 1], SY[MESH_ROWS + 1][MESH_COLS + 1];
-    static float H[MESH_ROWS + 1][MESH_COLS + 1];
-    static bool OK[MESH_ROWS + 1][MESH_COLS + 1];
-    float dist[MESH_ROWS + 1];
+/* Crest and trough streaks: short dashes scattered at jittered, world-fixed spots and laid
+   along the dominant wave's crest line. A dash shows white while a crest is under it and black
+   in a trough, so highlights flow past with the waves, with no regular grid and only a
+   sea_height sample per candidate. */
+#define FLECK_CELL 5.0f      /* m between candidate spots, before jitter */
+#define FLECK_RADIUS 12      /* cells searched each way around the camera */
+
+static uint32_t fleck_hash(int32_t a, int32_t b) {
+    uint32_t h = (uint32_t)a * 0x9E3779B1u ^ (uint32_t)b * 0x85EBCA77u;
+    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; h *= 0x297A2D39u; h ^= h >> 15;
+    return h;
+}
+
+static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
+                            float half, float vis) {
+    const Sea *sea = &g->sea;
+    int dom = 0;
+    for (int k = 1; k < sea->n; k++) if (sea->c[k].amp > sea->c[dom].amp) dom = k;
+    if (sea->n == 0) return;
+    float wm = (float)sea->c[dom].m, wn = (float)sea->c[dom].n;
+    float wk = hypotf(wm, wn);
+    if (wk < 1e-3f) return;
+    float wl = (float)SEA_WRAP / wk;                  /* dominant wavelength, m */
+    float cx = -wn / wk, cy = wm / wk;                /* along the crest line */
     double fx = cos(c->yaw), fy = sin(c->yaw);
-    double rx = -fy, ry = fx;
-    float ratio = powf(MESH_FAR / MESH_NEAR, 1.0f / MESH_ROWS);
-    for (int j = 0; j <= MESH_ROWS; j++) dist[j] = MESH_NEAR * powf(ratio, (float)j);
+    float maxd = fminf(vis * 0.8f, FLECK_CELL * FLECK_RADIUS);
+    int ci = (int)floor(c->x / FLECK_CELL), cj = (int)floor(c->y / FLECK_CELL);
 
-    for (int j = 0; j <= MESH_ROWS; j++) {
-        for (int i = 0; i <= MESH_COLS; i++) {
-            float lat = ((float)i / MESH_COLS * 2.0f - 1.0f) * MESH_LAT * dist[j];
-            double wx = c->x + fx * dist[j] + rx * lat, wy = c->y + fy * dist[j] + ry * lat;
-            H[j][i] = sea_height(&g->sea, (float)fmod(wx, SEA_WRAP), (float)fmod(wy, SEA_WRAP), t);
-            OK[j][i] = camera_project(c, wx, wy, H[j][i], &SX[j][i], &SY[j][i], NULL);
-        }
-    }
-
-    const float lx = 0.8f, ly = 0.6f;                        /* world direction the light comes from */
-    for (int j = MESH_ROWS - 1; j >= 0; j--) {               /* far -> near */
-        float d = dist[j];
-        float fog = clampf(d / vis, 0.0f, 1.0f);
-        float dd = dist[j + 1] - dist[j];
-        float dl = 2.0f * MESH_LAT * 0.5f * (dist[j] + dist[j + 1]) / MESH_COLS;
-        for (int i = 0; i < MESH_COLS; i++) {
-            if (!(OK[j][i] && OK[j][i + 1] && OK[j + 1][i + 1] && OK[j + 1][i])) continue;
-            float sx[4] = { SX[j][i], SX[j][i + 1], SX[j + 1][i + 1], SX[j + 1][i] };
-            float sy[4] = { SY[j][i], SY[j][i + 1], SY[j + 1][i + 1], SY[j + 1][i] };
-            float h[4] = { H[j][i], H[j][i + 1], H[j + 1][i + 1], H[j + 1][i] };
-            if ((sx[0] < -40 && sx[2] < -40 && sx[1] < -40 && sx[3] < -40) ||
-                (sx[0] > CAM_W + 40 && sx[1] > CAM_W + 40 && sx[2] > CAM_W + 40 && sx[3] > CAM_W + 40)) continue;
-            float gf = 0.5f * ((h[2] + h[3]) - (h[0] + h[1])) / dd;
-            float gr = 0.5f * ((h[1] + h[2]) - (h[0] + h[3])) / dl;
-            float gx = gf * (float)fx + gr * (float)rx, gy = gf * (float)fy + gr * (float)ry;
-            float slope = gx * lx + gy * ly;                 /* + = rising toward the light */
-            float hm = 0.25f * (h[0] + h[1] + h[2] + h[3]);
-            float shade = clampf(-slope * sgain, -6.0f, 6.0f) + clampf(hm / half, -1.0f, 1.0f) * -2.0f;
-            int level = (int)lroundf(9.0f + shade);
-            level = (int)(clampf((float)level, 0.0f, 16.0f) * (1.0f - 0.9f * fog * fog));
-            int pts[8];
-            for (int k = 0; k < 4; k++) { pts[2 * k] = iround(sx[k]); pts[2 * k + 1] = iround(sy[k]); }
-            pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
+    for (int dj = -FLECK_RADIUS; dj <= FLECK_RADIUS; dj++) {
+        for (int di = -FLECK_RADIUS; di <= FLECK_RADIUS; di++) {
+            int32_t gi = ci + di, gj = cj + dj;
+            uint32_t h = fleck_hash(gi, gj);
+            if ((h & 0xFF) > 90) continue;            /* ~35% of cells get a streak */
+            double wx = (gi + ((h >> 8 & 0xFF) / 256.0f)) * (double)FLECK_CELL;
+            double wy = (gj + ((h >> 16 & 0xFF) / 256.0f)) * (double)FLECK_CELL;
+            float fwd = (float)((wx - c->x) * fx + (wy - c->y) * fy);
+            if (fwd < 1.0f || fwd > maxd) continue;
+            float z = sea_height(sea, (float)fmod(wx, SEA_WRAP), (float)fmod(wy, SEA_WRAP), t);
+            float r = z / half;
+            bool crest = r > 0.35f, trough = r < -0.55f;
+            if (!crest && !trough) continue;
+            float len = wl * (0.12f + 0.18f * (float)(h >> 24) / 255.0f) * (0.5f + fminf(fabsf(r), 1.0f));
+            double ax = wx - cx * len * 0.5, ay = wy - cy * len * 0.5;
+            double bx = wx + cx * len * 0.5, by = wy + cy * len * 0.5;
+            float x0, y0, x1, y1;
+            if (!camera_project(c, ax, ay, z, &x0, &y0, NULL)) continue;
+            if (!camera_project(c, bx, by, z, &x1, &y1, NULL)) continue;
+            if (x0 < -40 && x1 < -40) continue;
+            if (x0 > CAM_W + 40 && x1 > CAM_W + 40) continue;
+            int w = fwd < 14.0f ? 2 : 1;
+            pd->graphics->drawLine(iround(x0), iround(y0), iround(x1), iround(y1), w,
+                                   crest ? kColorWhite : kColorBlack);
         }
     }
 }
@@ -179,7 +179,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (d > vis * 1.2f) { /* beyond visibility the sea is just sky-coloured haze */ }
     }
     strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
-    draw_sea_mesh(pd, g, c, t, half, sgain, vis);
+    draw_sea_flecks(pd, g, c, t, half, vis);
 }
 
 static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

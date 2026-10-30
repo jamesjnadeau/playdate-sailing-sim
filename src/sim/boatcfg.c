@@ -110,6 +110,10 @@ static const Field CONTROLS_F[] = {
     FF(ControlsCfg, autopilot_crank_deg, 10, 0, 90),
     FF(ControlsCfg, autopilot_kp, 2.0f, 0, 20),
     FF(ControlsCfg, autopilot_kd, 1.0f, 0, 20),
+    FF(ControlsCfg, autotrim_hold_s, 0.6f, 0.1f, 3),
+    FF(ControlsCfg, autotrim_smooth_s, 4.0f, 0.1f, 30),
+    FF(ControlsCfg, autotrim_heel_deg, 25, 5, 90),
+    FF(ControlsCfg, autotrim_hoist_min, 0.3f, 0.05f, 1),
 };
 
 static const Field LOOK_F[] = {

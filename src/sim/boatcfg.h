@@ -59,6 +59,10 @@ typedef struct {
     float autopilot_no_go_deg;            /* targets this close to the wind's source are skipped */
     float autopilot_crank_deg;            /* one full crank turn moves the autopilot target this far */
     float autopilot_kp, autopilot_kd;     /* wheel per rad of heading error / per rad/s of yaw rate */
+    float autotrim_hold_s;                /* hold B this long to toggle the autotrim */
+    float autotrim_smooth_s;              /* time constant filtering the wind and heel it reacts to */
+    float autotrim_heel_deg;              /* reef the sails while heeled further than this */
+    float autotrim_hoist_min;             /* ...but never below this hoist */
 } ControlsCfg;
 
 typedef struct {

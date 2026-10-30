@@ -14,5 +14,6 @@ LCDColor render_pattern(int level);
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
+void hud_diag(PlaydateAPI *pd, const Game *g);
 
 #endif

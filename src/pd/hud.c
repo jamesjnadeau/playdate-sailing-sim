@@ -29,6 +29,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         snprintf(line, sizeof line, "AP %03.0f", fmodf(g->ap.target * 57.29578f + 360.0f, 360.0f));
         text(pd, line, 250, top + 2);
     }
+    if (g->at.on) text(pd, "AT", 250, top + 18);
 
     /* apparent wind dial: the tick shows where the wind comes from relative to the bow (up) */
     const int cx = CAM_W - 22, cy = top + 18, R = 15;
@@ -61,4 +62,26 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
     text(pd, head, 200 - 4 * (int)strlen(head), 90);
     text(pd, "Press A to restart", 98, 114);
     pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
+/* Diagnostics for the system-menu panel: the left ~200px of a 400x240 bitmap show beside the menu. */
+void hud_diag(PlaydateAPI *pd, const Game *g) {
+    const BoatState *b = &g->b;
+    char line[64];
+    int y = 6;
+    const float R2D = 57.29578f;
+    pd->graphics->clear(kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+#define ROW(...) do { snprintf(line, sizeof line, __VA_ARGS__); text(pd, line, 4, y); y += 18; } while (0)
+    ROW("TWS %.1f AWS %.1f m/s", g->wind.speed, b->aws);
+    ROW("AWA %+.0f  heel %+.0f  u %.1f", b->awa * R2D, b->heel * R2D, b->u);
+    for (int i = 0; i < g->boat.sail_count && i < BOAT_MAX_SAILS; i++) {
+        const SailForce *f = &b->sail[i];
+        ROW("%.6s h%.0f t%.0f L%.1f", g->boat.sails[i].name, b->hoists[i] * 100.0f, b->trims[i] * R2D, f->luff);
+        ROW(" F %+.0f %+.0f aoa %+.0f", f->fx, f->fy, f->aoa * R2D);
+    }
+    ROW("SAILS %+.0f %+.0f N", b->sail_fx, b->sail_fy);
+    ROW(" hl %+.0f yw %+.0f Nm", b->sail_heel, b->sail_yaw);
+    ROW("helm %+.0f N", b->helm_load);
+#undef ROW
 }

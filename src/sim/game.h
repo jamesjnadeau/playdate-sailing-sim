@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "boat.h"
 #include "autopilot.h"
+#include "autotrim.h"
 #include "boatcfg.h"
 #include "controls.h"
 #include "rocks.h"
@@ -27,6 +28,7 @@ typedef struct {
     BoatInputs in;
     Controls ctl;
     Autopilot ap;
+    Autotrim at;
     Wind wind;
     Sea sea;
     WaveForces wf;          /* sampled once per frame, held across substeps */

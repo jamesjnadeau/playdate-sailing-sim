@@ -85,6 +85,16 @@ __declspec(dllexport)
 #endif
 int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     (void)arg;
+    if (event == kEventPause) {
+        /* the menu shows this bitmap beside its items */
+        LCDBitmap *img = pd->graphics->newBitmap(CAM_W, 240, kColorWhite);
+        pd->graphics->pushContext(img);
+        hud_diag(pd, &game);
+        pd->graphics->popContext();
+        pd->system->setMenuImage(img, 0);   /* the system takes a copy */
+        pd->graphics->freeBitmap(img);
+        return 0;
+    }
     if (event == kEventInit) {
         pd = playdate;
         static const char *boat_names[ASSETS_BOATS] = { "dinghy", "j24", "tp52" };

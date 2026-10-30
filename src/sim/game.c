@@ -18,6 +18,7 @@ static void reset(Game *g) {
     boat_inputs_init(&g->in, &g->boat);
     controls_init(&g->ctl);
     autopilot_init(&g->ap);
+    autotrim_init(&g->at);
     start_weather(g);
     g->t = 0.0;
     g->run = RUN_SAILING;
@@ -69,6 +70,9 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         if (g->ap.on)
             g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r,
                                                  wrap_pi(g->wind.dir + (float)M_PI));
+        if (autotrim_buttons(&g->at, &g->boat.controls, pressed, held, dt))
+            g->in.anchor = !g->in.anchor;   /* a tap of B is the anchor, a hold the autotrim */
+        autotrim_update(&g->at, &g->boat, &g->b, &g->in, dt);
     }
 
     wind_step(&g->wind, &g->weather.preset[g->preset], dt);

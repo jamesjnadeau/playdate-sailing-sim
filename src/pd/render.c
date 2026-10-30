@@ -1,0 +1,353 @@
+#include "render.h"
+#include <math.h>
+#include <stdint.h>
+#include <string.h>
+#include "mathx.h"
+
+#define LEVELS 17
+#define SEA_BANDS 15
+#define CLOUDS 24
+#define STREAKS 24
+#define PI_D 3.14159265358979323846
+
+static LCDPattern pats[LEVELS];
+static int pats_ready;
+
+static void init_pats(void) {
+    for (int l = 0; l < LEVELS; l++) {
+        for (int y = 0; y < 8; y++) {
+            uint8_t row = 0;
+            for (int x = 0; x < 8; x++) {
+                int xx = x, yy = y, v = 0;
+                for (int i = 0; i < 3; i++) {
+                    v = (v << 2) | ((((xx ^ yy) & 1) << 1) | (yy & 1));
+                    xx >>= 1;
+                    yy >>= 1;
+                }
+                if (v >= l * 4) row |= (uint8_t)(0x80 >> x);   /* 1 = white */
+            }
+            pats[l][y] = row;
+            pats[l][8 + y] = 0xFF;
+        }
+    }
+    pats_ready = 1;
+}
+
+LCDColor render_pattern(int level) {
+    if (!pats_ready) init_pats();
+    if (level < 0) level = 0;
+    if (level >= LEVELS) level = LEVELS - 1;
+    return (LCDColor)pats[level];
+}
+
+static uint32_t hash32(uint32_t x) {
+    x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+    return x;
+}
+static float frand(uint32_t i, uint32_t salt) { return (float)(hash32(i * 2654435761u + salt) >> 8) / 16777216.0f; }
+
+static float fvis(const Game *g) { return g->weather.preset[g->preset].visibility; }
+
+/* ---- sky ---- */
+
+static void draw_clouds(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    static const int shade[WEATHER_PRESETS] = { 2, 5, 8, 11 };
+    LCDColor col = render_pattern(shade[g->preset]);
+    for (int i = 0; i < CLOUDS; i++) {
+        double az = frand(i, 1) * 2.0 * PI_D + g->t * (0.002 + 0.004 * frand(i, 2));
+        float z = 150.0f + 350.0f * frand(i, 3);
+        float w = 250.0f + 400.0f * frand(i, 4);
+        float sx, sy, d;
+        if (!camera_project(c, c->x + 3000.0 * cos(az), c->y + 3000.0 * sin(az), z, &sx, &sy, &d)) continue;
+        float pw = w * CAM_FOCAL / d, ph = pw * 0.22f;
+        if (sx + pw < 0 || sx - pw > CAM_W) continue;
+        pd->graphics->fillEllipse((int)(sx - pw / 2), (int)(sy - ph / 2), (int)pw, (int)ph, 0, 0, col);
+        pd->graphics->fillEllipse((int)(sx - pw / 4), (int)(sy - ph * 0.85f), (int)(pw * 0.5f), (int)(ph * 0.9f), 0, 0, col);
+    }
+}
+
+/* ---- sea ---- */
+
+/* Screen line through the sea at ground distance d ahead of the camera (in the view direction):
+   returns y at x=-20 and x=CAM_W+20, or false if it cannot be projected. */
+static bool sea_line(const CameraPose *c, float d, float z, float *y0, float *y1) {
+    double fx = cos(c->yaw), fy = sin(c->yaw);
+    double px = c->x + fx * d, py = c->y + fy * d;
+    double lx = -fy * d * 2.0, ly = fx * d * 2.0;
+    float ax, ay, bx, by;
+    if (!camera_project(c, px - lx, py - ly, z, &ax, &ay, NULL)) return false;
+    if (!camera_project(c, px + lx, py + ly, z, &bx, &by, NULL)) return false;
+    if (fabsf(bx - ax) < 1e-3f) return false;
+    float slope = (by - ay) / (bx - ax);
+    *y0 = ay + (-20.0f - ax) * slope;
+    *y1 = ay + ((float)CAM_W + 20.0f - ax) * slope;
+    return true;
+}
+
+static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, int level) {
+    int pts[8] = { -20, (int)fy0, CAM_W + 20, (int)fy1, CAM_W + 20, (int)ny1, -20, (int)ny0 };
+    pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
+}
+
+static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    float vis = fvis(g);
+    float t = (float)fmod(g->t, g->sea.period);
+    float fy0, fy1;
+    if (!sea_line(c, 20000.0f, 0.0f, &fy0, &fy1)) { fy0 = fy1 = CAM_HORIZON_Y; }
+    float dist[SEA_BANDS];
+    for (int i = 0; i < SEA_BANDS; i++) dist[SEA_BANDS - 1 - i] = 3.0f * powf(1.5f, (float)i);
+    /* far -> near; dist[0] is the farthest band */
+    for (int i = 0; i < SEA_BANDS; i++) {
+        float d = dist[i];
+        double fx = cos(c->yaw), fy = sin(c->yaw);
+        float hz = sea_height(&g->sea, (float)fmod(c->x + fx * d, SEA_WRAP), (float)fmod(c->y + fy * d, SEA_WRAP), t);
+        float h2 = sea_height(&g->sea, (float)fmod(c->x + fx * (d + 2), SEA_WRAP), (float)fmod(c->y + fy * (d + 2), SEA_WRAP), t);
+        float slope = (h2 - hz) / 2.0f;
+        float y0, y1;
+        if (!sea_line(c, d, hz, &y0, &y1)) continue;
+        float fog = clampf(d / vis, 0.0f, 1.0f);
+        float base = 10.0f - 3.0f * (d / 300.0f > 1 ? 1 : d / 300.0f);
+        int level = (int)(base + clampf(-slope * 25.0f, -3.0f, 3.0f) + ((i & 1) ? 1.0f : -1.0f));
+        level = (int)(level * (1.0f - 0.9f * fog * fog));
+        strip(pd, fy0, fy1, y0, y1, level);
+        fy0 = y0; fy1 = y1;
+        if (d > vis * 1.2f) { /* beyond visibility the sea is just sky-coloured haze */ }
+    }
+    strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
+}
+
+static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    if (g->wind.speed < 2.0f) return;
+    float wx, wy;
+    wind_vec(&g->wind, &wx, &wy);
+    float sp = hypotf(wx, wy);
+    if (sp < 1e-3f) return;
+    float ux = wx / sp, uy = wy / sp;
+    float vis = fvis(g);
+    for (int i = 0; i < STREAKS; i++) {
+        double qx = frand(i, 11) * 120.0 + g->t * wx * 0.6;
+        double qy = frand(i, 12) * 120.0 + g->t * wy * 0.6;
+        qx = g->b.x + fmod(qx - g->b.x + 60.0, 120.0) - 60.0;
+        qy = g->b.y + fmod(qy - g->b.y + 60.0, 120.0) - 60.0;
+        float ax, ay, bx, by, da;
+        if (!camera_project(c, qx, qy, 0.0f, &ax, &ay, &da)) continue;
+        if (!camera_project(c, qx + ux * 6.0, qy + uy * 6.0, 0.0f, &bx, &by, NULL)) continue;
+        if (da > vis * 0.8f || da < 1.0f) continue;
+        if (fabsf(bx - ax) > 200 || fabsf(by - ay) > 200) continue;
+        pd->graphics->drawLine((int)ax, (int)ay, (int)bx, (int)by, 1, kColorWhite);
+    }
+}
+
+/* ---- rocks ---- */
+
+static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    float vis = fvis(g);
+    float t = (float)fmod(g->t, g->sea.period);
+    int order[ROCKS_MAX];
+    float depth[ROCKS_MAX];
+    int n = 0;
+    for (int i = 0; i < g->nrocks; i++) {
+        float sx, sy, d;
+        if (!camera_project(c, g->rocks[i].x, g->rocks[i].y, 0.0f, &sx, &sy, &d)) continue;
+        depth[i] = d;
+        int j = n++;
+        while (j > 0 && depth[order[j - 1]] < d) { order[j] = order[j - 1]; j--; }
+        order[j] = i;                       /* far to near */
+    }
+    for (int k = 0; k < n; k++) {
+        const Rock *r = &g->rocks[order[k]];
+        float d = depth[order[k]];
+        if (d > vis) continue;
+        float h = sea_height(&g->sea, (float)fmod(r->x, SEA_WRAP), (float)fmod(r->y, SEA_WRAP), t);
+        float bx, by, tx, ty;
+        float top = r->awash ? 0.15f * r->r : 0.7f * r->r;
+        if (!camera_project(c, r->x, r->y, h, &bx, &by, NULL)) continue;
+        if (!camera_project(c, r->x, r->y, h + top, &tx, &ty, NULL)) continue;
+        float hw = r->r * CAM_FOCAL / d;
+        if (bx + hw < 0 || bx - hw > CAM_W) continue;
+        float rh = fmaxf(by - ty, 1.0f);
+        int fog = (int)(16.0f * clampf((d / vis - 0.5f) * 2.0f, 0.0f, 1.0f));
+        LCDColor body = fog > 0 ? render_pattern(16 - fog) : kColorBlack;
+        if (!r->awash) {
+            int pts[2 * 9];
+            for (int s = 0; s < 9; s++) {
+                float a = PI_D * (float)s / 8.0f;
+                pts[2 * s] = (int)(bx - hw * cosf(a));
+                pts[2 * s + 1] = (int)(by - rh * sinf(a));
+            }
+            pd->graphics->fillPolygon(9, pts, body, kPolygonFillNonZero);
+        }
+        /* surf: a breaking skirt, bigger and busier when the rock is awash */
+        int rings = r->awash ? 3 : 1;
+        for (int q = 0; q < rings; q++) {
+            float w = hw * (1.0f + 0.25f * (float)q) + 2.0f;
+            float jit = sinf(g->t * 4.0f + q * 2.0f + r->x) * 2.0f;
+            int ww = (int)(2 * w), hh = (int)fmaxf(rh * 0.5f, 3.0f) + q * 2;
+            pd->graphics->drawEllipse((int)(bx - w), (int)(by - hh / 2 + jit), ww, hh, 1, 0, 0, kColorWhite);
+        }
+        if (r->awash)
+            pd->graphics->fillEllipse((int)(bx - hw), (int)(by - rh), (int)(2 * hw), (int)fmaxf(rh, 2.0f), 0, 0,
+                                      render_pattern(fog > 0 ? 0 : 3));
+    }
+}
+
+/* ---- spray ---- */
+
+static void draw_spray(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const BoatState *b = &g->b;
+    float sp = fabsf(b->u);
+    if (sp < 1.2f) return;
+    int n = (int)clampf(3.0f + sp * 2.0f + fabsf(g->wf.pitch) * 60.0f, 0.0f, 20.0f);
+    uint32_t frame = (uint32_t)(g->t * 20.0);
+    double ch = cos(b->heading), sh = sin(b->heading);
+    for (int i = 0; i < n; i++) {
+        float side = (i & 1) ? 1.0f : -1.0f;
+        float life = frand(frame + i, 21);
+        float fwd = g->boat.hull.length * 0.5f - life * 1.0f;
+        float lat = side * (g->boat.hull.beam * 0.3f + life * 0.8f * frand(frame + i, 22));
+        float z = 0.15f + life * 0.6f * frand(frame + i, 23);
+        double wx = b->x + ch * fwd - sh * lat, wy = b->y + sh * fwd + ch * lat;
+        float sx, sy;
+        if (!camera_project(c, wx, wy, z + b->heave, &sx, &sy, NULL)) continue;
+        pd->graphics->fillRect((int)sx, (int)sy, 2, 2, kColorWhite);
+    }
+}
+
+/* ---- rig ---- */
+
+typedef struct { const PlaydateAPI *pd; const Game *g; const CameraPose *c; } Ctx;
+
+/* boat-frame (x fwd, y stbd, z up from waterline) -> screen; heel is applied in full */
+static bool boat_pt(const Ctx *k, float x, float y, float z, float *sx, float *sy) {
+    const BoatState *b = &k->g->b;
+    float ch = cosf(b->heel), sh = sinf(b->heel);
+    float yy = y * ch + z * sh, zz = z * ch - y * sh;
+    double cd = cos(b->heading), sd = sin(b->heading);
+    return camera_project(k->c, b->x + x * cd - yy * sd, b->y + x * sd + yy * cd, zz + b->heave, sx, sy, NULL);
+}
+
+static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
+    const BoatCfg *cfg = &k->g->boat;
+    const SailCfg *s = &cfg->sails[i];
+    const BoatState *b = &k->g->b;
+    float hoist = b->hoists[i];
+    if (hoist < 0.02f) return;
+    float side = b->awa >= 0 ? -1.0f : 1.0f;                       /* sail swings to leeward */
+    float fb = cfg->look.freeboard;
+    float tx = s->tack_x, tz = fb + s->tack_z;
+    float hx = s->shape == 0 ? tx : tx + (cfg->look.mast_x - tx) * 0.15f;
+    float hz = tz + s->luff * hoist;
+    float tr = b->trims[i];
+    float cx = tx - s->foot * cosf(tr), cy = side * s->foot * sinf(tr);
+    float lufft = b->luff[i];
+    int mw = s->mesh_w < 1 ? 1 : s->mesh_w > 12 ? 12 : s->mesh_w;
+    int mh = s->mesh_h < 1 ? 1 : s->mesh_h > 16 ? 16 : s->mesh_h;
+    int outline[2 * (2 * 12 + 2)];
+    int on = 0;
+    float px[17][13], py[17][13];
+    bool ok[17][13];
+    for (int a = 0; a <= mh; a++) {
+        float u = (float)a / (float)mh;
+        float lx = tx + (hx - tx) * u, lz = tz + (hz - tz) * u;
+        float ex = cx + (hx - cx) * u, ey = cy * (1.0f - u), ez = tz + (hz - tz) * u;
+        for (int q = 0; q <= mw; q++) {
+            float v = (float)q / (float)mw;
+            float chord = hypotf(ex - lx, ey);
+            float bulge = s->camber * chord * 4.0f * v * (1.0f - v);
+            float flut = lufft > 0.1f ? sinf(k->g->t * s->flutter_hz * 6.2832f + u * 3.0f + v * 5.0f) * 0.1f * lufft * chord * v : 0.0f;
+            float x = lx + (ex - lx) * v;
+            float y = ey * v + side * bulge + flut;
+            float z = lz + (ez - lz) * v;
+            ok[a][q] = boat_pt(k, x, y, z, &px[a][q], &py[a][q]);
+        }
+    }
+    /* outline: luff up, head across, leech down, foot back */
+    for (int a = 0; a <= mh && on < 25; a++) if (ok[a][0]) { outline[2 * on] = (int)px[a][0]; outline[2 * on + 1] = (int)py[a][0]; on++; }
+    for (int a = mh; a >= 0 && on < 26; a--) if (ok[a][mw]) { outline[2 * on] = (int)px[a][mw]; outline[2 * on + 1] = (int)py[a][mw]; on++; }
+    int shade = (int)clampf(s->shade * 16.0f, 0.0f, 16.0f);
+    if (on >= 3) pd->graphics->fillPolygon(on, outline, render_pattern(16 - shade), kPolygonFillNonZero);
+    for (int a = 0; a <= mh; a++)
+        for (int q = 0; q < mw; q++)
+            if (ok[a][q] && ok[a][q + 1] && (a == 0 || a == mh || (a & 1) == 0))
+                pd->graphics->drawLine((int)px[a][q], (int)py[a][q], (int)px[a][q + 1], (int)py[a][q + 1], 1, kColorBlack);
+    for (int p = 0; p + 1 < on; p++)
+        pd->graphics->drawLine(outline[2 * p], outline[2 * p + 1], outline[2 * p + 2], outline[2 * p + 3], 1, kColorBlack);
+    if (on >= 3)
+        pd->graphics->drawLine(outline[2 * (on - 1)], outline[2 * (on - 1) + 1], outline[0], outline[1], 1, kColorBlack);
+}
+
+static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    Ctx k = { pd, g, c };
+    const LookCfg *lk = &g->boat.look;
+    float sx0, sy0, sx1, sy1, sx2, sy2;
+    /* sails farthest first */
+    int order[BOAT_MAX_SAILS];
+    int n = g->boat.sail_count;
+    for (int i = 0; i < n; i++) {
+        int j = i;
+        while (j > 0 && g->boat.sails[order[j - 1]].ce_x < g->boat.sails[i].ce_x) { order[j] = order[j - 1]; j--; }
+        order[j] = i;
+    }
+    for (int i = 0; i < n; i++) draw_sail(pd, &k, order[i]);
+    if (boat_pt(&k, lk->mast_x, 0, lk->freeboard, &sx0, &sy0) &&
+        boat_pt(&k, lk->mast_x, 0, lk->mast_height, &sx1, &sy1)) {
+        pd->graphics->drawLine((int)sx0, (int)sy0, (int)sx1, (int)sy1, 2, kColorBlack);
+        if (boat_pt(&k, lk->forestay_x, 0, lk->freeboard, &sx2, &sy2))
+            pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, kColorBlack);
+        for (int sd = -1; sd <= 1; sd += 2)
+            if (boat_pt(&k, lk->mast_x, sd * lk->shroud_width, lk->freeboard, &sx2, &sy2))
+                pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, kColorBlack);
+    }
+}
+
+/* ---- deck and wheel ---- */
+
+static void rot(float a, float dx, float dy, float *ox, float *oy) {
+    float px = dx, py = -dy;
+    float ca = cosf(a), sa = sinf(a);
+    *ox = CAM_W * 0.5f + px * ca - py * sa;
+    *oy = (float)CAM_H + 20.0f - (px * sa + py * ca);
+}
+
+static void draw_deck(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    /* the deck is fixed to the heeled boat; the view is only partly rolled, so it tilts by the difference */
+    float a = c->roll - c->deck_roll;
+    struct { float x, y; } deck[] = { { -260, -20 }, { 260, -20 }, { 150, 38 }, { -150, 38 } };
+    int pts[8];
+    float sx, sy;
+    for (int i = 0; i < 4; i++) { rot(a, deck[i].x, deck[i].y, &sx, &sy); pts[2 * i] = (int)sx; pts[2 * i + 1] = (int)sy; }
+    pd->graphics->fillPolygon(4, pts, render_pattern((int)(g->boat.look.hull_shade * 16.0f)), kPolygonFillNonZero);
+    for (int i = 0; i < 4; i++)
+        pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) & 3)], pts[2 * ((i + 1) & 3) + 1], 2, kColorBlack);
+    for (int p = -1; p <= 1; p++) {            /* deck planks */
+        float x0, y0, x1, y1;
+        rot(a, p * 60.0f, 38, &x0, &y0);
+        rot(a, p * 110.0f, -20, &x1, &y1);
+        pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 1, kColorBlack);
+    }
+    /* wheel */
+    float cx, cy;
+    rot(a, 0, 4, &cx, &cy);
+    float ang = g->b.wheel * g->boat.controls.wheel_turns * (float)PI_D;
+    const int R = 24;
+    pd->graphics->fillEllipse((int)cx - R, (int)cy - R, 2 * R, 2 * R, 0, 0, kColorWhite);
+    pd->graphics->drawEllipse((int)cx - R, (int)cy - R, 2 * R, 2 * R, 3, 0, 0, kColorBlack);
+    for (int s = 0; s < 6; s++) {
+        float th = ang + (float)s * (float)PI_D / 3.0f;
+        pd->graphics->drawLine((int)cx, (int)cy, (int)(cx + (R + 5) * sinf(th)), (int)(cy - (R + 5) * cosf(th)), s == 0 ? 3 : 2, kColorBlack);
+    }
+    pd->graphics->fillEllipse((int)cx - 4, (int)cy - 4, 8, 8, 0, 0, kColorBlack);
+}
+
+void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    pd->graphics->clear(kColorWhite);
+    draw_clouds(pd, g, c);
+    draw_sea(pd, g, c);
+    draw_streaks(pd, g, c);
+    draw_rocks(pd, g, c);
+    draw_spray(pd, g, c);
+    draw_rig(pd, g, c);
+    draw_deck(pd, g, c);
+    hud_draw(pd, g);
+    hud_prompt(pd, g);
+}

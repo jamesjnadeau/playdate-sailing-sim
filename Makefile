@@ -14,7 +14,7 @@ endif
 
 VPATH += src/pd:src/sim
 
-SRC = src/pd/main.c src/pd/assets.c \
+SRC = src/pd/main.c src/pd/assets.c src/pd/render.c src/pd/hud.c \
       $(wildcard src/sim/*.c)
 
 UINCDIR = src/sim src/pd

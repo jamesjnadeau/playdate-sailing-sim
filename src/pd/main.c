@@ -4,6 +4,7 @@
 #include "assets.h"
 #include "camera.h"
 #include "game.h"
+#include "render.h"
 
 #define WARN_SHOW_S 3.0f
 
@@ -66,11 +67,7 @@ static int update(void *ud) {
     game_update(&game, (uint32_t)pushed, crank, dt);
     camera_update(&cam, &game, &game.boat, dt);
 
-    pd->graphics->clear(kColorWhite);
-    char line[96];
-    snprintf(line, sizeof line, "t %.1f  hdg %.0f  spd %.1f  heel %.0f  run %d",
-             game.t, game.b.heading * 57.2958f, game.b.u, game.b.heel * 57.2958f, (int)game.run);
-    pd->graphics->drawText(line, strlen(line), kASCIIEncoding, 4, 4);
+    render_frame(pd, &game, &cam);
     if (warn_left > 0.0f) {
         warn_left -= dt;
         pd->graphics->drawText(warn, strlen(warn), kASCIIEncoding, 4, 24);

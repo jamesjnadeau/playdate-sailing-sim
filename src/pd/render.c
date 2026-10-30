@@ -303,8 +303,10 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     float side = b->swing[i];                                      /* eased across when the wind changes sides */
     float fb = cfg->look.freeboard;
     float tx = s->tack_x, tz = fb + s->tack_z;
-    float hx = s->shape == 0 ? tx : tx + (cfg->look.mast_x - tx) * 0.15f;
     float hz = tz + s->luff * hoist;
+    /* a headsail's luff rides the forestay: the head sits that far up the line from the tack to the masthead */
+    float stay = clampf((hz - tz) / fmaxf(cfg->look.mast_height - tz, 0.1f), 0.0f, 1.0f);
+    float hx = s->shape == 0 ? tx : tx + (cfg->look.mast_x - tx) * stay;
     float tr = b->trims[i];
     float cx = tx - s->foot * cosf(tr), cy = side * s->foot * sinf(tr);
     float lufft = b->luff[i];
@@ -343,7 +345,8 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     if (on >= 3)
         pd->graphics->drawLine(outline[2 * (on - 1)], outline[2 * (on - 1) + 1], outline[0], outline[1], 1, kColorBlack);
 
-    /* telltales near the luff: stream along the sail when it flows, whip about the wind when it luffs */
+    /* telltales are disabled: they were too small to read.
+    /* telltales near the luff: stream along the sail when it flows, whip about the wind when it luffs * /
     float wdx = -cosf(b->awa), wdy = -sinf(b->awa);
     float lm = clampf(lufft * 1.5f, 0.0f, 1.0f);
     for (int t = 0; t < 3; t++) {
@@ -366,6 +369,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             ppx = ex2; ppy = ey2;
         }
     }
+    */
 }
 
 static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

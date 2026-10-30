@@ -95,7 +95,10 @@ static void test_trailing_view_orbits_boat_with_look_yaw(void) {
     g.b.heading = 0.3f;
     g.ctl.camera_yaw = 1.0f;
     settle();
-    float a = 1.3f, r = bc.camera.far_offset;
+    float a = 1.3f;
+    /* the radius adapts to keep the masthead in view; the direction is what matters here */
+    float r = -(float)hypot(cp.x - g.b.x, cp.y - g.b.y);
+    T_ASSERT(r <= bc.camera.far_offset);
     T_NEAR(cp.x, g.b.x + cosf(a) * r, 1e-3);
     T_NEAR(cp.y, g.b.y + sinf(a) * r, 1e-3);
     T_NEAR(cp.yaw, a, 1e-3);
@@ -114,15 +117,28 @@ static void test_trailing_view_sits_far_aft_and_higher(void) {
     g.b.x = 100000.0; g.b.y = -50000.0; g.b.heading = 0;
     cp.trail = true;
     settle();
-    T_NEAR(cp.x, 100000.0 + bc.camera.far_offset, 1e-3);
+    /* never closer than far_offset; it backs off further to keep the masthead in view */
+    T_ASSERT(cp.x <= 100000.0 + bc.camera.far_offset + 1e-3);
     T_NEAR(cp.y, -50000.0, 1e-3);
     T_NEAR(cp.height, bc.camera.far_height, 1e-3);
+}
+
+static void test_trailing_view_keeps_masthead_on_screen(void) {
+    fresh();
+    cp.trail = true;
+    settle();
+    float sx, sy;
+    T_ASSERT(camera_project(&cp, g.b.x + cosf((float)g.b.heading) * bc.look.mast_x,
+                            g.b.y + sinf((float)g.b.heading) * bc.look.mast_x,
+                            bc.look.mast_height + 0.6f, &sx, &sy, NULL));
+    T_ASSERT(sy >= 0.0f && sy < CAM_HORIZON_Y);
 }
 
 int main(void) {
     T_RUN(test_trailing_view_sits_far_aft_and_higher);
     T_RUN(test_roll_clamped_deck_roll_full);
     T_RUN(test_small_heel_passes_through);
+    T_RUN(test_trailing_view_keeps_masthead_on_screen);
     T_RUN(test_smoothing_is_gradual_and_finite_on_odd_dt);
     T_RUN(test_horizon_point_projects_to_centre);
     T_RUN(test_points_behind_rejected);

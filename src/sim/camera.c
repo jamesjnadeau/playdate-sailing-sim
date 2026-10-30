@@ -3,6 +3,8 @@
 #include "mathx.h"
 
 #define TRAIL_PITCH (-0.2f)   /* rad, negative looks down */
+#define TRAIL_TOP_PX 14       /* px kept clear above the masthead ribbon */
+#define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
 
 /* Exponential approach; smooth is a time constant in seconds (0 = immediate). */
 static float approach(float cur, float target, float smooth, float dt) {
@@ -22,6 +24,17 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
     float xo = c->trail ? k->far_offset : k->x_offset;
+    if (c->trail) {
+        /* back off until the masthead ribbon stays on screen: it must sit below
+         * TRAIL_TOP_PX above the horizon line at the current look-down pitch */
+        float pitch = b->pitch + TRAIL_PITCH;
+        float lim = atanf((float)(CAM_HORIZON_Y - TRAIL_TOP_PX) / CAM_FOCAL) + pitch;
+        float dz = cfg->look.mast_height + TRAIL_RIBBON - (k->far_height + b->heave);
+        if (dz > 0 && lim > 0.05f) {
+            float need = dz / tanf(lim) - cfg->look.mast_x;
+            if (need > -xo) xo = -need;
+        }
+    }
     if (c->trail) side = 0.0f;
     c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
     c->y = b->y + (double)(fwd_y * xo + fwd_x * side);

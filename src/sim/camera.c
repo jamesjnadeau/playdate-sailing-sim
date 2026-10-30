@@ -25,11 +25,11 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     float side = -k->heel_bias * sinf(b->heel);
     float xo = c->trail ? k->far_offset : k->x_offset;
     if (c->trail) {
-        /* back off until the masthead ribbon stays on screen: it must sit below
-         * TRAIL_TOP_PX above the horizon line at the current look-down pitch */
-        float pitch = b->pitch + TRAIL_PITCH;
-        float lim = atanf((float)(CAM_HORIZON_Y - TRAIL_TOP_PX) / CAM_FOCAL) + pitch;
-        float dz = cfg->look.mast_height + TRAIL_RIBBON - (k->far_height + b->heave);
+        /* sit far enough back that the masthead ribbon fits on screen. Only config
+         * values go in (no pitch or heave), so the distance is constant and the
+         * boat keeps the same size and height on screen as it rolls and bobs */
+        float lim = atanf((float)(CAM_HORIZON_Y - TRAIL_TOP_PX) / CAM_FOCAL) + TRAIL_PITCH;
+        float dz = cfg->look.mast_height + TRAIL_RIBBON - k->far_height;
         if (dz > 0 && lim > 0.05f) {
             float need = dz / tanf(lim) - cfg->look.mast_x;
             if (need > -xo) xo = -need;

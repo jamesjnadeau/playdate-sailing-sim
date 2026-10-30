@@ -83,43 +83,38 @@ static void tri(PlaydateAPI *pd, float x1, float y1, float x2, float y2, float x
     pd->graphics->drawLine(bx, by, cx, cy, 1, kColorWhite);
 }
 
+/* "NNNm" distance label, width ~6px per char. Left edge at x (or centred on x), kept on screen. */
+static void dist_label(PlaydateAPI *pd, double dist, int x, int y, bool centred) {
+    char line[64];
+    snprintf(line, sizeof line, "%.0fm", dist);
+    const int w = 6 * (int)strlen(line);
+    if (centred) x -= w / 2;
+    text(pd, line, clampi(x, 2, CAM_W - 2 - w), clampi(y, 2, CAM_H - HUD_H - 18));
+}
+
 void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const Track *tr = &g->track;
     const Race *r = &g->race;
-    char line[64];
     const bool done = r->finished || r->next >= tr->nmarks;
-    const int mins = (int)(r->t / 60.0);
+    if (done) return;
 
-    pd->graphics->fillRect(0, 0, CAM_W, 18, kColorBlack);
-    pd->graphics->setDrawMode(kDrawModeFillWhite);
-    if (done) {
-        snprintf(line, sizeof line, "FINISHED  %02d:%04.1f", mins, fmod(r->t, 60.0));
-        text(pd, line, 4, 2);
-        pd->graphics->setDrawMode(kDrawModeCopy);
-        return;
-    }
     double mx, my;
     race_mark_local(r, tr, r->next, &mx, &my);
     const double dist = hypot(mx - g->b.x, my - g->b.y);
-    snprintf(line, sizeof line, "MARK %s %d/%d  %4.0fm  %02d:%04.1f", tr->marks[r->next].name,
-             r->next + 1, tr->nmarks, dist, mins, fmod(r->t, 60.0));
-    text(pd, line, 4, 2);
-    pd->graphics->setDrawMode(kDrawModeCopy);
 
     /* indicator: above the buoy when on screen, else an arrow on the edge pointing at it */
     MarkView mv;
     camera_mark_view(c, mx, my, (float)(CAM_H - HUD_H), &mv);
+    pd->graphics->setDrawMode(kDrawModeCopy);
     if (mv.on_screen) {
         float x = mv.x, y = mv.y;
         tri(pd, x, y, x - 5.0f, y - 10.0f, x + 5.0f, y - 10.0f);
+        dist_label(pd, dist, (int)lroundf(x), (int)lroundf(y) - 24, true);
     } else {
         float s = sinf(mv.angle), co = cosf(mv.angle);
         float bcx = mv.x - 6.0f * co, bcy = mv.y - 6.0f * s;
         tri(pd, mv.x + 6.0f * co, mv.y + 6.0f * s, bcx - 6.0f * s, bcy + 6.0f * co, bcx + 6.0f * s, bcy - 6.0f * co);
-        snprintf(line, sizeof line, "%.0fm", dist);
-        int tx = clampi((int)mv.x + 10, 4, CAM_W - 48);
-        int ty = clampi((int)mv.y - 6, 20, CAM_H - HUD_H - 18);
-        text(pd, line, tx, ty);
+        dist_label(pd, dist, (int)mv.x + 10, (int)mv.y - 6, false);
     }
     pd->graphics->setDrawMode(kDrawModeCopy);
 }

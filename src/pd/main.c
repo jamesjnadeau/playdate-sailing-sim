@@ -46,7 +46,10 @@ static void begin(bool reload) {
         warn_left = warn[0] ? WARN_SHOW_S : 0.0f;
         if (warn[0]) pd->system->logToConsole("config: %s", warn);
     }
+    const bool racing = game.mode == GAME_RACE;
+    const Track trk = game.track;   /* game_init clears the mode; a boat change keeps the race */
     game_init(&game, &boat_cfg, &weather_cfg, &world_cfg, preset_index, fresh_seed());
+    if (racing) game_set_track(&game, &trk);
     camera_snap();
     pd->system->resetElapsedTime();
 }

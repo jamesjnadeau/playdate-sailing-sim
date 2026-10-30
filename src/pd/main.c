@@ -28,7 +28,7 @@ static Menu menu;
 static Track tracks[TRACKS_MAX];
 static int ntracks;
 
-static PDMenuItem *boat_item, *weather_item;
+static PDMenuItem *boat_item, *weather_item, *sea_item;
 
 static uint32_t fresh_seed(void) {
     return pd->system->getCurrentTimeMilliseconds() * 2654435761u + (++restart_count) * 40503u;
@@ -68,6 +68,10 @@ static void menu_weather(void *ud) {
     (void)ud;
     preset_index = pd->system->getMenuItemValue(weather_item);
     game_set_preset(&game, preset_index);
+}
+static void menu_sea(void *ud) {
+    (void)ud;
+    render_set_sea_style(pd->system->getMenuItemValue(sea_item));
 }
 static void menu_restart(void *ud) { (void)ud; game_restart(&game, fresh_seed()); }
 static void menu_main(void *ud) { (void)ud; show_menu(); }
@@ -140,6 +144,9 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
         weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
         pd->system->setMenuItemValue(weather_item, preset_index);
+        static const char *sea_names[SEA_STYLES] = { "grid", "hex", "hex+c", "tri" };
+        sea_item = pd->system->addOptionsMenuItem("sea", sea_names, SEA_STYLES, menu_sea, NULL);
+        pd->system->setMenuItemValue(sea_item, render_sea_style());
         pd->system->addMenuItem("restart", menu_restart, NULL);
         pd->system->addMenuItem("main menu", menu_main, NULL);
         pd->display->setRefreshRate(30.0f);

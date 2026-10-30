@@ -13,6 +13,10 @@
 #define STREAKS 24
 #define PI_D 3.14159265358979323846
 
+static int sea_style = SEA_HEXC;
+void render_set_sea_style(int style) { sea_style = style < 0 || style >= SEA_STYLES ? SEA_GRID : style; }
+int render_sea_style(void) { return sea_style; }
+
 static LCDPattern pats[LEVELS];
 static int pats_ready;
 
@@ -198,6 +202,145 @@ static int mogul_cmp(const void *x, const void *y) {
     return (a < b) - (a > b);                          /* far to near */
 }
 
+/* ---- polygon tilings of the near sea (hex / hex+centre / tri) ----
+   Cells live on a lattice fixed in the wave-aligned frame (u across the crests, v along them), so they
+   slant and converge with the swell. Every corner is lifted to its own wave height, and a hexagon can
+   be split into six facets around a centre sampled at its own height, so each facet tilts and shades
+   on its own. */
+#define LAT_MAX 800
+
+typedef struct { const CameraPose *c; double fx, fy; float half, sgain, vis, dfar; int n; } Lat;
+static Lat lat;
+static CrestBand polys[LAT_MAX];
+
+static float lat_h(Gp p) {
+    return sea_view_height(&sv, (float)(p.a * lat.fx - p.b * lat.fy), (float)(p.a * lat.fy + p.b * lat.fx));
+}
+
+static int lat_level(float a, float slope, float hz) {
+    float fog = clampf(a / lat.vis, 0.0f, 1.0f);
+    float base = 10.0f - 3.0f * clampf(a / 300.0f, 0.0f, 1.0f);
+    float shade = clampf(-slope * lat.sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / lat.half, -1.0f, 1.0f) * -3.0f;
+    return (int)((float)lroundf(base + shade) * (1.0f - 0.9f * fog * fog));
+}
+
+/* Clip a convex ground polygon to the band's depth range, lift it onto the waves and queue it. */
+static void lat_emit(const Gp *g, int n, int level) {
+    Gp p1[10], p2[10];
+    if (lat.n >= LAT_MAX) return;
+    int m = clip_u(g, n, p1, 1.0f, 0.0f, CREST_NEAR, 1.0f);
+    if (m >= 3) m = clip_u(p1, m, p2, 1.0f, 0.0f, lat.dfar, -1.0f);
+    if (m < 3 || m > 8) return;
+    CrestBand *cb = &polys[lat.n];
+    float ca = 0.0f;
+    int xmin = 1 << 20, xmax = -(1 << 20), ymin = 1 << 20;
+    for (int i = 0; i < m; i++) {
+        float ox = (float)(p2[i].a * lat.fx - p2[i].b * lat.fy), oy = (float)(p2[i].a * lat.fy + p2[i].b * lat.fx);
+        float sx, sy;
+        if (!camera_project(lat.c, lat.c->x + ox, lat.c->y + oy, sea_view_height(&sv, ox, oy), &sx, &sy, NULL)) return;
+        cb->pts[2 * i] = iround(sx);
+        cb->pts[2 * i + 1] = iround(sy);
+        if (cb->pts[2 * i] < xmin) xmin = cb->pts[2 * i];
+        if (cb->pts[2 * i] > xmax) xmax = cb->pts[2 * i];
+        if (cb->pts[2 * i + 1] < ymin) ymin = cb->pts[2 * i + 1];
+        ca += p2[i].a;
+    }
+    if (xmax < 0 || xmin >= CAM_W || ymin >= CAM_H) return;
+    cb->depth = ca / (float)m;
+    cb->n = m;
+    cb->level = level;
+    lat.n++;
+}
+
+/* One flat facet: shade from the tilt of the plane through its three lifted corners. */
+static void lat_tri(const Gp *p, const float *z) {
+    float d1a = p[1].a - p[0].a, d1b = p[1].b - p[0].b, d2a = p[2].a - p[0].a, d2b = p[2].b - p[0].b;
+    float det = d1a * d2b - d1b * d2a, slope = 0.0f;
+    if (fabsf(det) > 1e-4f) slope = ((z[1] - z[0]) * d2b - (z[2] - z[0]) * d1b) / det;   /* dz/da */
+    float ca = (p[0].a + p[1].a + p[2].a) / 3.0f;
+    lat_emit(p, 3, lat_level(ca, slope, (z[0] + z[1] + z[2]) / 3.0f));
+}
+
+/* Whole hexagon: shade like a grid cell, from the surface at its centre. */
+static void lat_hex(Gp c, const Gp *p) {
+    Gp ahead = { c.a + 1.0f, c.b }, behind = { c.a - 1.0f, c.b };
+    float slope = 0.5f * (lat_h(ahead) - lat_h(behind));
+    lat_emit(p, 6, lat_level(c.a, slope, lat_h(c)));
+}
+
+static bool lat_inside(float a, float b, float r) {
+    return a > CREST_NEAR - r && a < lat.dfar + r && fabsf(b) < CREST_SPREAD * (a + r) + r;
+}
+
+static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float half, float sgain, float vis,
+                         float na, float nb, float bw, double s, double s2,
+                         float umin, float umax, float vmin, float vmax) {
+    const float pa = -nb, pb = na;
+    lat.c = c; lat.fx = cos(c->yaw); lat.fy = sin(c->yaw);
+    lat.half = half; lat.sgain = sgain; lat.vis = vis; lat.dfar = dfar; lat.n = 0;
+
+    /* keep the polygon count roughly constant: a facet covers k * size^2 of ground */
+    float area = 1.1f * (dfar * dfar - CREST_NEAR * CREST_NEAR);
+    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 450.0f : 650.0f;
+    float size = bw * (sea_style == SEA_HEX ? 0.8f : sea_style == SEA_HEXC ? 1.7f : 1.6f);
+    size = fmaxf(size, sqrtf(area / (budget * kfacet)));
+
+    if (sea_style == SEA_TRI) {
+        const float L = size, du = L * 0.8660254f;
+        long j0 = (long)floor((s + umin) / du) - 1, j1 = (long)floor((s + umax) / du) + 1;
+        for (long j = j0; j <= j1; j++) {
+            long i0 = (long)floor((s2 + vmin) / L - j * 0.5) - 1, i1 = (long)floor((s2 + vmax) / L - j * 0.5) + 1;
+            for (long i = i0; i <= i1 && lat.n < LAT_MAX; i++) {
+                float cu[4], cv[4];                   /* P(i,j) P(i+1,j) P(i,j+1) P(i+1,j+1) */
+                for (int q = 0; q < 4; q++) {
+                    long ii = i + (q & 1), jj = j + (q >> 1);
+                    cu[q] = (float)(jj * (double)du - s);
+                    cv[q] = (float)((ii + jj * 0.5) * (double)L - s2);
+                }
+                Gp g[4];
+                for (int q = 0; q < 4; q++) { g[q].a = cu[q] * na + cv[q] * pa; g[q].b = cu[q] * nb + cv[q] * pb; }
+                if (!lat_inside((g[0].a + g[3].a) * 0.5f, (g[0].b + g[3].b) * 0.5f, L)) continue;
+                float z[4];
+                for (int q = 0; q < 4; q++) z[q] = lat_h(g[q]);
+                Gp t0[3] = { g[0], g[1], g[2] }, t1[3] = { g[1], g[3], g[2] };
+                float z0[3] = { z[0], z[1], z[2] }, z1[3] = { z[1], z[3], z[2] };
+                lat_tri(t0, z0);
+                lat_tri(t1, z1);
+            }
+        }
+    } else {
+        const float R = size, colw = 1.5f * R, rowh = 1.7320508f * R;
+        Gp corner[6];                                 /* offsets from the centre */
+        for (int k = 0; k < 6; k++) {
+            float cu = R * cosf((float)k * 1.0471976f), cv = R * sinf((float)k * 1.0471976f);
+            corner[k].a = cu * na + cv * pa; corner[k].b = cu * nb + cv * pb;
+        }
+        long c0 = (long)floor((s + umin) / colw) - 1, c1 = (long)floor((s + umax) / colw) + 1;
+        for (long col = c0; col <= c1; col++) {
+            double shift = (col & 1) ? 0.5 : 0.0;
+            long r0 = (long)floor((s2 + vmin) / rowh - shift) - 1, r1 = (long)floor((s2 + vmax) / rowh - shift) + 1;
+            for (long row = r0; row <= r1 && lat.n < LAT_MAX; row++) {
+                float du = (float)(col * (double)colw - s), dv = (float)((row + shift) * (double)rowh - s2);
+                Gp ctr = { du * na + dv * pa, du * nb + dv * pb };
+                if (!lat_inside(ctr.a, ctr.b, R)) continue;
+                Gp p[6];
+                for (int k = 0; k < 6; k++) { p[k].a = ctr.a + corner[k].a; p[k].b = ctr.b + corner[k].b; }
+                if (sea_style == SEA_HEX) { lat_hex(ctr, p); continue; }
+                float zc = lat_h(ctr), z[6];
+                for (int k = 0; k < 6; k++) z[k] = lat_h(p[k]);
+                for (int k = 0; k < 6; k++) {
+                    Gp tp[3] = { ctr, p[k], p[(k + 1) % 6] };
+                    float tz[3] = { zc, z[k], z[(k + 1) % 6] };
+                    lat_tri(tp, tz);
+                }
+            }
+        }
+    }
+    qsort(polys, (size_t)lat.n, sizeof polys[0], mogul_cmp);
+    for (int i = 0; i < lat.n; i++)
+        pd->graphics->fillPolygon(polys[i].n, polys[i].pts, render_pattern(polys[i].level), kPolygonFillNonZero);
+}
+
 static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                              float dfar, float half, float sgain, float vis, float wnx, float wny,
                              float wl) {
@@ -219,6 +362,10 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
     }
     double s = c->x * wnx + c->y * wny;               /* camera's position along the wave normal */
     double s2 = c->x * -wny + c->y * wnx;             /* ... and along the crest line */
+    if (sea_style != SEA_GRID) {
+        draw_lattice(pd, c, dfar, half, sgain, vis, na, nb, bw, s, s2, umin, umax, vmin, vmax);
+        return;
+    }
     int span = (int)ceilf((umax - umin) / bw) + 1;
     if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.4f; }
     long k0 = (long)floor((s + umin) / bw), k1 = (long)floor((s + umax) / bw);

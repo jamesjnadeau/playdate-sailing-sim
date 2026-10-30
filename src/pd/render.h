@@ -13,6 +13,12 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam);
 /* Ordered-dither fill: 0 = white .. 16 = black. Out-of-range levels are clamped. */
 LCDColor render_pattern(int level);
 
+/* Near-sea tiling, switchable at run time to compare looks: the original wave-aligned grid, hexagons,
+   hexagons split into six facets around a centre point sampled at its own wave height, or triangles. */
+enum { SEA_GRID, SEA_HEX, SEA_HEXC, SEA_TRI, SEA_STYLES };
+void render_set_sea_style(int style);
+int render_sea_style(void);
+
 /* Main menu screen (menu_draw.c). */
 void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks);
 

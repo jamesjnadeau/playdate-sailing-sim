@@ -70,10 +70,10 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     }
     if (g->at.on) text(pd, "AT", 290, ty);
 
-    /* apparent wind dial: the tick shows where the wind comes from relative to the bow (up) */
+    /* apparent wind dial: the needle points where the wind is going (downwind), relative to the bow (up) */
     const int cx = CAM_W - 12, cy = top + HUD_H / 2, R = 8;
     pd->graphics->drawEllipse(cx - R, cy - R, 2 * R, 2 * R, 1, 0, 0, kColorWhite);
-    float a = b->awa;
+    float a = b->awa + 3.14159265f;
     pd->graphics->drawLine(cx, cy, (int)(cx + R * sinf(a)), (int)(cy - R * cosf(a)), 2, kColorWhite);
     pd->graphics->drawLine(cx, cy - R - 2, cx, cy - R + 2, 1, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);

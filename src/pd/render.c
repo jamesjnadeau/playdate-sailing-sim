@@ -87,6 +87,18 @@ static bool sea_line(const CameraPose *c, float d, float z, float *y0, float *y1
     return true;
 }
 
+/* Two-step transition across a border: a band of the tone a third of the way from `la` to `lb` on
+   la's side and one two thirds of the way on lb's side. (nx, ny) is the unit normal toward la. */
+static void blend_edge(PlaydateAPI *pd, int x0, int y0, int x1, int y1, float nx, float ny,
+                       int la, int lb, int w) {
+    float off = (float)w * 0.5f;
+    int t1 = (int)lroundf((float)la + (float)(lb - la) / 3.0f);
+    int t2 = (int)lroundf((float)la + (float)(lb - la) * 2.0f / 3.0f);
+    int ox = (int)lroundf(nx * off), oy = (int)lroundf(ny * off);
+    pd->graphics->drawLine(x0 + ox, y0 + oy, x1 + ox, y1 + oy, w, render_pattern(t1));
+    pd->graphics->drawLine(x0 - ox, y0 - oy, x1 - ox, y1 - oy, w, render_pattern(t2));
+}
+
 static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, int level) {
     int pts[8] = { -20, (int)fy0, CAM_W + 20, (int)fy1, CAM_W + 20, (int)ny1, -20, (int)ny0 };
     pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
@@ -306,8 +318,17 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
             if (o < 0) continue;
             int la = a->level, lb = cells[o].level;
             if (abs(la - lb) < 2) continue;
-            pd->graphics->drawLine(a->edge[e][0], a->edge[e][1], a->edge[e][2], a->edge[e][3],
-                                   a->depth < 20.0f ? 3 : 2, render_pattern((la + lb + 1) / 2));
+            float cx = 0.0f, cy = 0.0f;
+            for (int q = 0; q < a->n; q++) { cx += (float)a->pts[2 * q]; cy += (float)a->pts[2 * q + 1]; }
+            cx /= (float)a->n; cy /= (float)a->n;
+            float ex = (float)(a->edge[e][2] - a->edge[e][0]), ey = (float)(a->edge[e][3] - a->edge[e][1]);
+            float len = hypotf(ex, ey);
+            if (len < 1.0f) continue;
+            float nx = -ey / len, ny = ex / len;
+            if (nx * (cx - (float)(a->edge[e][0] + a->edge[e][2]) * 0.5f) +
+                ny * (cy - (float)(a->edge[e][1] + a->edge[e][3]) * 0.5f) < 0.0f) { nx = -nx; ny = -ny; }
+            blend_edge(pd, a->edge[e][0], a->edge[e][1], a->edge[e][2], a->edge[e][3], nx, ny, la, lb,
+                       a->depth < 20.0f ? 4 : 3);
         }
     }
 }
@@ -350,13 +371,13 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         level = (int)(level * (1.0f - 0.9f * fog * fog));
         strip(pd, fy0, fy1, y0, y1, level);
         if (i > 0 && abs(level - prev) >= 2)
-            pd->graphics->drawLine(-20, (int)fy0, CAM_W + 20, (int)fy1, 3, render_pattern((level + prev + 1) / 2));
+            blend_edge(pd, -20, (int)fy0, CAM_W + 20, (int)fy1, 0.0f, -1.0f, prev, level, 3);
         prev = level;
         fy0 = y0; fy1 = y1;
     }
     strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
     if (abs(10 - prev) >= 2)
-        pd->graphics->drawLine(-20, (int)fy0, CAM_W + 20, (int)fy1, 3, render_pattern((10 + prev + 1) / 2));
+        blend_edge(pd, -20, (int)fy0, CAM_W + 20, (int)fy1, 0.0f, -1.0f, prev, 10, 3);
     if (crest && dist[last] > CREST_NEAR + 0.5f)
         draw_crest_bands(pd, g, c, t, dist[last], half, sgain, vis, wnx, wny, wlen);
     draw_sea_flecks(pd, g, c, t, half, vis);

@@ -29,7 +29,9 @@ static double height(const Sea *s, double x, double y, double t) {
 
 void sea_init(Sea *s, const WeatherPreset *p, uint32_t seed) {
     static const int harmonic[SEA_MAX_COMPONENTS] = { 1, 1, 1, 2, 2, 3 };
-    static const float weight[SEA_MAX_COMPONENTS] = { 0.40f, 0.25f, 0.15f, 0.10f, 0.06f, 0.04f };
+    static const float weight[SEA_MAX_COMPONENTS] = { 0.30f, 0.25f, 0.22f, 0.10f, 0.08f, 0.05f };
+    /* the main swells cross at steep angles so the surface is a field of humps, not parallel ridges */
+    static const float spread_deg[SEA_MAX_COMPONENTS] = { 0, 70, -70, 35, -35, 90 };
     memset(s, 0, sizeof *s);
     s->n = SEA_MAX_COMPONENTS;
     s->period = clampf(fin(p->wave_period), 0.5f, 30.0f);
@@ -47,7 +49,7 @@ void sea_init(Sea *s, const WeatherPreset *p, uint32_t seed) {
     float dir0 = hashf(hash2(1, 0, seed)) * (float)TWO_PI;
     for (int i = 0; i < s->n; i++) {
         SeaComp *c = &s->c[i];
-        float dir = dir0 + (hashf(hash2(2, i, seed)) - 0.5f) * 2.0f * deg2rad(60.0f) * (i > 0);
+        float dir = dir0 + deg2rad(spread_deg[i] + (hashf(hash2(2, i, seed)) - 0.5f) * 20.0f);
         c->omega = (float)(TWO_PI * harmonic[i] / s->period);
         float k = c->omega * c->omega / (float)G;
         float km = k * (float)SEA_WRAP / (float)TWO_PI;
@@ -61,6 +63,25 @@ void sea_init(Sea *s, const WeatherPreset *p, uint32_t seed) {
 
 float sea_height(const Sea *s, float x, float y, float t) {
     return (float)height(s, find(x), find(y), find(t));
+}
+
+void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t) {
+    double xw = fmod(find(ox), SEA_WRAP), yw = fmod(find(oy), SEA_WRAP), td = find(t);
+    v->n = s->n;
+    for (int i = 0; i < s->n; i++) {
+        const SeaComp *c = &s->c[i];
+        v->kx[i] = (float)(TWO_PI * c->m / SEA_WRAP);
+        v->ky[i] = (float)(TWO_PI * c->n / SEA_WRAP);
+        v->ph[i] = (float)(TWO_PI * fmod(c->m * xw + c->n * yw, SEA_WRAP) / SEA_WRAP
+                         - fmod((double)c->omega * td, TWO_PI) + c->phase);
+        v->amp[i] = c->amp;
+    }
+}
+
+float sea_view_height(const SeaView *v, float dx, float dy) {
+    float h = 0.0f;
+    for (int i = 0; i < v->n; i++) h += v->amp[i] * cosf(v->kx[i] * dx + v->ky[i] * dy + v->ph[i]);
+    return h;
 }
 
 typedef struct { double h[HULL_SAMPLES + 2]; } Samples;

@@ -47,6 +47,20 @@ static void test_height_amplitude_matches_preset(void) {
     }
 }
 
+static void test_view_matches_height(void) {
+    for (int p = 0; p < WEATHER_PRESETS; p++) {
+        Sea s; sea_init(&s, &wc.preset[p], 9);
+        double ox = 123456.7, oy = -98765.4;
+        float t = 41.3f;
+        SeaView v; sea_view_init(&v, &s, ox, oy, t);
+        for (int i = 0; i < 200; i++) {
+            float dx = -150.0f + 1.5f * i, dy = 120.0f - 1.1f * i;
+            double wx = fmod(ox + dx, SEA_WRAP), wy = fmod(oy + dy, SEA_WRAP);
+            T_NEAR(sea_view_height(&v, dx, dy), sea_height(&s, (float)wx, (float)wy, t), 5e-3f);
+        }
+    }
+}
+
 static void test_periodic_in_time(void) {
     Sea s; sea_init(&s, &wc.preset[WEATHER_STORM], 5);
     float T = wc.preset[WEATHER_STORM].wave_period;
@@ -158,6 +172,7 @@ static void test_bad_input_stays_finite(void) {
 int main(void) {
     setup();
     T_RUN(test_height_amplitude_matches_preset);
+    T_RUN(test_view_matches_height);
     T_RUN(test_periodic_in_time);
     T_RUN(test_flat_sea_gives_zero_forces);
     T_RUN(test_storm_drags_more_than_sunny);

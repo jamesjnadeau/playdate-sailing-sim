@@ -9,7 +9,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 #ifndef SIM_DT
-#define SIM_DT (1.0f / 120.0f)
+#define SIM_DT (1.0f / 60.0f)
 #endif
 
 /* World frame: heading h points the bow along (cos h, sin h); starboard is

@@ -1,7 +1,7 @@
 {
   "world_units_per_metre": 10,
   "hull": {
-    "length": 10,
+    "length": 7,
     "beam": 1.5,
     "mass": 360,
     "crew_mass": 80,
@@ -114,9 +114,9 @@
       ]
     ],
     "freeboard": 0.45,
-    "mast_x": 0.3,
+    "mast_x": 0.8,
     "mast_height": 5.2,
-    "forestay_x": 1.8,
+    "forestay_x": 4.2,
     "shroud_width": 0.6,
     "wheel_style": 1,
     "panel_compass": 1,
@@ -142,7 +142,7 @@
       "area": 4.6,
       "luff": 4.6,
       "foot": 2,
-      "ce_x": -0.35,
+      "ce_x": 0.1,
       "ce_z": 2,
       "trim_min_deg": 3,
       "trim_max_deg": 85,
@@ -235,7 +235,7 @@
       "mesh_h": 8,
       "camber": 0.1,
       "shade": 0.5,
-      "tack_x": 0.3,
+      "tack_x": 0.8,
       "tack_z": 0.5
     },
     {
@@ -243,7 +243,7 @@
       "area": 2.2,
       "luff": 3.4,
       "foot": 1.3,
-      "ce_x": 1.1,
+      "ce_x": 3.5,
       "ce_z": 1.5,
       "trim_min_deg": 5,
       "trim_max_deg": 60,
@@ -336,7 +336,7 @@
       "mesh_h": 6,
       "camber": 0.1,
       "shade": 0.7,
-      "tack_x": 1.7,
+      "tack_x": 4.1,
       "tack_z": 0.4
     },
     {
@@ -344,7 +344,7 @@
       "area": 9.0,
       "luff": 4.2,
       "foot": 3.0,
-      "ce_x": 1.4,
+      "ce_x": 3.1,
       "ce_z": 2.2,
       "trim_min_deg": 10,
       "trim_max_deg": 90,
@@ -413,7 +413,7 @@
       "mesh_h": 8,
       "camber": 0.3,
       "shade": 0.3,
-      "tack_x": 1.9,
+      "tack_x": 4.5,
       "tack_z": 0.5
     }
   ]

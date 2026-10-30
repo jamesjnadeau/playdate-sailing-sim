@@ -1,5 +1,6 @@
 #include "render.h"
 #include <math.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include "mathx.h"
@@ -36,7 +37,7 @@ static void init_pats(void) {
 LCDColor render_pattern(int level) {
     if (!pats_ready) init_pats();
     if (level < 0) level = 0;
-    if (level >= LEVELS) level = LEVELS - 1;
+    if (level >= LEVELS - 1) level = LEVELS - 2;   /* level LEVELS-1 is solid black: never used as a dither shade */
     return (LCDColor)pats[level];
 }
 
@@ -89,6 +90,8 @@ static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, i
     pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
 }
 
+static double sv_ox, sv_oy;                         /* world position the sea view is anchored at */
+static SeaView sv;                                   /* per-frame sea evaluator, origin at the camera */
 static int iround(float v) { return (int)lroundf(clampf(v, -2000.0f, 2000.0f)); }
 
 /* Crest and trough streaks: short dashes scattered at jittered, world-fixed spots and laid
@@ -136,7 +139,7 @@ static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c,
             double wy = (gj + ((h >> 16 & 0xFF) / 256.0f)) * (double)FLECK_CELL;
             float fwd = (float)((wx - c->x) * fx + (wy - c->y) * fy);
             if (fwd < 1.0f || fwd > maxd) continue;
-            float z = sea_height(sea, (float)fmod(wx, SEA_WRAP), (float)fmod(wy, SEA_WRAP), t);
+            float z = sea_view_height(&sv, (float)(wx - c->x), (float)(wy - c->y));
             float r = z / half;
             bool crest = r > 0.35f, trough = r < -0.55f;
             if (!crest && !trough) continue;
@@ -182,68 +185,92 @@ static int clip_u(const Gp *in, int n, Gp *out, float na, float nb, float lo, fl
     return m;
 }
 
+/* Each band is cut again along the crest line into world-fixed cells, and every cell is shaded from
+   the full multi-directional surface (height and slope toward the eye), so crossing swells show as
+   a field of humps and hollows instead of parallel strips. */
+#define MOGUL_CELLS_MAX 480
+#define MOGUL_MAX_ACROSS 40
+
+static int mogul_cmp(const void *x, const void *y) {
+    float a = ((const CrestBand *)x)->depth, b = ((const CrestBand *)y)->depth;
+    return (a < b) - (a > b);                          /* far to near */
+}
+
 static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                              float dfar, float half, float sgain, float vis, float wnx, float wny,
                              float wl) {
+    static CrestBand cells[MOGUL_CELLS_MAX];
     double fx = cos(c->yaw), fy = sin(c->yaw);
     float na = (float)(wnx * fx + wny * fy), nb = (float)(-wnx * fy + wny * fx);
-    float bw = clampf(wl * 0.16f, 3.0f, 12.0f);
+    float pa = -nb, pb = na;                           /* along the crest line, camera frame */
+    float bw = clampf(wl * 0.09f, 2.5f, 6.0f);
+    float vw = bw * 1.5f;
     Gp trap[4] = { { CREST_NEAR, -CREST_SPREAD * CREST_NEAR }, { CREST_NEAR, CREST_SPREAD * CREST_NEAR },
                    { dfar, CREST_SPREAD * dfar }, { dfar, -CREST_SPREAD * dfar } };
-    float umin = 1e9f, umax = -1e9f;
+    float umin = 1e9f, umax = -1e9f, vmin = 1e9f, vmax = -1e9f;
     for (int i = 0; i < 4; i++) {
-        float u = trap[i].a * na + trap[i].b * nb;
+        float u = trap[i].a * na + trap[i].b * nb, v = trap[i].a * pa + trap[i].b * pb;
         if (u < umin) umin = u;
         if (u > umax) umax = u;
+        if (v < vmin) vmin = v;
+        if (v > vmax) vmax = v;
     }
     double s = c->x * wnx + c->y * wny;               /* camera's position along the wave normal */
+    double s2 = c->x * -wny + c->y * wnx;             /* ... and along the crest line */
     int span = (int)ceilf((umax - umin) / bw) + 1;
-    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); }
+    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.5f; }
     long k0 = (long)floor((s + umin) / bw), k1 = (long)floor((s + umax) / bw);
-    CrestBand bands[CREST_BANDS_MAX + 2];
-    int nb_ = 0;
-    for (long k = k0; k <= k1 && nb_ < CREST_BANDS_MAX + 2; k++) {
+    long j0 = (long)floor((s2 + vmin) / vw), j1 = (long)floor((s2 + vmax) / vw);
+    if (j1 - j0 > MOGUL_MAX_ACROSS) { long mid = (j0 + j1) / 2; j0 = mid - MOGUL_MAX_ACROSS / 2; j1 = mid + MOGUL_MAX_ACROSS / 2; }
+    int nc = 0;
+    for (long k = k0; k <= k1; k++) {
         Gp p1[8], p2[8];
         float lo = (float)(k * (double)bw - s), hi = (float)((k + 1) * (double)bw - s);
-        int n = clip_u(trap, 4, p1, na, nb, lo, 1.0f);
-        if (n >= 3) n = clip_u(p1, n, p2, na, nb, hi, -1.0f);
-        if (n < 3) continue;
-        float ca = 0.0f, cb = 0.0f;
-        CrestBand *cbnd = &bands[nb_];
-        bool ok = n <= 8;
-        for (int i = 0; i < n && ok; i++) {
-            ca += p2[i].a; cb += p2[i].b;
-            double wx = c->x + p2[i].a * fx - p2[i].b * fy, wy = c->y + p2[i].a * fy + p2[i].b * fx;
-            float z = sea_height(&g->sea, (float)fmod(wx, SEA_WRAP), (float)fmod(wy, SEA_WRAP), t);
-            float sx, sy;
-            if (!camera_project(c, wx, wy, z, &sx, &sy, NULL)) { ok = false; break; }
-            cbnd->pts[2 * i] = iround(sx);
-            cbnd->pts[2 * i + 1] = iround(sy);
+        int nu = clip_u(trap, 4, p1, na, nb, lo, 1.0f);
+        if (nu >= 3) nu = clip_u(p1, nu, p2, na, nb, hi, -1.0f);
+        if (nu < 3) continue;
+        for (long j = j0; j <= j1 && nc < MOGUL_CELLS_MAX; j++) {
+            Gp q1[8], q2[8];
+            float vlo = (float)(j * (double)vw - s2), vhi = (float)((j + 1) * (double)vw - s2);
+            int n = clip_u(p2, nu, q1, pa, pb, vlo, 1.0f);
+            if (n >= 3) n = clip_u(q1, n, q2, pa, pb, vhi, -1.0f);
+            if (n < 3 || n > 8) continue;
+            CrestBand *cb = &cells[nc];
+            float ca = 0.0f, cbb = 0.0f;
+            bool ok = true;
+            int xmin = 1 << 20, xmax = -(1 << 20);
+            for (int i = 0; i < n; i++) {
+                ca += q2[i].a; cbb += q2[i].b;
+                float ox = (float)(q2[i].a * fx - q2[i].b * fy), oy = (float)(q2[i].a * fy + q2[i].b * fx);
+                double wx = c->x + ox, wy = c->y + oy;
+                float z = sea_view_height(&sv, ox, oy);
+                float sx, sy;
+                if (!camera_project(c, wx, wy, z, &sx, &sy, NULL)) { ok = false; break; }
+                cb->pts[2 * i] = iround(sx);
+                cb->pts[2 * i + 1] = iround(sy);
+                if (cb->pts[2 * i] < xmin) xmin = cb->pts[2 * i];
+                if (cb->pts[2 * i] > xmax) xmax = cb->pts[2 * i];
+            }
+            if (!ok || xmax < 0 || xmin >= CAM_W) continue;
+            ca /= (float)n; cbb /= (float)n;
+            float mx = (float)(ca * fx - cbb * fy), my = (float)(ca * fy + cbb * fx);
+            float hz = sea_view_height(&sv, mx, my);
+            float hp = sea_view_height(&sv, mx + (float)fx, my + (float)fy);
+            float hm = sea_view_height(&sv, mx - (float)fx, my - (float)fy);
+            float slope = 0.5f * (hp - hm);           /* rise per metre away from the eye */
+            float fog = clampf(ca / vis, 0.0f, 1.0f);
+            float base = 10.0f - 3.0f * clampf(ca / 300.0f, 0.0f, 1.0f);
+            float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
+            int level = (int)lroundf(base + shade + (((k + j) & 1) ? 1.0f : -1.0f));
+            cb->level = (int)(level * (1.0f - 0.9f * fog * fog));
+            cb->depth = ca;
+            cb->n = n;
+            nc++;
         }
-        if (!ok) continue;
-        ca /= (float)n; cb /= (float)n;
-        double mx = c->x + ca * fx - cb * fy, my = c->y + ca * fy + cb * fx;
-        float hz = sea_height(&g->sea, (float)fmod(mx, SEA_WRAP), (float)fmod(my, SEA_WRAP), t);
-        float hp = sea_height(&g->sea, (float)fmod(mx + wnx, SEA_WRAP), (float)fmod(my + wny, SEA_WRAP), t);
-        float hm = sea_height(&g->sea, (float)fmod(mx - wnx, SEA_WRAP), (float)fmod(my - wny, SEA_WRAP), t);
-        float slope = 0.5f * (hp - hm) * na;          /* rise per metre away from the eye */
-        float fog = clampf(ca / vis, 0.0f, 1.0f);
-        float base = 10.0f - 3.0f * clampf(ca / 300.0f, 0.0f, 1.0f);
-        float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 1.2f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
-        int level = (int)lroundf(base + shade + ((k & 1) ? 2.0f : -2.0f));
-        cbnd->level = (int)(level * (1.0f - 0.9f * fog * fog));
-        cbnd->depth = ca;
-        cbnd->n = n;
-        nb_++;
     }
-    for (int i = 1; i < nb_; i++) {                    /* far to near */
-        CrestBand tmp = bands[i];
-        int j = i;
-        while (j > 0 && bands[j - 1].depth < tmp.depth) { bands[j] = bands[j - 1]; j--; }
-        bands[j] = tmp;
-    }
-    for (int i = 0; i < nb_; i++)
-        pd->graphics->fillPolygon(bands[i].n, bands[i].pts, render_pattern(bands[i].level), kPolygonFillNonZero);
+    qsort(cells, (size_t)nc, sizeof cells[0], mogul_cmp);
+    for (int i = 0; i < nc; i++)
+        pd->graphics->fillPolygon(cells[i].n, cells[i].pts, render_pattern(cells[i].level), kPolygonFillNonZero);
 }
 
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -256,6 +283,8 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float sgain = 5.0f / fmaxf((float)PI_D * wp->wave_height / wl, 0.03f);
     float wnx, wny, wlen;
     bool crest = dominant_wave(&g->sea, &wnx, &wny, &wlen);
+    sv_ox = c->x; sv_oy = c->y;
+    sea_view_init(&sv, &g->sea, c->x, c->y, t);
     float fy0, fy1;
     if (!sea_line(c, 20000.0f, 0.0f, &fy0, &fy1)) { fy0 = fy1 = CAM_HORIZON_Y; }
     float dist[SEA_BANDS];
@@ -268,8 +297,8 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     for (int i = 0; i <= last; i++) {
         float d = dist[i];
         double fx = cos(c->yaw), fy = sin(c->yaw);
-        float hz = sea_height(&g->sea, (float)fmod(c->x + fx * d, SEA_WRAP), (float)fmod(c->y + fy * d, SEA_WRAP), t);
-        float h2 = sea_height(&g->sea, (float)fmod(c->x + fx * (d + 2), SEA_WRAP), (float)fmod(c->y + fy * (d + 2), SEA_WRAP), t);
+        float hz = sea_view_height(&sv, (float)(fx * d), (float)(fy * d));
+        float h2 = sea_view_height(&sv, (float)(fx * (d + 2)), (float)(fy * (d + 2)));
         float slope = (h2 - hz) / 2.0f;
         float y0, y1;
         if (!sea_line(c, d, hz, &y0, &y1)) continue;
@@ -314,7 +343,6 @@ static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float vis = fvis(g);
-    float t = (float)fmod(g->t, g->sea.period);
     int order[ROCKS_MAX];
     float depth[ROCKS_MAX];
     int n = 0;
@@ -330,7 +358,7 @@ static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         const Rock *r = &g->rocks[order[k]];
         float d = depth[order[k]];
         if (d > vis) continue;
-        float h = sea_height(&g->sea, (float)fmod(r->x, SEA_WRAP), (float)fmod(r->y, SEA_WRAP), t);
+        float h = sea_view_height(&sv, (float)(r->x - sv_ox), (float)(r->y - sv_oy));
         float bx, by, tx, ty;
         float top = r->awash ? 0.15f * r->r : 0.7f * r->r;
         if (!camera_project(c, r->x, r->y, h, &bx, &by, NULL)) continue;
@@ -606,8 +634,8 @@ static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float d = g->b.wheel * g->boat.foils.rudder_max_deg * 0.017453f;
     float tx = rx - chord * cosf(d), ty = chord * sinf(d);
     float x0, y0, x1, y1, x2, y2, x3, y3;
-    float zw = clampf(rel_surface(g, rx, 0.0f), -0.2f, 0.9f);   /* the blade below the surface is not drawn */
-    if (!boat_pt(&k, rx, 0, 0.9f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.9f, &x1, &y1) ||
+    float zw = clampf(rel_surface(g, rx, 0.0f), -0.2f, 0.45f);   /* the blade below the surface is not drawn */
+    if (!boat_pt(&k, rx, 0, 0.45f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.45f, &x1, &y1) ||
         !boat_pt(&k, tx, ty, zw, &x2, &y2) || !boat_pt(&k, rx, 0, zw, &x3, &y3)) return;
     int pts[8] = { (int)x0, (int)y0, (int)x1, (int)y1, (int)x2, (int)y2, (int)x3, (int)y3 };
     pd->graphics->fillPolygon(4, pts, kColorBlack, kPolygonFillNonZero);
@@ -618,9 +646,9 @@ static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 static float rel_surface(const Game *g, float fwd, float lat) {
     const BoatState *b = &g->b;
     double ch = cos(b->heading), sh = sin(b->heading);
-    float wx = (float)fmod(b->x + ch * fwd - sh * lat, SEA_WRAP);
-    float wy = (float)fmod(b->y + sh * fwd + ch * lat, SEA_WRAP);
-    return sea_height(&g->sea, wx, wy, (float)fmod(g->t, g->sea.period)) - b->heave;
+    float dx = (float)(b->x - sv_ox + ch * fwd - sh * lat);
+    float dy = (float)(b->y - sv_oy + sh * fwd + ch * lat);
+    return sea_view_height(&sv, dx, dy) - b->heave;
 }
 
 /* the hull seen from behind */

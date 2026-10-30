@@ -30,6 +30,17 @@ void sea_init(Sea *s, const WeatherPreset *p, uint32_t seed);
 /* Surface elevation in metres, + up. Non-finite inputs are treated as 0. */
 float sea_height(const Sea *s, float x, float y, float t);
 
+/* Single-precision evaluator for drawing: the double-precision phase at an origin and time is
+   folded in once, so each sample is a few float cosines. Offsets are metres from the origin
+   and should stay within a few hundred metres. Agrees with sea_height to ~1e-3 m there. */
+typedef struct {
+    int n;
+    float kx[SEA_MAX_COMPONENTS], ky[SEA_MAX_COMPONENTS], ph[SEA_MAX_COMPONENTS], amp[SEA_MAX_COMPONENTS];
+} SeaView;
+
+void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t);
+float sea_view_height(const SeaView *v, float dx, float dy);
+
 /* Forces on the hull from 7 samples along its length and 2 across (at midships), sampled
    once per frame; the caller holds the result across substeps. All zero on a flat sea.
    pitch is + bow up (rad) and heave is the mean elevation under the hull (m), both for the camera. */

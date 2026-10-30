@@ -17,9 +17,11 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     float fwd_x = cosf(b->heading), fwd_y = sinf(b->heading);
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
-    c->x = b->x + (double)(fwd_x * k->x_offset - fwd_y * side);
-    c->y = b->y + (double)(fwd_y * k->x_offset + fwd_x * side);
-    c->height = k->height + b->heave;
+    float xo = c->trail ? k->far_offset : k->x_offset;
+    if (c->trail) side = 0.0f;
+    c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
+    c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
+    c->height = (c->trail ? k->far_height : k->height) + b->heave;
 
     c->yaw = wrap_pi(b->heading + g->ctl.camera_yaw);
 

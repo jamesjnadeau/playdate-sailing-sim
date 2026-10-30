@@ -19,7 +19,7 @@ static uint32_t restart_count;
 static char warn[ASSETS_WARN_LEN];
 static float warn_left;
 
-static PDMenuItem *boat_item, *weather_item;
+static PDMenuItem *boat_item, *weather_item, *view_item;
 
 static uint32_t fresh_seed(void) {
     return pd->system->getCurrentTimeMilliseconds() * 2654435761u + (++restart_count) * 40503u;
@@ -32,7 +32,9 @@ static void begin(bool reload) {
         if (warn[0]) pd->system->logToConsole("config: %s", warn);
     }
     game_init(&game, &boat_cfg, &weather_cfg, &world_cfg, preset_index, fresh_seed());
+    bool trail = cam.trail;
     memset(&cam, 0, sizeof cam);
+    cam.trail = trail;
     camera_update(&cam, &game, &game.boat, 1.0f / 30);
     pd->system->resetElapsedTime();
 }
@@ -46,6 +48,10 @@ static void menu_weather(void *ud) {
     (void)ud;
     preset_index = pd->system->getMenuItemValue(weather_item);
     game_set_preset(&game, preset_index);
+}
+static void menu_view(void *ud) {
+    (void)ud;
+    cam.trail = pd->system->getMenuItemValue(view_item) == 1;
 }
 static void menu_restart(void *ud) { (void)ud; game_restart(&game, fresh_seed()); }
 static void menu_reload(void *ud) { (void)ud; begin(true); }
@@ -90,6 +96,8 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm" };
         boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
         weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
+        static const char *view_names[2] = { "near", "far" };
+        view_item = pd->system->addOptionsMenuItem("camera", view_names, 2, menu_view, NULL);
         pd->system->addMenuItem("restart", menu_restart, NULL);
         pd->system->addMenuItem("reload config", menu_reload, NULL);
         pd->display->setRefreshRate(30.0f);

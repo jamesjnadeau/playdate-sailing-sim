@@ -339,6 +339,31 @@ static void draw_deck(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->fillEllipse((int)cx - 4, (int)cy - 4, 8, 8, 0, 0, kColorBlack);
 }
 
+/* trailing view: the cockpit overlay is replaced by the hull seen from behind */
+static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    Ctx k = { pd, g, c };
+    const LookCfg *lk = &g->boat.look;
+    float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam, fb = lk->freeboard;
+    enum { N = 9 };
+    int pts[4 * N];
+    int n = 0;
+    float sx, sy;
+    for (int i = 0; i < N; i++) {            /* starboard gunwale bow -> stern */
+        float u = (float)i / (N - 1);
+        float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
+        if (boat_pt(&k, L * (0.5f - u), w, fb, &sx, &sy)) { pts[2 * n] = (int)sx; pts[2 * n + 1] = (int)sy; n++; }
+    }
+    for (int i = N - 1; i >= 0; i--) {       /* port gunwale stern -> bow */
+        float u = (float)i / (N - 1);
+        float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
+        if (boat_pt(&k, L * (0.5f - u), -w, fb, &sx, &sy)) { pts[2 * n] = (int)sx; pts[2 * n + 1] = (int)sy; n++; }
+    }
+    if (n < 3) return;
+    pd->graphics->fillPolygon(n, pts, render_pattern((int)(lk->hull_shade * 16.0f)), kPolygonFillNonZero);
+    for (int i = 0; i < n; i++)
+        pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) % n)], pts[2 * ((i + 1) % n) + 1], 2, kColorBlack);
+}
+
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->clear(kColorWhite);
     draw_clouds(pd, g, c);
@@ -346,8 +371,8 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_streaks(pd, g, c);
     draw_rocks(pd, g, c);
     draw_spray(pd, g, c);
-    draw_rig(pd, g, c);
-    draw_deck(pd, g, c);
+    if (c->trail) { draw_hull(pd, g, c); draw_rig(pd, g, c); }
+    else { draw_rig(pd, g, c); draw_deck(pd, g, c); }
     hud_draw(pd, g);
     hud_prompt(pd, g);
 }

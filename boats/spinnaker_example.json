@@ -125,6 +125,8 @@
   "camera": {
     "height": 1.2,
     "x_offset": -0.8,
+    "far_offset": -7,
+    "far_height": 2.5,
     "heel_bias": 0.25,
     "roll_limit_deg": 10,
     "roll_smooth": 0.15,

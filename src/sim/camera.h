@@ -14,6 +14,7 @@
 typedef struct {
     double x, y;                  /* double: far-from-origin precision */
     float height;
+    bool trail;                   /* trailing view (set by the caller; survives updates) */
     float yaw, pitch, roll;       /* what the view uses: roll is limited, smoothed */
     float deck_roll, deck_pitch, deck_bob;   /* unlimited, for the deck / HUD drawing */
 } CameraPose;

@@ -97,7 +97,18 @@ static void test_position_follows_boat_offset_aft(void) {
     T_NEAR(cp.y, -50000.0, 1e-3);
 }
 
+static void test_trailing_view_sits_far_aft_and_higher(void) {
+    fresh();
+    g.b.x = 100000.0; g.b.y = -50000.0; g.b.heading = 0;
+    cp.trail = true;
+    settle();
+    T_NEAR(cp.x, 100000.0 + bc.camera.far_offset, 1e-3);
+    T_NEAR(cp.y, -50000.0, 1e-3);
+    T_NEAR(cp.height, bc.camera.far_height, 1e-3);
+}
+
 int main(void) {
+    T_RUN(test_trailing_view_sits_far_aft_and_higher);
     T_RUN(test_roll_clamped_deck_roll_full);
     T_RUN(test_small_heel_passes_through);
     T_RUN(test_smoothing_is_gradual_and_finite_on_odd_dt);

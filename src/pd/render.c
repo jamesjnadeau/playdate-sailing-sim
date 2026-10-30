@@ -168,9 +168,7 @@ static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c,
 #define CREST_SPREAD 2.2f    /* lateral half-width of the ground drawn, per metre ahead */
 
 typedef struct { float a, b; } Gp;                    /* ground point: metres ahead, metres right */
-/* edge[0] is the shared border with the next cell along the crest (v = vhi), edge[1] the one with the
-   next band (u = hi): screen endpoints x0,y0,x1,y1, valid when has[] is set. */
-typedef struct { float depth; int n; int pts[2 * 8]; int level; long k, j; int edge[2][4]; bool has[2]; } CrestBand;
+typedef struct { float depth; int n; int pts[2 * 8]; int level; } CrestBand;
 
 /* Sutherland-Hodgman against sgn * (u - lo) >= 0, where u = a*na + b*nb. */
 static int clip_u(const Gp *in, int n, Gp *out, float na, float nb, float lo, float sgn) {
@@ -269,47 +267,12 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
             cb->level = (int)(level * (1.0f - 0.9f * fog * fog));
             cb->depth = ca;
             cb->n = n;
-            cb->k = k; cb->j = j;
-            for (int e = 0; e < 2; e++) {
-                float en = e ? na : pa, eb = e ? nb : pb, lim = e ? hi : vhi;
-                int first = -1, lastv = -1;
-                for (int i = 0; i < n; i++)
-                    if (q2[i].a * en + q2[i].b * eb >= lim - 1e-3f) { if (first < 0) first = i; lastv = i; }
-                cb->has[e] = first >= 0 && lastv > first;
-                if (cb->has[e]) {
-                    cb->edge[e][0] = cb->pts[2 * first]; cb->edge[e][1] = cb->pts[2 * first + 1];
-                    cb->edge[e][2] = cb->pts[2 * lastv]; cb->edge[e][3] = cb->pts[2 * lastv + 1];
-                }
-            }
             nc++;
         }
     }
     qsort(cells, (size_t)nc, sizeof cells[0], mogul_cmp);
     for (int i = 0; i < nc; i++)
         pd->graphics->fillPolygon(cells[i].n, cells[i].pts, render_pattern(cells[i].level), kPolygonFillNonZero);
-    /* Blend the squares: where neighbouring cells differ by two or more shades, lay a line of the
-       in-between dither on their shared border, so tone steps down through the halftone. */
-    static short grid[CREST_BANDS_MAX + 4][MOGUL_MAX_ACROSS + 4];
-    memset(grid, -1, sizeof grid);
-    for (int i = 0; i < nc; i++) {
-        long gk = cells[i].k - k0, gj = cells[i].j - j0;
-        if (gk >= 0 && gk < CREST_BANDS_MAX + 4 && gj >= 0 && gj < MOGUL_MAX_ACROSS + 4) grid[gk][gj] = (short)i;
-    }
-    for (int i = 0; i < nc; i++) {
-        const CrestBand *a = &cells[i];
-        long gk = a->k - k0, gj = a->j - j0;
-        if (gk < 0 || gk >= CREST_BANDS_MAX + 4 || gj < 0 || gj >= MOGUL_MAX_ACROSS + 4) continue;
-        for (int e = 0; e < 2; e++) {
-            long nk = gk + e, nj = gj + (1 - e);
-            if (!a->has[e] || nk >= CREST_BANDS_MAX + 4 || nj >= MOGUL_MAX_ACROSS + 4) continue;
-            int o = grid[nk][nj];
-            if (o < 0) continue;
-            int la = a->level, lb = cells[o].level;
-            if (abs(la - lb) < 2) continue;
-            pd->graphics->drawLine(a->edge[e][0], a->edge[e][1], a->edge[e][2], a->edge[e][3],
-                                   a->depth < 20.0f ? 3 : 2, render_pattern((la + lb + 1) / 2));
-        }
-    }
 }
 
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -333,7 +296,6 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float cap = fminf(vis * 0.9f, 60.0f);
     int last = SEA_BANDS - 1;
     if (crest) { last = 0; while (last < SEA_BANDS - 1 && dist[last] > cap) last++; }
-    int prev = 0;
     for (int i = 0; i <= last; i++) {
         float d = dist[i];
         double fx = cos(c->yaw), fy = sin(c->yaw);
@@ -349,14 +311,9 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         int level = (int)lroundf(base + shade + ((i & 1) ? 1.0f : -1.0f));
         level = (int)(level * (1.0f - 0.9f * fog * fog));
         strip(pd, fy0, fy1, y0, y1, level);
-        if (i > 0 && abs(level - prev) >= 2)
-            pd->graphics->drawLine(-20, (int)fy0, CAM_W + 20, (int)fy1, 3, render_pattern((level + prev + 1) / 2));
-        prev = level;
         fy0 = y0; fy1 = y1;
     }
     strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
-    if (abs(10 - prev) >= 2)
-        pd->graphics->drawLine(-20, (int)fy0, CAM_W + 20, (int)fy1, 3, render_pattern((10 + prev + 1) / 2));
     if (crest && dist[last] > CREST_NEAR + 0.5f)
         draw_crest_bands(pd, g, c, t, dist[last], half, sgain, vis, wnx, wny, wlen);
     draw_sea_flecks(pd, g, c, t, half, vis);

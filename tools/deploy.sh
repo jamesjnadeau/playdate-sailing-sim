@@ -60,9 +60,16 @@ cp -r "$PDX" "$MNT/Games/$PDX"
 sync
 
 if [ "$KEEP" -eq 0 ]; then
-    echo "== unmounting"
-    udisksctl unmount -b "$(readlink -f "$DEV")" >/dev/null 2>&1 ||
-        umount "$MNT" || echo "deploy: could not unmount; eject $LABEL manually" >&2
+    echo "== unmounting $MNT"
+    sync
+    for _ in 1 2 3 4 5; do
+        findmnt -rn "$MNT" >/dev/null 2>&1 || break
+        udisksctl unmount -b "$(readlink -f "$DEV")" ||
+            umount "$MNT" 2>/dev/null || sleep 1
+    done
+    if findmnt -rn "$MNT" >/dev/null 2>&1; then
+        echo "deploy: could not unmount $MNT; eject $LABEL manually" >&2
+    fi
 fi
 
 if [ "$RUN" -eq 1 ]; then

@@ -5,31 +5,24 @@
 #include "hudinfo.h"
 #include "mathx.h"
 
-#define HUD_GLYPH_W 22         /* inverted d-pad mode cell at the left of the bar */
+#define HUD_MODE_W 46          /* inverted mode-name cell at the left of the bar */
+#define HUD_SPEED_END (HUD_MODE_W + 52)   /* right edge of the speed cell */
+#define HUD_HDG_END (HUD_SPEED_END + 62)  /* right edge of the heading cell */
 #define HUD_PAD 6              /* text inset inside a cell */
 
 static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
-/* The system font has no reliable arrow, degree or angle glyphs, so these are drawn as shapes. */
-static void mode_arrow(PlaydateAPI *pd, Mode m, int cx, int cy) {
-    const int r = 5;
+/* Sailing term for what each d-pad mode controls. */
+static const char *mode_word(Mode m) {
     switch (m) {
-    case MODE_WHEEL:  pd->graphics->fillTriangle(cx, cy - r, cx - r, cy + r, cx + r, cy + r, kColorBlack); break;
-    case MODE_TRIM:   pd->graphics->fillTriangle(cx + r, cy, cx - r, cy - r, cx - r, cy + r, kColorBlack); break;
-    case MODE_HOIST:  pd->graphics->fillTriangle(cx - r, cy, cx + r, cy - r, cx + r, cy + r, kColorBlack); break;
-    case MODE_CAMERA: pd->graphics->fillTriangle(cx, cy + r, cx - r, cy - r, cx + r, cy - r, kColorBlack); break;
+    case MODE_WHEEL:  return "HELM";
+    case MODE_TRIM:   return "TRIM";
+    case MODE_HOIST:  return "HOIST";
+    case MODE_CAMERA: return "LOOK";
     }
-}
-
-static void degree_mark(PlaydateAPI *pd, int x, int y) {
-    pd->graphics->drawEllipse(x, y, 5, 5, 1, 0, 0, kColorWhite);
-}
-
-static void angle_mark(PlaydateAPI *pd, int x, int y) {   /* y = baseline of the little angle */
-    pd->graphics->drawLine(x, y, x + 8, y, 1, kColorWhite);
-    pd->graphics->drawLine(x, y, x + 6, y - 7, 1, kColorWhite);
+    return "?";
 }
 
 /* One-row status bar: mode glyph, then the mode's cells, then AP/AT badges and the wind dial. */
@@ -44,34 +37,31 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
 
     pd->graphics->fillRect(0, top, CAM_W, HUD_H, kColorBlack);
 
-    /* selected mode: its d-pad direction in an inverted cell */
-    pd->graphics->fillRect(0, top, HUD_GLYPH_W, HUD_H, kColorWhite);
-    mode_arrow(pd, mode, HUD_GLYPH_W / 2, top + HUD_H / 2);
+    /* selected mode: its name in an inverted fixed-width cell */
+    pd->graphics->fillRect(0, top, HUD_MODE_W, HUD_H, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillBlack);
+    text(pd, mode_word(mode), HUD_PAD, ty);
 
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     if (hud_shows_nav(mode)) {
-        /* speed, heading and heel cells, separated by 1px lines; the AWS number sits by the dial */
+        /* speed, heading and heel in fixed-width cells separated by 1px lines; the AWS number sits by the dial */
         snprintf(line, sizeof line, "%.1fkn", fabsf(b->u) * 1.94384f);
-        text(pd, line, 22 + HUD_PAD, ty);
-        pd->graphics->drawLine(74, top, 74, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "%03d", hud_heading_deg(b->heading));
-        text(pd, line, 75 + HUD_PAD, ty);
-        degree_mark(pd, 75 + HUD_PAD + 3 * 7, ty + 1);
-        pd->graphics->drawLine(119, top, 119, CAM_H - 1, 1, kColorWhite);
-        angle_mark(pd, 120 + HUD_PAD, ty + 11);
-        snprintf(line, sizeof line, "%+.0f", b->heel * 57.29578f);
-        text(pd, line, 120 + HUD_PAD + 12, ty);
+        text(pd, line, HUD_MODE_W + HUD_PAD, ty);
+        pd->graphics->drawLine(HUD_SPEED_END, top, HUD_SPEED_END, CAM_H - 1, 1, kColorWhite);
+        snprintf(line, sizeof line, "HDG %03d", hud_heading_deg(b->heading));
+        text(pd, line, HUD_SPEED_END + HUD_PAD, ty);
+        pd->graphics->drawLine(HUD_HDG_END, top, HUD_HDG_END, CAM_H - 1, 1, kColorWhite);
+        snprintf(line, sizeof line, "HEEL %+.0f", b->heel * 57.29578f);
+        text(pd, line, HUD_HDG_END + HUD_PAD, ty);
         snprintf(line, sizeof line, "%.0f", b->aws);
         text(pd, line, CAM_W - 12 - 8 - 26, ty);
     } else if (mode == MODE_TRIM || mode == MODE_HOIST) {
         /* selected sail: its name, then the trim or hoist bar */
         snprintf(line, sizeof line, "%.8s", n > 0 ? g->boat.sails[si].name : "");
-        text(pd, line, 22 + HUD_PAD, ty);
+        text(pd, line, HUD_MODE_W + HUD_PAD, ty);
         const float f = hud_sail_fraction(mode, &g->boat.sails[si], b->trims[si], b->hoists[si]);
-        pd->graphics->drawRect(120, top + 6, 74, 8, kColorWhite);
-        pd->graphics->fillRect(122, top + 8, (int)(70.0f * f), 4, kColorWhite);
-    } else {
-        text(pd, "Look", 22 + HUD_PAD, ty);
+        pd->graphics->drawRect(HUD_MODE_W + 54, top + 6, 74, 8, kColorWhite);
+        pd->graphics->fillRect(HUD_MODE_W + 56, top + 8, (int)(70.0f * f), 4, kColorWhite);
     }
 
     if (g->ap.on) {

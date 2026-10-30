@@ -77,24 +77,40 @@ static void test_held_without_press_is_ignored(void) {
 }
 static void test_wheel_sign_and_clamp(void) {
     fresh();
-    ap.target = 0.5f;  T_ASSERT(autopilot_wheel(&ap, K, 0, 0) > 0);
-    ap.target = -0.5f; T_ASSERT(autopilot_wheel(&ap, K, 0, 0) < 0);
-    ap.target = 3.0f;  T_ASSERT(autopilot_wheel(&ap, K, 0, 0) == 1.0f);
+    ap.target = 0.5f;  T_ASSERT(autopilot_wheel(&ap, K, 0, 0, PI_F) > 0);
+    ap.target = -0.5f; T_ASSERT(autopilot_wheel(&ap, K, 0, 0, PI_F) < 0);
+    ap.target = 3.0f;  T_ASSERT(autopilot_wheel(&ap, K, 0, 0, PI_F) == 1.0f);
     ap.target = PI_F - 0.1f;
-    T_ASSERT(autopilot_wheel(&ap, K, -PI_F + 0.1f, 0) < 0);   /* short way round */
+    T_ASSERT(autopilot_wheel(&ap, K, -PI_F + 0.1f, 0, PI_F) < 0);   /* short way round */
+}
+static void test_wheel_never_turns_through_no_go(void) {
+    fresh();
+    /* wind from 0; close-hauled at -60 deg, target +75 deg: short way is through the wind */
+    ap.target = deg2rad(75);
+    T_ASSERT(autopilot_wheel(&ap, K, deg2rad(-60), 0, 0.0f) < 0);   /* long way round (gybe) */
+    ap.target = deg2rad(-75);
+    T_ASSERT(autopilot_wheel(&ap, K, deg2rad(60), 0, 0.0f) > 0);
+    /* short way clear of the wind is unchanged */
+    ap.target = deg2rad(120);
+    T_ASSERT(autopilot_wheel(&ap, K, deg2rad(75), 0, 0.0f) > 0);
+}
+static void test_wheel_inside_no_go_takes_short_way(void) {
+    fresh();
+    ap.target = deg2rad(75);
+    T_ASSERT(autopilot_wheel(&ap, K, deg2rad(-20), 0, 0.0f) > 0);   /* already in irons: just get out */
 }
 static void test_wheel_damping(void) {
     fresh();
     ap.target = 0;
-    T_ASSERT(autopilot_wheel(&ap, K, 0, 0.5f) < 0);
+    T_ASSERT(autopilot_wheel(&ap, K, 0, 0.5f, PI_F) < 0);
 }
 static void test_wheel_nonfinite_is_zero(void) {
     fresh();
     ap.target = 0.5f;
-    T_ASSERT(autopilot_wheel(&ap, K, NAN, 0) == 0.0f);
-    T_ASSERT(autopilot_wheel(&ap, K, 0, NAN) == 0.0f);
+    T_ASSERT(autopilot_wheel(&ap, K, NAN, 0, PI_F) == 0.0f);
+    T_ASSERT(autopilot_wheel(&ap, K, 0, NAN, PI_F) == 0.0f);
     ap.target = NAN;
-    T_ASSERT(autopilot_wheel(&ap, K, 0, 0) == 0.0f);
+    T_ASSERT(autopilot_wheel(&ap, K, 0, 0, PI_F) == 0.0f);
 }
 static void test_buttons_nonfinite_dt_and_heading_safe(void) {
     fresh();
@@ -115,6 +131,8 @@ int main(void) {
     T_RUN(test_tap_when_off_does_nothing);
     T_RUN(test_held_without_press_is_ignored);
     T_RUN(test_wheel_sign_and_clamp);
+    T_RUN(test_wheel_never_turns_through_no_go);
+    T_RUN(test_wheel_inside_no_go_takes_short_way);
     T_RUN(test_wheel_damping);
     T_RUN(test_wheel_nonfinite_is_zero);
     T_RUN(test_buttons_nonfinite_dt_and_heading_safe);

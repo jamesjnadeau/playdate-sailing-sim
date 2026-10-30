@@ -149,7 +149,7 @@ static void test_autopilot_overrides_crank_wheel(void) {
     fresh(1);
     engage();
     game_update(&g, BTN_UP, 0, 90.0f, 1.0f / 30);
-    T_NEAR(g.in.wheel_target, autopilot_wheel(&g.ap, &g.boat.controls, g.b.heading, g.b.r), 0.2);
+    T_NEAR(g.in.wheel_target, autopilot_wheel(&g.ap, &g.boat.controls, g.b.heading, g.b.r, wrap_pi(g.wind.dir + (float)M_PI)), 0.2);
     T_ASSERT(fabsf(g.in.wheel_target) < 0.9f);
 }
 

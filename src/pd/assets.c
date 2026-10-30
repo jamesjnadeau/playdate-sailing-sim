@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const ASSET_BOAT_NAMES[ASSETS_BOATS] = { "dinghy", "spinnaker_example" };
+const char *const ASSET_BOAT_NAMES[ASSETS_BOATS] = { "dinghy", "j24", "tp52" };
 
 #define FILE_MAX 16384
 static char filebuf[FILE_MAX];

@@ -39,7 +39,17 @@ void autopilot_buttons(Autopilot *ap, const ControlsCfg *k, uint32_t pressed, ui
     }
 }
 
-float autopilot_wheel(const Autopilot *ap, const ControlsCfg *k, float heading, float yaw_rate) {
+float autopilot_wheel(const Autopilot *ap, const ControlsCfg *k, float heading, float yaw_rate,
+                      float wind_from) {
     if (!isfinite(ap->target) || !isfinite(heading) || !isfinite(yaw_rate)) return 0.0f;
-    return clampf(k->autopilot_kp * wrap_pi(ap->target - heading) - k->autopilot_kd * yaw_rate, -1, 1);
+    float e = wrap_pi(ap->target - heading);
+    if (isfinite(wind_from)) {
+        float dw = wrap_pi(wind_from - heading);
+        float no_go = deg2rad(k->autopilot_no_go_deg);
+        /* the short way crosses the wind: go the long way round instead (a gybe), unless
+         * already inside the no-go zone, where the short way is the way out */
+        if (fabsf(dw) >= no_go && dw * e > 0 && fabsf(dw) < fabsf(e))
+            e -= copysignf(2.0f * (float)M_PI, e);
+    }
+    return clampf(k->autopilot_kp * e - k->autopilot_kd * yaw_rate, -1, 1);
 }

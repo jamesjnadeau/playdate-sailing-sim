@@ -57,7 +57,8 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         autopilot_buttons(&g->ap, &g->boat.controls, pressed, held, dt, g->b.heading,
                           wrap_pi(g->wind.dir + (float)M_PI));
         if (g->ap.on)
-            g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r);
+            g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r,
+                                                 wrap_pi(g->wind.dir + (float)M_PI));
     }
 
     wind_step(&g->wind, &g->weather.preset[g->preset], dt);

@@ -610,10 +610,10 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
                 pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * ((i + 1) % 4)], q[2 * ((i + 1) % 4) + 1], 1, kColorBlack);
         }
     }
+    draw_submerged(pd, g, c, keel, tuck);   /* before the deck, so the deck and rails stay on top */
     pd->graphics->fillPolygon(n, pts, render_pattern((int)(lk->hull_shade * 16.0f)), kPolygonFillNonZero);
     for (int i = 0; i < n; i++)
         pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) % n)], pts[2 * ((i + 1) % n) + 1], 2, kColorBlack);
-    draw_submerged(pd, g, c, keel, tuck);
 }
 
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

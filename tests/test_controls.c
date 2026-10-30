@@ -66,7 +66,12 @@ static void test_camera_yaw_clamped_and_returns(void) {
     T_NEAR(r.c.camera_yaw, lim, 1e-4);
     for (int i = 0; i < 200; i++) tick(&r, 0, -90);
     T_NEAR(r.c.camera_yaw, -lim, 1e-4);
-    tick(&r, BTN_UP, 0);                  /* leave camera mode */
+    tick(&r, BTN_UP, 0);                  /* leaving camera mode keeps the look */
+    for (int i = 0; i < 100; i++) tick(&r, 0, 0);
+    T_NEAR(r.c.camera_yaw, -lim, 1e-4);
+    tick(&r, BTN_DOWN, 0);                /* entering does not recentre either */
+    T_NEAR(r.c.camera_yaw, -lim, 1e-4);
+    tick(&r, BTN_DOWN, 0);                /* a second press in camera mode does */
     float y0 = r.c.camera_yaw;
     tick(&r, 0, 0);
     float step = deg2rad(r.cfg.camera.return_rate) / 30;

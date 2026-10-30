@@ -25,7 +25,8 @@ typedef struct {
     Mode mode;
     int sail;                 /* selected sail index */
     float camera_yaw;         /* rad, what the camera uses */
-    float camera_target_yaw;  /* rad, set by the crank in CAMERA mode */
+    float camera_target_yaw;  /* rad, set by the crank in CAMERA mode; held when leaving it */
+    bool camera_recentre;     /* DOWN pressed again in CAMERA mode: ease the look back to 0 */
 } Controls;
 
 void controls_init(Controls *c);

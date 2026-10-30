@@ -90,33 +90,14 @@ static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, i
 }
 
 /* Near sea as a heightfield mesh: a grid in the camera's frame, every vertex lifted by the wave
-   height there, each quad shaded by its slope against a fixed light, with crest (white) and
-   trough (black) contour lines so the wave shape turns as the camera orbits. */
-#define MESH_ROWS 14
-#define MESH_COLS 16
+   height there, each quad shaded by its slope against a fixed light, so the wave shape turns as the camera orbits. */
+#define MESH_ROWS 22
+#define MESH_COLS 28
 #define MESH_NEAR 2.0f
 #define MESH_FAR 70.0f
 #define MESH_LAT 1.7f        /* half-width of the grid as a multiple of distance */
 
 static int iround(float v) { return (int)lroundf(clampf(v, -2000.0f, 2000.0f)); }
-
-/* line where the interpolated height crosses lvl inside one quad (corners 0..3 in loop order) */
-static void quad_contour(PlaydateAPI *pd, const float *sx, const float *sy, const float *h,
-                         float lvl, int thick, LCDColor col) {
-    float px[4], py[4];
-    int n = 0;
-    for (int e = 0; e < 4; e++) {
-        int a = e, b = (e + 1) & 3;
-        float da = h[a] - lvl, db = h[b] - lvl;
-        if ((da < 0) == (db < 0)) continue;
-        float u = da / (da - db);
-        px[n] = sx[a] + (sx[b] - sx[a]) * u;
-        py[n] = sy[a] + (sy[b] - sy[a]) * u;
-        n++;
-    }
-    for (int k = 0; k + 1 < n; k += 2)
-        pd->graphics->drawLine(iround(px[k]), iround(py[k]), iround(px[k + 1]), iround(py[k + 1]), thick, col);
-}
 
 static void draw_sea_mesh(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                           float half, float sgain, float vis) {
@@ -139,7 +120,6 @@ static void draw_sea_mesh(PlaydateAPI *pd, const Game *g, const CameraPose *c, f
     }
 
     const float lx = 0.8f, ly = 0.6f;                        /* world direction the light comes from */
-    float crest = 0.4f * half;
     for (int j = MESH_ROWS - 1; j >= 0; j--) {               /* far -> near */
         float d = dist[j];
         float fog = clampf(d / vis, 0.0f, 1.0f);
@@ -163,16 +143,6 @@ static void draw_sea_mesh(PlaydateAPI *pd, const Game *g, const CameraPose *c, f
             int pts[8];
             for (int k = 0; k < 4; k++) { pts[2 * k] = iround(sx[k]); pts[2 * k + 1] = iround(sy[k]); }
             pd->graphics->fillPolygon(4, pts, render_pattern(level), kPolygonFillNonZero);
-        }
-        if (d > vis * 0.9f) continue;
-        int thick = d < 12.0f ? 2 : 1;
-        for (int i = 0; i < MESH_COLS; i++) {
-            if (!(OK[j][i] && OK[j][i + 1] && OK[j + 1][i + 1] && OK[j + 1][i])) continue;
-            float sx[4] = { SX[j][i], SX[j][i + 1], SX[j + 1][i + 1], SX[j + 1][i] };
-            float sy[4] = { SY[j][i], SY[j][i + 1], SY[j + 1][i + 1], SY[j + 1][i] };
-            float h[4] = { H[j][i], H[j][i + 1], H[j + 1][i + 1], H[j + 1][i] };
-            quad_contour(pd, sx, sy, h, crest, thick, kColorWhite);
-            quad_contour(pd, sx, sy, h, -crest, 1, kColorBlack);
         }
     }
 }

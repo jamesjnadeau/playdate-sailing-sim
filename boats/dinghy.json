@@ -5,7 +5,7 @@
     "beam": 1.5,
     "mass": 120,
     "crew_mass": 80,
-    "hiking_arm": 0.8,
+    "hiking_arm": 1,
     "hull_speed": 3.2,
     "resistance": [[0, 0], [1, 8], [2, 35], [3, 90], [4, 220], [6, 700]],
     "heel_drag": 0.5,
@@ -13,7 +13,7 @@
     "yaw_damping": 120,
     "heel_inertia": 140,
     "heel_damping": 180,
-    "righting": [[0, 0], [10, 260], [25, 520], [45, 640], [70, 450], [90, 0]],
+    "righting": [[0, 0], [10, 390], [25, 780], [45, 960], [70, 675], [90, 0]],
     "capsize_deg": 70
   },
   "foils": {
@@ -59,9 +59,9 @@
   "camera": {
     "height": 1.2,
     "x_offset": -2.7,
+    "heel_bias": 0.25,
     "frame_margin": 20,
     "far_height": 2.5,
-    "heel_bias": 0.25,
     "roll_limit_deg": 10,
     "roll_smooth": 0.4,
     "pitch_smooth": 0.3,

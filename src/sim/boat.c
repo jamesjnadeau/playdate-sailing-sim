@@ -46,7 +46,7 @@ void boat_init(BoatState *b, const BoatCfg *c) {
     for (int i = 0; i < c->sail_count && i < BOAT_MAX_SAILS; i++) {
         const SailCfg *s = &c->sails[i];
         b->trims[i] = clampf(deg2rad(30.0f), deg2rad(s->trim_min_deg), deg2rad(s->trim_max_deg));
-        b->hoists[i] = 1.0f;
+        b->hoists[i] = s->shape == 2 ? 0.0f : 1.0f;   /* spinnaker starts stowed */
         b->swing[i] = -1.0f;
     }
 }

@@ -27,7 +27,7 @@ typedef struct {
 #define COUNT(a) ((int)(sizeof a / sizeof a[0]))
 
 static const Pt RESISTANCE[] = { {0, 0}, {1, 8}, {2, 35}, {3, 90}, {4, 220}, {6, 700} };
-static const Pt RIGHTING[]   = { {0, 0}, {10, 260}, {25, 520}, {45, 640}, {70, 450}, {90, 0} };
+static const Pt RIGHTING[]   = { {0, 0}, {10, 390}, {25, 780}, {45, 960}, {70, 675}, {90, 0} };
 static const Pt SAIL_CL[]    = { {0, 0}, {5, 0.5f}, {10, 1.0f}, {15, 1.35f}, {18, 1.4f}, {25, 1.1f},
                                  {40, 0.9f}, {60, 1.0f}, {90, 1.1f}, {120, 0.7f}, {180, 0} };
 static const Pt SAIL_CD[]    = { {0, 0.08f}, {10, 0.17f}, {18, 0.3f}, {30, 0.55f}, {60, 1.0f},
@@ -39,7 +39,7 @@ static const Field HULL_F[] = {
     FF(HullCfg, beam, 1.5f, 0.3f, 6),
     FF(HullCfg, mass, 120, 5, 20000),
     FF(HullCfg, crew_mass, 80, 0, 500),
-    FF(HullCfg, hiking_arm, 0.8f, 0, 3),
+    FF(HullCfg, hiking_arm, 1.0f, 0, 3),
     FF(HullCfg, hull_speed, 3.2f, 0.5f, 15),
     FT(HullCfg, resistance, RESISTANCE),
     FF(HullCfg, heel_drag, 0.5f, 0, 10),

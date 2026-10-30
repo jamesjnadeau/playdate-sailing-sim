@@ -34,7 +34,8 @@ SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_ra
     float cd = table_eval(s->cd.p, s->cd.n, aoa_deg) + luff * s->luff_drag;
 
     float q = 0.5f * RHO_AIR * aws * aws;
-    float area = s->area * hoist * clampf(cosf(heel_rad), 0, 1);
+    float ch = clampf(cosf(heel_rad), 0, 1);
+    float area = s->area * hoist * ch * ch;   /* projected area and sheet-easing both shrink with heel */
     float qa = q * area * win;
 
     /* flow direction (air velocity) and lift direction (perpendicular, leeward) */

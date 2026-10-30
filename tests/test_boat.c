@@ -122,7 +122,7 @@ static void test_irons_no_steerage(void) {
 }
 
 static void test_capsize_in_gust(void) {
-    Sim s; sim_init(&s, 70, 25 * KN, 1.0f);
+    Sim s; sim_init(&s, 70, 35 * KN, 1.0f);
     s.autotrim = 0;
     for (int i = 0; i < s.cfg.sail_count; i++) s.in.trim_target[i] = D(45);
     for (int i = 0; i < s.cfg.sail_count; i++) s.b.trims[i] = D(45);

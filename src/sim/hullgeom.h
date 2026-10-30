@@ -1,0 +1,31 @@
+#ifndef HULLGEOM_H
+#define HULLGEOM_H
+#include <stdbool.h>
+
+/* Hull / water geometry for a heeled boat, kept free of drawing so it can be tested.
+ * Boat frame: x forward, y starboard, z up from the hull's mean waterline. heel > 0 puts the
+ * starboard rail down. Hull sides tuck inwards from the gunwale (z = fb) to the keel line. */
+
+/* Where the sea surface cuts the side of the hull at one section. w is the half-width at the
+ * gunwale, sgn -1 port / +1 starboard, surf the sea height relative to the mean waterline at that
+ * spot. Returns the boat-frame height of the cut, clamped to [keel, fb] (fb = the rail is under,
+ * keel = the side is clear of the water), and the lateral offset of that point in *y. */
+float hull_side_z(float w, int sgn, float fb, float keel, float tuck, float heel, float surf, float *y);
+
+/* Which side of the hull faces away from the eye: +1 starboard, -1 port, 0 when the eye is near
+ * enough to the heeled hull's midplane that both sides show. lat_e is the eye's offset to
+ * starboard of the boat, h_e its height above the boat's origin. */
+int hull_hidden_side(float heel, float lat_e, float h_e, float beam);
+
+/* True when the deck's upward normal points toward the eye (false once heeled far enough that the
+ * hull's underside is what the eye sees, with the deck and rig behind it). */
+bool hull_deck_faces_eye(float heel, float lat_e, float h_e);
+
+typedef struct { float f, l, z; } HgPt;   /* forward, starboard, up: heading frame, heel already applied */
+
+/* Sutherland-Hodgman against the sea: keeps the part of the polygon with d >= 0 (d is each vertex's
+ * height above the surface). out[] is filled with at most max points; cut[k] is set for the points
+ * that lie on the surface. Returns the number of points written. */
+int hull_clip_above(const HgPt *in, const float *d, int n, HgPt *out, bool *cut, int max);
+
+#endif

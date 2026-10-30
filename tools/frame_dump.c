@@ -144,6 +144,19 @@ static void side_views(void) {
     }
 }
 
+/* Boat pinned at a heel angle (deg, + = starboard rail down) so the extreme-heel look can be checked. */
+static void forced_heel(const char *tag, float deg, float yaw) {
+    BoatCfg bc; WeatherCfg wc; WorldCfg wo;
+    boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
+    game_init(&g, &bc, &wc, &wo, WEATHER_CHOPPY, 1);
+    memset(&cp, 0, sizeof cp); cp.trail = true;
+    g.ctl.camera_yaw = yaw;
+    for (int i = 0; i < 150; i++) { game_update(&g, 0, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
+    g.b.heel = deg * 0.0174533f; g.b.heel_rate = 0;
+    camera_update(&cp, &g, &g.boat, 1.0f / 30);
+    shoot(tag);
+}
+
 int main(void) {
     memset(&gfx, 0, sizeof gfx);
     gfx.clear = s_clear; gfx.drawLine = s_drawLine; gfx.drawRect = s_drawRect; gfx.fillRect = s_fillRect;
@@ -156,5 +169,9 @@ int main(void) {
     run(WEATHER_HURRICANE, true, 30, "hurr_trail");
     run(WEATHER_CHOPPY, false, 30, "choppy_near");
     side_views();
+    forced_heel("heel55_stbd", 55, 0);
+    forced_heel("heel55_port", -55, 0);
+    forced_heel("heel55_quarter", 55, 0.7854f);
+    forced_heel("heel55_side", 55, 1.5708f);
     return 0;
 }

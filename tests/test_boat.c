@@ -169,6 +169,20 @@ static void test_far_from_origin_still_moves(void) {
     T_ASSERT(hypot(s.b.x - x0, s.b.y - y0) > 5.0);
 }
 
+static void test_boom_eases_across_on_gybe(void) {
+    Sim s;
+    sim_init(&s, -150, 6, 2);                 /* wind on port: boom out to starboard */
+    s.autopilot = 0; s.autotrim = 0;
+    for (int i = 0; i < (int)(4.0f / DT); i++) sim_step(&s);
+    T_ASSERT(s.b.swing[0] > 0.95f);
+    s.b.heading = (float)M_PI - D(150);       /* wind jumps to the starboard side */
+    sim_step(&s);
+    T_ASSERT(s.b.swing[0] > 0.8f);            /* not an instant flip */
+    int steps = 1;
+    while (s.b.swing[0] > -0.95f && steps < 300) { sim_step(&s); steps++; }
+    T_ASSERT(steps * DT > 0.3f && steps * DT < 3.0f);
+}
+
 static void test_anchor_stops_the_boat(void) {
     Sim s; sim_init(&s, 90, 10 * KN, 2.0f);
     s.in.anchor = true;
@@ -179,6 +193,7 @@ static void test_anchor_stops_the_boat(void) {
 
 int main(void) {
     T_RUN(test_upwind_angle);
+    T_RUN(test_boom_eases_across_on_gybe);
     T_RUN(test_leeway_emerges);
     T_RUN(test_top_speed_near_hull_speed);
     T_RUN(test_tack_takes_4_to_8s_and_loses_speed);

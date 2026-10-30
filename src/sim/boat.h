@@ -28,6 +28,7 @@ typedef struct {
     /* derived each step, for HUD / camera / render */
     float awa, aws;
     float luff[BOAT_MAX_SAILS];
+    float swing[BOAT_MAX_SAILS], swing_v[BOAT_MAX_SAILS]; /* boom side: -1 port .. +1 starboard, eased across on a tack/gybe */
     float helm_load;             /* rudder side force, N (+ pushes stern to starboard) */
     float pitch, heave;          /* copied from WaveForces */
 } BoatState;

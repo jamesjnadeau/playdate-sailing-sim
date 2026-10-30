@@ -47,6 +47,7 @@ void boat_init(BoatState *b, const BoatCfg *c) {
         const SailCfg *s = &c->sails[i];
         b->trims[i] = clampf(deg2rad(30.0f), deg2rad(s->trim_min_deg), deg2rad(s->trim_max_deg));
         b->hoists[i] = 1.0f;
+        b->swing[i] = -1.0f;
     }
 }
 
@@ -108,6 +109,12 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
         SailForce sf = sail_force(&c->sails[i], b->trims[i], b->hoists[i], awa, aws, b->heel, mult);
         sfx += sf.fx; sfy += sf.fy; sheel += sf.heel_moment; syaw += sf.yaw_moment;
         b->luff[i] = sf.luff;
+        /* the boom is flung across by the wind: a damped spring toward the leeward side, stiffer in more wind */
+        float k = 6.0f + 1.5f * fminf(aws, 15.0f), cdamp = 1.4f * sqrtf(k);
+        float target = awa >= 0 ? -1.0f : 1.0f;
+        b->swing_v[i] += (k * (target - b->swing[i]) - cdamp * b->swing_v[i]) * dt;
+        b->swing[i] += b->swing_v[i] * dt;
+        if (fabsf(b->swing[i]) > 1.0f) { b->swing[i] = b->swing[i] > 0 ? 1.0f : -1.0f; b->swing_v[i] = 0.0f; }
     }
 
     /* --- hull and foils (forces in the boat frame) --- */

@@ -232,7 +232,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     const BoatState *b = &k->g->b;
     float hoist = b->hoists[i];
     if (hoist < 0.02f) return;
-    float side = b->awa >= 0 ? -1.0f : 1.0f;                       /* sail swings to leeward */
+    float side = b->swing[i];                                      /* eased across when the wind changes sides */
     float fb = cfg->look.freeboard;
     float tx = s->tack_x, tz = fb + s->tack_z;
     float hx = s->shape == 0 ? tx : tx + (cfg->look.mast_x - tx) * 0.15f;

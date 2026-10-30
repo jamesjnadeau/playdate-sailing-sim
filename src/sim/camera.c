@@ -2,6 +2,8 @@
 #include <math.h>
 #include "mathx.h"
 
+#define TRAIL_PITCH (-0.2f)   /* rad, negative looks down */
+
 /* Exponential approach; smooth is a time constant in seconds (0 = immediate). */
 static float approach(float cur, float target, float smooth, float dt) {
     if (smooth <= 1e-6f) return target;
@@ -29,7 +31,8 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
 
     float limit = deg2rad(k->roll_limit_deg);
     c->roll = approach(c->roll, clampf(b->heel, -limit, limit), k->roll_smooth, dt);
-    c->pitch = approach(c->pitch, b->pitch, k->pitch_smooth, dt);
+    /* trailing view looks down at the boat so the hull sits above the status panel */
+    c->pitch = approach(c->pitch, b->pitch + (c->trail ? TRAIL_PITCH : 0.0f), k->pitch_smooth, dt);
 
     c->deck_roll = b->heel;
     c->deck_pitch = b->pitch;

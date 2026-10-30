@@ -375,6 +375,44 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (boat_pt(&k, L * (0.5f - u), -w, fb, &sx, &sy)) { pts[2 * n] = (int)sx; pts[2 * n + 1] = (int)sy; n++; }
     }
     if (n < 3) return;
+    /* topsides and bottom: gunwale line down to a narrower keel line, one panel per side, plus the transom */
+    const float keel = -0.3f, tuck = 0.45f;
+    LCDColor side_col = render_pattern((int)(lk->hull_shade * 16.0f) + 5);
+    for (int sgn = -1; sgn <= 1; sgn += 2) {
+        int q[4 * N], m = 0;
+        bool ok = true;
+        for (int i = 0; i < N && ok; i++) {
+            float u = (float)i / (N - 1);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
+            ok = boat_pt(&k, L * (0.5f - u), sgn * w, fb, &sx, &sy);
+            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
+        }
+        for (int i = N - 1; i >= 0 && ok; i--) {
+            float u = (float)i / (N - 1);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * tuck;
+            ok = boat_pt(&k, L * (0.5f - u), sgn * w, keel, &sx, &sy);
+            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
+        }
+        if (!ok) continue;
+        pd->graphics->fillPolygon(m, q, side_col, kPolygonFillNonZero);
+        for (int i = 0; i < m; i++)
+            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * ((i + 1) % m)], q[2 * ((i + 1) % m) + 1], 1, kColorBlack);
+    }
+    {
+        float wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
+        float xs = -0.5f * L, tx[4][3] = { { xs, -wt, fb }, { xs, wt, fb }, { xs, wt * tuck, keel }, { xs, -wt * tuck, keel } };
+        int q[8];
+        bool ok = true;
+        for (int i = 0; i < 4 && ok; i++) {
+            ok = boat_pt(&k, tx[i][0], tx[i][1], tx[i][2], &sx, &sy);
+            q[2 * i] = (int)sx; q[2 * i + 1] = (int)sy;
+        }
+        if (ok) {
+            pd->graphics->fillPolygon(4, q, side_col, kPolygonFillNonZero);
+            for (int i = 0; i < 4; i++)
+                pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * ((i + 1) % 4)], q[2 * ((i + 1) % 4) + 1], 1, kColorBlack);
+        }
+    }
     pd->graphics->fillPolygon(n, pts, render_pattern((int)(lk->hull_shade * 16.0f)), kPolygonFillNonZero);
     for (int i = 0; i < n; i++)
         pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) % n)], pts[2 * ((i + 1) % n) + 1], 2, kColorBlack);

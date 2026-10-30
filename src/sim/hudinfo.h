@@ -1,6 +1,7 @@
 #ifndef HUDINFO_H
 #define HUDINFO_H
 #include <stdbool.h>
+#include <stddef.h>
 #include "boatcfg.h"
 #include "controls.h"
 
@@ -19,5 +20,12 @@ int hud_heading_deg(float rad);
  * the SailCfg's degrees converted from `trim_rad`. Other modes and non-finite inputs -> 0.
  * A zero or negative trim range -> 0. */
 float hud_sail_fraction(Mode m, const SailCfg *s, float trim_rad, float hoist);
+
+/* Seconds to "MM:SS.S" (tenths rounded). Negative or non-finite -> 0. Truncated to n. */
+void hud_fmt_time(double t, char *out, size_t n);
+
+/* "<name> <index>/<total>  <dist>m" with dist in whole metres. Non-finite or negative
+ * dist -> 0. Truncated to n. */
+void hud_fmt_mark(const char *name, int index, int total, double dist_m, char *out, size_t n);
 
 #endif

@@ -66,6 +66,26 @@ static void test_sail_fraction_degenerate(void) {
     T_NEAR(hud_sail_fraction(MODE_HOIST, &s, 0, NAN), 0.0, 0);
 }
 
+static void test_fmt_time(void) {
+    char b[16];
+    hud_fmt_time(0.0, b, sizeof b);      T_ASSERT(strcmp(b, "00:00.0") == 0);
+    hud_fmt_time(75.34, b, sizeof b);    T_ASSERT(strcmp(b, "01:15.3") == 0);
+    hud_fmt_time(-5.0, b, sizeof b);     T_ASSERT(strcmp(b, "00:00.0") == 0);
+    hud_fmt_time(NAN, b, sizeof b);      T_ASSERT(strcmp(b, "00:00.0") == 0);
+}
+
+static void test_fmt_time_truncates(void) {
+    char b[4];
+    hud_fmt_time(7260.0, b, sizeof b);   /* 121:00.0 does not fit */
+    T_ASSERT(strlen(b) == 3);
+}
+
+static void test_fmt_mark(void) {
+    char b[32];
+    hud_fmt_mark("B1", 2, 5, 340.4, b, sizeof b);   T_ASSERT(strcmp(b, "B1 2/5  340m") == 0);
+    hud_fmt_mark("B1", 2, 5, NAN, b, sizeof b);     T_ASSERT(strcmp(b, "B1 2/5  0m") == 0);
+}
+
 int main(void) {
     T_RUN(test_glyph_per_mode);
     T_RUN(test_shows_nav_only_for_wheel);
@@ -74,5 +94,8 @@ int main(void) {
     T_RUN(test_sail_fraction_trim);
     T_RUN(test_sail_fraction_hoist_and_other_modes);
     T_RUN(test_sail_fraction_degenerate);
+    T_RUN(test_fmt_time);
+    T_RUN(test_fmt_time_truncates);
+    T_RUN(test_fmt_mark);
     return T_DONE();
 }

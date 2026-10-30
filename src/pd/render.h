@@ -21,6 +21,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g);
 /* Next-mark indicator and its distance label; race mode only. */
 void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
-void hud_diag(PlaydateAPI *pd, const Game *g);
+/* System pause-menu panel: race time and next-mark info; blank in free sail. */
+void hud_pause_panel(PlaydateAPI *pd, const Game *g);
 
 #endif

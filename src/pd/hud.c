@@ -130,24 +130,27 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
-/* Diagnostics for the system-menu panel: the left ~200px of a 400x240 bitmap show beside the menu. */
-void hud_diag(PlaydateAPI *pd, const Game *g) {
-    const BoatState *b = &g->b;
+/* System pause-menu panel: the left ~200px of a 400x240 bitmap show beside the menu. */
+void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
+    const Track *tr = &g->track;
+    const Race *r = &g->race;
     char line[64];
+    char time[16], mark[48];
     int y = 6;
-    const float R2D = 57.29578f;
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
+    if (g->mode != GAME_RACE) return;
 #define ROW(...) do { snprintf(line, sizeof line, __VA_ARGS__); text(pd, line, 4, y); y += 18; } while (0)
-    ROW("TWS %.1f AWS %.1f m/s", g->wind.speed, b->aws);
-    ROW("AWA %+.0f  heel %+.0f  u %.1f", b->awa * R2D, b->heel * R2D, b->u);
-    for (int i = 0; i < g->boat.sail_count && i < BOAT_MAX_SAILS; i++) {
-        const SailForce *f = &b->sail[i];
-        ROW("%.6s h%.0f t%.0f L%.1f", g->boat.sails[i].name, b->hoists[i] * 100.0f, b->trims[i] * R2D, f->luff);
-        ROW(" F %+.0f %+.0f aoa %+.0f", f->fx, f->fy, f->aoa * R2D);
+    hud_fmt_time(r->t, time, sizeof time);
+    if (r->finished || r->next >= tr->nmarks) {
+        ROW("FINISHED");
+        ROW("Time %s", time);
+    } else {
+        double mx, my;
+        race_mark_local(r, tr, r->next, &mx, &my);
+        hud_fmt_mark(tr->marks[r->next].name, r->next + 1, tr->nmarks, hypot(mx - g->b.x, my - g->b.y), mark, sizeof mark);
+        ROW("Time %s", time);
+        ROW("%s", mark);
     }
-    ROW("SAILS %+.0f %+.0f N", b->sail_fx, b->sail_fy);
-    ROW(" hl %+.0f yw %+.0f Nm", b->sail_heel, b->sail_yaw);
-    ROW("helm %+.0f N", b->helm_load);
 #undef ROW
 }

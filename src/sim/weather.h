@@ -29,6 +29,7 @@ bool weather_load(WeatherCfg *out, const char *buf, size_t len, char *warn, size
 /* dir = world angle (rad) the wind blows TOWARD; speed in m/s. */
 typedef struct {
     float dir, speed;
+    float base;             /* m/s mean; starts as the preset's wind_base */
     double t;
     float dir0, phase[6];
     uint32_t seed, gust_n;
@@ -41,5 +42,7 @@ void wind_step(Wind *w, const WeatherPreset *p, float dt);   /* dt clamped to [0
 void wind_vec(const Wind *w, float *wx, float *wy);          /* air velocity, world frame */
 /* Sets the base direction (rad, blowing toward); the current dir keeps its offset from it. */
 void wind_set_base(Wind *w, float dir0);
+/* Overrides the mean speed (m/s); gusts and slow noise still come from the preset. Re-evaluates speed. */
+void wind_set_speed(Wind *w, const WeatherPreset *p, float mps);
 
 #endif

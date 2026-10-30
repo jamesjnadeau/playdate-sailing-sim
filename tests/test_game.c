@@ -268,6 +268,19 @@ static void test_restart_resets_race(void) {
     T_ASSERT(g.race.t == 0.0);
 }
 
+static void test_track_wind_speed_overrides_preset(void) {
+    fresh(1);
+    track_default(&tr);
+    tr.wind_speed = 9.0f;
+    game_set_track(&g, &tr);
+    T_NEAR(g.wind.base, 9.0, 1e-5);
+    game_set_preset(&g, WEATHER_STORM);                  /* the track's speed survives a preset change */
+    T_NEAR(g.wind.base, 9.0, 1e-5);
+    track_default(&tr);                                  /* unset: the preset's own mean applies */
+    game_set_track(&g, &tr);
+    T_NEAR(g.wind.base, g.weather.preset[WEATHER_STORM].wind_base, 1e-5);
+}
+
 static void test_preset_change_keeps_track_wind(void) {
     race_fresh();
     game_set_preset(&g, WEATHER_STORM);
@@ -369,6 +382,7 @@ int main(void) {
     T_RUN(test_paddle_rests_before_another_stroke);
     T_RUN(test_paddle_cleared_by_restart);
     T_RUN(test_set_track_places_boat_and_wind);
+    T_RUN(test_track_wind_speed_overrides_preset);
     T_RUN(test_race_advances_when_boat_rounds_b);
     T_RUN(test_restart_resets_race);
     T_RUN(test_preset_change_keeps_track_wind);

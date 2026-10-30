@@ -78,6 +78,24 @@ static void test_load_matches_default(void) {
     expect_same_track(&loaded, &def);
 }
 
+static void test_wind_speed_kn(void) {
+    Track t;
+    char warn[256];
+    static const char ok[] = "{\"wind_speed_kn\": 10, \"marks\":[{\"name\":\"M\",\"x\":1,\"y\":0,\"gate_deg\":0,\"rounding\":\"port\"}]}";
+    track_load(&t, ok, strlen(ok), warn, sizeof warn);
+    T_NEAR(t.wind_speed, 10.0 / 1.94384, 1e-4);
+    T_ASSERT(strstr(warn, "wind_speed") == NULL);
+    track_default(&t);
+    T_ASSERT(t.wind_speed == 0.0f);                      /* unset: the weather preset decides */
+    static const char hi[] = "{\"wind_speed_kn\": 500}";
+    T_ASSERT(!track_load(&t, hi, strlen(hi), warn, sizeof warn));
+    T_NEAR(t.wind_speed, 60.0 / 1.94384, 1e-4);          /* clamped, with a warning */
+    static const char bad[] = "{\"wind_speed_kn\": \"fast\"}";
+    track_load(&t, bad, strlen(bad), warn, sizeof warn);
+    T_ASSERT(t.wind_speed == 0.0f);
+    T_ASSERT(strstr(warn, "wind_speed_kn") != NULL);
+}
+
 static void test_load_bad_rounding_and_overflow_warn(void) {
     static char buf[4096];
     size_t n = 0;
@@ -166,6 +184,7 @@ int main(void) {
     T_RUN(test_load_bad_rounding_and_overflow_warn);
     T_RUN(test_load_garbage_gives_default);
     T_RUN(test_race_rounds_in_order_and_finishes);
+    T_RUN(test_wind_speed_kn);
     T_RUN(test_race_clock_freezes_at_finish);
     T_RUN(test_race_wrong_way_then_right_way);
     T_RUN(test_race_shift_moves_local_marks);

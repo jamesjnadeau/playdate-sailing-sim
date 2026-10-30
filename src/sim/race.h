@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
     char name[TRACK_NAME_LEN];
     float wind_from;                 /* rad, heading the wind comes from */
+    float wind_speed;                /* m/s mean wind for the race; 0 = use the weather preset */
     float start_x, start_y, start_heading;   /* m, m, rad */
     int nmarks;                      /* 1..TRACK_MAX_MARKS */
     Mark marks[TRACK_MAX_MARKS];

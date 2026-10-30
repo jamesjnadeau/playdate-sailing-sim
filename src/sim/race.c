@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define WIND_KN_MIN 1.0f      /* knots; wind_speed_kn is clamped to this range */
+#define WIND_KN_MAX 60.0f
 #define POS_LIM 20000.0f      /* m; track positions are clamped to this */
 #define MARK_NAME_LEN 8
 
@@ -112,6 +114,16 @@ bool track_load(Track *out, const char *buf, size_t len, char *warn, size_t warn
 
     get_name(root, out->name, sizeof out->name, "track", &w);
     get_angle(root, "wind_from_deg", &out->wind_from, "track", &w);
+    if (json_get(root, "wind_speed_kn")) {   /* optional */
+        float kn;
+        if (get_num(root, "wind_speed_kn", &kn, "track", &w)) {
+            if (kn < WIND_KN_MIN || kn > WIND_KN_MAX) {
+                warnf(&w, "track.wind_speed_kn: %g outside %g..%g, clamped", kn, WIND_KN_MIN, WIND_KN_MAX);
+                kn = clampf(kn, WIND_KN_MIN, WIND_KN_MAX);
+            }
+            out->wind_speed = kn / 1.94384f;
+        }
+    }
 
     const JsonNode *st = json_get(root, "start");
     if (!st || !json_is_object(st)) {

@@ -134,7 +134,7 @@ static void evaluate(Wind *w, const WeatherPreset *p) {
         float s = sinf(PI_F * (float)(w->gust_t / w->gust_len));
         g = w->gust_amp * s * s;
     }
-    float v = p->wind_base + p->wind_var * speed_noise(w) + g;
+    float v = w->base + p->wind_var * speed_noise(w) + g;
     w->speed = v < 0 ? 0 : v;
     w->dir = wrap_pi(w->dir0 + dir_offset(w, p));
 }
@@ -142,6 +142,7 @@ static void evaluate(Wind *w, const WeatherPreset *p) {
 void wind_init(Wind *w, const WeatherPreset *p, uint32_t seed) {
     memset(w, 0, sizeof *w);
     w->seed = seed;
+    w->base = p->wind_base;
     w->dir0 = (hashf(hash2(9, 9, seed)) * 2 - 1) * PI_F;
     for (int i = 0; i < 6; i++) w->phase[i] = hashf(hash2(i, 5, seed)) * 2 * PI_F;
     schedule_gust(w, p);
@@ -164,6 +165,11 @@ void wind_step(Wind *w, const WeatherPreset *p, float dt) {
 void wind_set_base(Wind *w, float dir0) {
     w->dir = wrap_pi(w->dir + (dir0 - w->dir0));
     w->dir0 = dir0;
+}
+
+void wind_set_speed(Wind *w, const WeatherPreset *p, float mps) {
+    w->base = mps;
+    evaluate(w, p);
 }
 
 void wind_vec(const Wind *w, float *wx, float *wy) {

@@ -11,6 +11,8 @@ static void start_weather(Game *g) {
     wind_init(&g->wind, p, g->seed);
     if (g->mode == GAME_RACE)
         wind_set_base(&g->wind, wrap_pi(g->track.wind_from + (float)M_PI));
+    if (g->mode == GAME_RACE && g->track.wind_speed > 0.0f)
+        wind_set_speed(&g->wind, p, g->track.wind_speed);
     sea_init(&g->sea, p, g->seed);
     memset(&g->wf, 0, sizeof g->wf);
 }

@@ -87,3 +87,46 @@ bool camera_project(const CameraPose *c, double wx, double wy, float wz,
     if (depth) *depth = f;
     return true;
 }
+
+void camera_mark_view(const CameraPose *c, double wx, double wy, float bottom, MarkView *out) {
+    const float pad = MARK_EDGE_PAD;
+    const float cx = CAM_W * 0.5f, cy = bottom * 0.5f;
+    const float hw = CAM_W * 0.5f - pad, hh = bottom * 0.5f - pad;
+    float sx, sy;
+    out->on_screen = false;
+    out->x = CAM_W - pad;
+    out->y = CAM_HORIZON_Y;
+    out->angle = 0;
+    if (camera_project(c, wx, wy, MARK_IND_Z, &sx, &sy, NULL)) {
+        if (sx >= 0 && sx < CAM_W && sy >= 0 && sy < bottom) {
+            out->on_screen = true;
+            out->x = sx;
+            out->y = sy;
+            return;
+        }
+        /* projected but off screen: pull it to the padded box along the line from its centre */
+        float dx = sx - cx, dy = sy - cy;
+        float t = 1.0f;
+        if (fabsf(dx) > 1e-6f) t = fminf(t, hw / fabsf(dx));
+        if (fabsf(dy) > 1e-6f) t = fminf(t, hh / fabsf(dy));
+        out->x = cx + dx * t;
+        out->y = cy + dy * t;
+        out->angle = atan2f(dy, dx);
+    } else {
+        /* behind the camera: the side it is on decides the edge */
+        float rel = wrap_pi((float)(atan2(wy - c->y, wx - c->x) - c->yaw));
+        if (rel >= 0) {
+            out->x = CAM_W - pad;
+            out->angle = 0;
+        } else {
+            out->x = pad;
+            out->angle = (float)M_PI;
+        }
+        out->y = CAM_HORIZON_Y;
+    }
+    if (!(isfinite(out->x) && isfinite(out->y) && isfinite(out->angle))) {
+        out->x = CAM_W - pad;
+        out->y = CAM_HORIZON_Y;
+        out->angle = 0;
+    }
+}

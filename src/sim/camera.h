@@ -22,8 +22,20 @@ typedef struct {
 /* Smooths toward the boat; dt is clamped like the game's, non-finite counts as 1/30. */
 void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt);
 
+#define MARK_IND_Z 4.0f      /* m above the sea where the on-screen marker anchors */
+#define MARK_EDGE_PAD 12.0f  /* px kept between an edge arrow and the screen edge */
+
+typedef struct {
+    bool on_screen;   /* true: (x, y) is the point above the mark */
+    float x, y;       /* px */
+    float angle;      /* off screen: screen direction toward the mark, rad (0 = right, +pi/2 = down) */
+} MarkView;
+
 /* False for points at or behind the camera plane. depth is distance along the view axis. */
 bool camera_project(const CameraPose *c, double wx, double wy, float wz,
                     float *sx, float *sy, float *depth);
+
+/* bottom: lowest usable row (the HUD panel top). Always fills `out` with finite values. */
+void camera_mark_view(const CameraPose *c, double wx, double wy, float bottom, MarkView *out);
 
 #endif

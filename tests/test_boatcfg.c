@@ -129,6 +129,20 @@ static void test_garbage_buffer_gives_default(void) {
     T_ASSERT(memcmp(&c, &d, sizeof d) == 0);
 }
 
+static void test_spinnaker_example_has_three_sails(void) {
+    size_t n;
+    char *buf = slurp("../boats/spinnaker_example.json", &n);
+    BoatCfg c;
+    char warn[W];
+    T_ASSERT(buf != NULL);
+    T_ASSERT(boatcfg_load(&c, buf, n, warn, sizeof warn));   /* no warnings */
+    T_ASSERT(c.sail_count == 3);
+    T_ASSERT(strcmp(c.sails[2].name, "spinnaker") == 0);
+    T_ASSERT(c.sails[2].shape == 2);
+    T_ASSERT(c.sails[2].awa_min_deg >= 90.0f);
+    free(buf);
+}
+
 int main(void) {
     T_RUN(test_default_is_sane);
     T_RUN(test_dinghy_json_reproduces_default);
@@ -138,5 +152,6 @@ int main(void) {
     T_RUN(test_sail_counts);
     T_RUN(test_tables);
     T_RUN(test_garbage_buffer_gives_default);
+    T_RUN(test_spinnaker_example_has_three_sails);
     return T_DONE();
 }

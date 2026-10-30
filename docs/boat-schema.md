@@ -21,4 +21,18 @@ ignored (default kept) with a warning.
 | `camera` | `height x_offset heel_bias roll_limit_deg roll_smooth pitch_smooth yaw_range_deg return_rate` |
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
-Adding a sail (e.g. a spinnaker) is one more entry; see `boats/spinnaker_example.json` (Task 15).
+Adding a sail (e.g. a spinnaker) is one more entry; see `boats/spinnaker_example.json`, which
+adds a third sail (`shape` 2) that only draws force for `awa_min_deg` 90 to `awa_max_deg` 180.
+
+Final field ranges for the sail entries, with the camera and control fields most often tuned:
+
+| Field | Range | Notes |
+|---|---|---|
+| `shape` | 0, 1, 2 | 0 main, 1 headsail, 2 spinnaker (drawing only) |
+| `awa_min_deg`, `awa_max_deg` | 0-180 | min must not exceed max, else both reset |
+| `mesh_w`, `mesh_h` | 2-16 | drawn mesh lines; renderer caps at 12 wide, 16 high |
+| `camber` | 0-0.3 | bulge as a fraction of chord |
+| `shade` | 0-1 | 0 white .. 1 black fill |
+| `camera.roll_limit_deg` | 0-45 | horizon roll cap; deck still tilts by full heel |
+
+The table in `src/sim/boatcfg.c` stays authoritative if this page and the code ever differ.

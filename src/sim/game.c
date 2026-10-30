@@ -27,6 +27,9 @@ static void reset(Game *g) {
         g->b.heading = g->track.start_heading;
     }
     race_init(&g->race);
+    g->b_gap = GAME_TAP_GAP_S;
+    g->anchor_pending = false;
+    g->paddle_left = g->paddle_wait = 0.0f;
     start_weather(g);
     g->t = 0.0;
     g->run = RUN_SAILING;
@@ -78,6 +81,30 @@ static void recentre(Game *g) {
     if (g->mode == GAME_RACE) race_shift(&g->race, dx, dy);   /* marks move with the boat */
 }
 
+/* A lone tap of B is the anchor (a hold is the autotrim), once GAME_TAP_GAP_S passes with no
+   second tap. Taps mashed closer than that start a paddle stroke instead, when the last one has rested. */
+static void b_taps(Game *g, bool tap, float dt) {
+    g->paddle_wait = fmaxf(g->paddle_wait - dt, 0.0f);
+    if (tap) {
+        if (g->b_gap < GAME_TAP_GAP_S) {
+            g->anchor_pending = false;
+            if (g->paddle_wait <= 0.0f) {
+                g->paddle_left = GAME_PADDLE_S;
+                g->paddle_wait = GAME_PADDLE_S + GAME_PADDLE_REST_S;
+            }
+        } else {
+            g->anchor_pending = true;
+        }
+        g->b_gap = 0.0f;
+        return;
+    }
+    g->b_gap = fminf(g->b_gap + dt, GAME_TAP_GAP_S);
+    if (g->anchor_pending && g->b_gap >= GAME_TAP_GAP_S) {
+        g->anchor_pending = false;
+        g->in.anchor = !g->in.anchor;
+    }
+}
+
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
@@ -92,8 +119,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         if (g->ap.on)
             g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r,
                                                  wrap_pi(g->wind.dir + (float)M_PI));
-        if (autotrim_buttons(&g->at, &g->boat.controls, pressed, held, dt))
-            g->in.anchor = !g->in.anchor;   /* a tap of B is the anchor, a hold the autotrim */
+        b_taps(g, autotrim_buttons(&g->at, &g->boat.controls, pressed, held, dt), dt);
         autotrim_update(&g->at, &g->boat, &g->b, &g->in, dt);
     }
 
@@ -115,6 +141,10 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     const double x0 = g->b.x, y0 = g->b.y;
     for (int i = 0; i < n; i++) {
         if (g->run == RUN_WRECKED) break;
+        if (g->paddle_left > 0.0f) {   /* paddling: surge held up to the paddle speed, no more */
+            if (g->run == RUN_SAILING && !(g->b.u >= GAME_PADDLE_SPEED)) g->b.u = GAME_PADDLE_SPEED;
+            g->paddle_left = fmaxf(g->paddle_left - h, 0.0f);
+        }
         boat_step(&g->b, &g->boat, &g->wind, &g->in, &g->wf, h);
         /* HitKind k = rocks_collide(&g->world, g->rocks, g->nrocks, &g->b, &g->boat, g->wf.heave);
         if (k > g->last_hit) g->last_hit = k;

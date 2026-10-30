@@ -201,13 +201,23 @@ static void test_autopilot_frozen_when_capsized(void) {
     T_ASSERT(g.ap.on);
 }
 
+static void idle(float s) {
+    for (int i = 0; i < (int)(s * 30.0f + 0.5f); i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
+static void tap_b(void) {
+    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
 static void test_b_tap_anchors_and_hold_autotrims(void) {
     fresh(1);
-    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
+    tap_b();
+    T_ASSERT(!g.in.anchor);                /* waits to see it is not a mash */
+    idle(GAME_TAP_GAP_S);
     T_ASSERT(g.in.anchor && !g.at.on);
-    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
+    tap_b();
+    idle(GAME_TAP_GAP_S);
     T_ASSERT(!g.in.anchor);
     game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
     for (int i = 0; i < 30; i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
@@ -288,6 +298,54 @@ static void test_free_range_unchanged(void) {
     T_NEAR(g.b.y, 0.0, 1e-9);
 }
 
+static void test_b_mash_paddles_without_anchoring(void) {
+    fresh(1);
+    g.b.u = -0.5f;                         /* stuck going backwards */
+    tap_b(); tap_b();
+    T_ASSERT(g.paddle_left > 0.0f);
+    idle(0.5f);
+    T_ASSERT(g.b.u > 0.9f && g.b.u <= GAME_PADDLE_SPEED + 0.15f);   /* plus the sails' own push */
+    idle(1.0f);
+    T_NEAR(g.paddle_left, 0.0, 1e-6);
+    T_ASSERT(!g.in.anchor);
+}
+
+static void test_paddle_never_adds_speed(void) {
+    fresh(1);
+    g.b.u = 3.0f;
+    tap_b(); tap_b();
+    T_ASSERT(g.paddle_left > 0.0f);
+    float before = g.b.u;
+    idle(0.2f);
+    T_ASSERT(g.b.u <= before + 0.05f);     /* only the sails' own push, nothing from the paddle */
+    g.b.u = 0.6f;
+    idle(0.1f);
+    T_ASSERT(g.b.u <= GAME_PADDLE_SPEED + 0.15f);
+}
+
+static void test_paddle_rests_before_another_stroke(void) {
+    fresh(1);
+    tap_b(); tap_b();                      /* stroke at t=0 */
+    idle(GAME_PADDLE_S + 1.0f);
+    T_NEAR(g.paddle_left, 0.0, 1e-6);
+    tap_b(); tap_b();                      /* still resting: no stroke, and no anchor either */
+    T_NEAR(g.paddle_left, 0.0, 1e-6);
+    idle(GAME_TAP_GAP_S);
+    T_ASSERT(!g.in.anchor);
+    idle(GAME_PADDLE_REST_S);
+    tap_b(); tap_b();
+    T_ASSERT(g.paddle_left > 0.0f);
+}
+
+static void test_paddle_cleared_by_restart(void) {
+    fresh(1);
+    tap_b(); tap_b();
+    game_restart(&g, 2);
+    T_NEAR(g.paddle_left, 0.0, 1e-6);
+    T_NEAR(g.paddle_wait, 0.0, 1e-6);
+    T_ASSERT(!g.anchor_pending);
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -306,6 +364,10 @@ int main(void) {
     T_RUN(test_autopilot_cleared_on_restart);
     T_RUN(test_autopilot_frozen_when_capsized);
     T_RUN(test_b_tap_anchors_and_hold_autotrims);
+    T_RUN(test_b_mash_paddles_without_anchoring);
+    T_RUN(test_paddle_never_adds_speed);
+    T_RUN(test_paddle_rests_before_another_stroke);
+    T_RUN(test_paddle_cleared_by_restart);
     T_RUN(test_set_track_places_boat_and_wind);
     T_RUN(test_race_advances_when_boat_rounds_b);
     T_RUN(test_restart_resets_race);

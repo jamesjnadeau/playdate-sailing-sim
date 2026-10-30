@@ -7,7 +7,7 @@
 
 #define HUD_MODE_W 46          /* inverted mode-name cell at the left of the bar */
 #define HUD_SPEED_END (HUD_MODE_W + 52)   /* right edge of the speed cell */
-#define HUD_HDG_END (HUD_SPEED_END + 62)  /* right edge of the heading cell */
+#define HUD_HDG_END (HUD_SPEED_END + 66)  /* right edge of the heading cell */
 #define HUD_PAD 6              /* text inset inside a cell */
 
 static void text(PlaydateAPI *pd, const char *s, int x, int y) {
@@ -64,11 +64,11 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         pd->graphics->fillRect(HUD_MODE_W + 56, top + 8, (int)(70.0f * f), 4, kColorWhite);
     }
 
+    if (g->at.on) text(pd, "AT", 236, ty);
     if (g->ap.on) {
         snprintf(line, sizeof line, "AP %03d", hud_heading_deg(g->ap.target));
-        text(pd, line, 236, ty);
+        text(pd, line, 262, ty);
     }
-    if (g->at.on) text(pd, "AT", 290, ty);
 
     /* apparent wind dial: the needle points where the wind is going (downwind), relative to the bow (up) */
     const int cx = CAM_W - 12, cy = top + HUD_H / 2, R = 8;

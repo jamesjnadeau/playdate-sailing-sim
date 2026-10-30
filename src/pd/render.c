@@ -344,8 +344,8 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
     const float chord = 0.45f;
-    float rx = g->boat.hull.rudder_x;
-    float d = g->b.wheel * g->boat.hull.rudder_max_deg * 0.017453f;
+    float rx = g->boat.foils.rudder_x;
+    float d = g->b.wheel * g->boat.foils.rudder_max_deg * 0.017453f;
     float tx = rx - chord * cosf(d), ty = chord * sinf(d);
     float x0, y0, x1, y1, x2, y2, x3, y3;
     if (!boat_pt(&k, rx, 0, 0.1f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.1f, &x1, &y1) ||

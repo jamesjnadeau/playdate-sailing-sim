@@ -343,13 +343,13 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 /* rudder blade seen from above and behind: stock at the stern, trailing edge swung by the helm */
 static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
-    const float chord = 0.45f;
+    const float chord = 0.55f;
     float rx = g->boat.foils.rudder_x;
     float d = g->b.wheel * g->boat.foils.rudder_max_deg * 0.017453f;
     float tx = rx - chord * cosf(d), ty = chord * sinf(d);
     float x0, y0, x1, y1, x2, y2, x3, y3;
-    if (!boat_pt(&k, rx, 0, 0.1f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.1f, &x1, &y1) ||
-        !boat_pt(&k, tx, ty, -0.45f, &x2, &y2) || !boat_pt(&k, rx, 0, -0.45f, &x3, &y3)) return;
+    if (!boat_pt(&k, rx, 0, 0.9f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.9f, &x1, &y1) ||
+        !boat_pt(&k, tx, ty, -0.2f, &x2, &y2) || !boat_pt(&k, rx, 0, -0.2f, &x3, &y3)) return;
     int pts[8] = { (int)x0, (int)y0, (int)x1, (int)y1, (int)x2, (int)y2, (int)x3, (int)y3 };
     pd->graphics->fillPolygon(4, pts, kColorBlack, kPolygonFillNonZero);
     pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, kColorBlack);   /* stock */
@@ -387,8 +387,8 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_streaks(pd, g, c);
     draw_rocks(pd, g, c);
     draw_spray(pd, g, c);
-    draw_rudder(pd, g, c);
     draw_hull(pd, g, c);
+    draw_rudder(pd, g, c);   /* head stands above the transom: the waterline sits behind the panel */
     draw_rig(pd, g, c);
     hud_draw(pd, g);
     hud_prompt(pd, g);

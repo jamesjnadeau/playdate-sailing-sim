@@ -493,6 +493,65 @@ static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, kColorBlack);   /* stock */
 }
 
+/* sea surface relative to the hull's mean waterline, at a boat-frame point (m, + up) */
+static float rel_surface(const Game *g, float fwd, float lat) {
+    const BoatState *b = &g->b;
+    double ch = cos(b->heading), sh = sin(b->heading);
+    float wx = (float)fmod(b->x + ch * fwd - sh * lat, SEA_WRAP);
+    float wy = (float)fmod(b->y + sh * fwd + ch * lat, SEA_WRAP);
+    return sea_height(&g->sea, wx, wy, (float)fmod(g->t, g->sea.period)) - b->heave;
+}
+
+/* Water closing over the hull: everything below the local wave surface is painted over with
+ * sea, so the topsides sink into troughs and the transom disappears behind a rising crest. */
+static void draw_submerged(PlaydateAPI *pd, const Game *g, const CameraPose *c, float keel, float tuck) {
+    Ctx k = { pd, g, c };
+    const LookCfg *lk = &g->boat.look;
+    float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam, fb = lk->freeboard;
+    LCDColor sea_col = render_pattern(8);
+    enum { N = 9 };
+    float sx, sy;
+    for (int sgn = -1; sgn <= 1; sgn += 2) {
+        int q[4 * N], m = 0;
+        bool ok = true;
+        int foam[2 * N], nf = 0;
+        for (int i = 0; i < N && ok; i++) {
+            float u = (float)i / (N - 1);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
+            float x = L * (0.5f - u);
+            float zr = clampf(rel_surface(g, x, sgn * w), keel, fb);
+            float f = (fb - zr) / (fb - keel);
+            ok = boat_pt(&k, x, sgn * w * (1.0f - (1.0f - tuck) * f), zr, &sx, &sy);
+            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
+            foam[2 * nf] = (int)sx; foam[2 * nf + 1] = (int)sy; nf++;
+        }
+        for (int i = N - 1; i >= 0 && ok; i--) {
+            float u = (float)i / (N - 1);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * tuck;
+            ok = boat_pt(&k, L * (0.5f - u), sgn * w, keel, &sx, &sy);
+            q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
+        }
+        if (!ok) continue;
+        pd->graphics->fillPolygon(m, q, sea_col, kPolygonFillNonZero);
+        for (int i = 0; i + 1 < nf; i++)
+            pd->graphics->drawLine(foam[2 * i], foam[2 * i + 1], foam[2 * i + 2], foam[2 * i + 3], 1, kColorWhite);
+    }
+    float xs = -0.5f * L, wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
+    float zr = clampf(rel_surface(g, xs, 0.0f), keel, fb);
+    float f = (fb - zr) / (fb - keel), wr = wt * (1.0f - (1.0f - tuck) * f);
+    float tx[4][3] = { { xs, -wr, zr }, { xs, wr, zr }, { xs, wt * tuck, keel }, { xs, -wt * tuck, keel } };
+    int q[8];
+    bool ok = true;
+    for (int i = 0; i < 4 && ok; i++) {
+        ok = boat_pt(&k, tx[i][0], tx[i][1], tx[i][2], &sx, &sy);
+        q[2 * i] = (int)sx; q[2 * i + 1] = (int)sy;
+    }
+    if (ok) {
+        pd->graphics->fillPolygon(4, q, sea_col, kPolygonFillNonZero);
+        pd->graphics->drawLine(q[0], q[1], q[2], q[3], 1, kColorWhite);
+    }
+}
+
 /* the hull seen from behind */
 static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
@@ -554,6 +613,7 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->fillPolygon(n, pts, render_pattern((int)(lk->hull_shade * 16.0f)), kPolygonFillNonZero);
     for (int i = 0; i < n; i++)
         pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) % n)], pts[2 * ((i + 1) % n) + 1], 2, kColorBlack);
+    draw_submerged(pd, g, c, keel, tuck);
 }
 
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

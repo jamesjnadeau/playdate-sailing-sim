@@ -52,14 +52,14 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     if (c->trail) side = 0.0f;
     c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
     c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
-    c->height = (c->trail ? k->far_height : k->height) + b->heave;
+    c->height = (c->trail ? k->far_height : k->height) + k->heave_gain * b->heave;
 
     c->yaw = wrap_pi(b->heading + g->ctl.camera_yaw);
 
     float limit = deg2rad(k->roll_limit_deg);
     c->roll = approach(c->roll, clampf(b->heel, -limit, limit), k->roll_smooth, dt);
     /* trailing view looks down at the boat so the hull sits above the status panel */
-    c->pitch = approach(c->pitch, b->pitch + trail_pitch, k->pitch_smooth, dt);
+    c->pitch = approach(c->pitch, k->pitch_gain * b->pitch + trail_pitch, k->pitch_smooth, dt);
 
     c->deck_roll = b->heel;
     c->deck_pitch = b->pitch;

@@ -129,8 +129,10 @@
     "far_height": 2.5,
     "heel_bias": 0.25,
     "roll_limit_deg": 10,
-    "roll_smooth": 0.15,
-    "pitch_smooth": 0.1,
+    "roll_smooth": 0.4,
+    "pitch_smooth": 0.3,
+    "heave_gain": 0.3,
+    "pitch_gain": 0.4,
     "yaw_range_deg": 120,
     "return_rate": 90
   },

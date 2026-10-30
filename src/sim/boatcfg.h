@@ -68,6 +68,7 @@ typedef struct {
     float far_height;               /* trailing view: eye height, m */
     float frame_margin;             /* trailing view: px kept between mast/hull and the screen edge or status panel */
     float roll_limit_deg, roll_smooth, pitch_smooth;
+    float heave_gain, pitch_gain;   /* share of the wave heave / pitch the camera follows (the boat keeps all of it) */
     float yaw_range_deg, return_rate;
 } CameraCfg;
 

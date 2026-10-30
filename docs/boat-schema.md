@@ -18,7 +18,7 @@ ignored (default kept) with a warning.
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |
 | `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time` |
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade` |
-| `camera` | `height x_offset far_height frame_margin heel_bias roll_limit_deg roll_smooth pitch_smooth yaw_range_deg return_rate` |
+| `camera` | `height x_offset far_height frame_margin heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain yaw_range_deg return_rate` |
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry; see `boats/spinnaker_example.json`, which

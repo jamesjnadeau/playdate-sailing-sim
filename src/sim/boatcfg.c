@@ -125,8 +125,10 @@ static const Field CAMERA_F[] = {
     FF(CameraCfg, frame_margin, 20.0f, 0, 80),
     FF(CameraCfg, far_height, 2.5f, 0.2f, 20),
     FF(CameraCfg, roll_limit_deg, 10, 0, 45),
-    FF(CameraCfg, roll_smooth, 0.15f, 0, 3),
-    FF(CameraCfg, pitch_smooth, 0.10f, 0, 3),
+    FF(CameraCfg, roll_smooth, 0.4f, 0, 3),
+    FF(CameraCfg, pitch_smooth, 0.3f, 0, 3),
+    FF(CameraCfg, heave_gain, 0.3f, 0, 1),
+    FF(CameraCfg, pitch_gain, 0.4f, 0, 1),
     FF(CameraCfg, yaw_range_deg, 120, 10, 180),
     FF(CameraCfg, return_rate, 90, 1, 720),
 };

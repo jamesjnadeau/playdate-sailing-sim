@@ -847,12 +847,64 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (up) draw_panel(pd, &k, deck, 2 * N, deck_col, 2);
 }
 
+/* ---- race buoys ---- */
+
+#define BUOY_TOP_M 2.5f     /* m above the sea surface */
+#define BUOY_HALF_M 0.8f    /* m, half the base width */
+
+typedef struct {
+    float depth;
+    int i;
+    float bx, by, tx, ty, hw;   /* projected base centre, apex, base half-width (px) */
+} MarkDraw;
+
+static int mark_far_first(const void *x, const void *y) {
+    float a = ((const MarkDraw *)x)->depth, b = ((const MarkDraw *)y)->depth;
+    return (a < b) - (a > b);
+}
+
+static void draw_buoy(PlaydateAPI *pd, const MarkDraw *m) {
+    int tx = (int)lroundf(m->tx), ty = (int)lroundf(m->ty);
+    int lx = (int)lroundf(m->bx - m->hw), rx = (int)lroundf(m->bx + m->hw), by = (int)lroundf(m->by);
+    pd->graphics->fillTriangle(tx, ty, lx, by, rx, by, kColorBlack);
+    pd->graphics->drawLine(tx, ty, lx, by, 1, kColorWhite);
+    pd->graphics->drawLine(tx, ty, rx, by, 1, kColorWhite);
+    pd->graphics->drawLine(lx, by, rx, by, 1, kColorWhite);
+}
+
+static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    MarkDraw dm[TRACK_MAX_MARKS];
+    int n = 0;
+    const float t = (float)fmod(g->t, g->sea.period);
+    for (int i = 0; i < g->track.nmarks && i < TRACK_MAX_MARKS; i++) {
+        double mx, my;
+        race_mark_local(&g->race, &g->track, i, &mx, &my);
+        float zb = sea_height(&g->sea, (float)mx, (float)my, t);
+        MarkDraw *m = &dm[n];
+        float bd, td;
+        if (!camera_project(c, mx, my, zb, &m->bx, &m->by, &bd)) continue;
+        if (!camera_project(c, mx, my, zb + BUOY_TOP_M, &m->tx, &m->ty, &td)) continue;
+        if (bd > fvis(g)) continue;   /* hidden in mist and similar */
+        m->depth = bd;
+        m->i = i;
+        m->hw = fmaxf(2.0f, BUOY_HALF_M * CAM_FOCAL / bd);
+        n++;
+    }
+    qsort(dm, (size_t)n, sizeof dm[0], mark_far_first);
+    /* the next mark is drawn last so it sits on top */
+    for (int k = 0; k < n; k++)
+        if (dm[k].i != g->race.next) draw_buoy(pd, &dm[k]);
+    for (int k = 0; k < n; k++)
+        if (dm[k].i == g->race.next) draw_buoy(pd, &dm[k]);
+}
+
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->clear(kColorWhite);
     draw_clouds(pd, g, c);
     draw_sea(pd, g, c);
     draw_streaks(pd, g, c);
     /* draw_rocks(pd, g, c);   rocks disabled for now */
+    if (g->mode == GAME_RACE) draw_marks(pd, g, c);
     draw_spray(pd, g, c);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */
@@ -862,5 +914,6 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_rudder(pd, g, c);   /* head stands above the transom: the waterline sits behind the panel */
     if (!rig_behind) draw_rig(pd, g, c);
     hud_draw(pd, g);
+    if (g->mode == GAME_RACE) hud_race(pd, g, c);
     hud_prompt(pd, g);
 }

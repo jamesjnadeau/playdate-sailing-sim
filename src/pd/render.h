@@ -18,6 +18,8 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks);
 
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);
+/* Race banner at the top and the next-mark indicator; race mode only. */
+void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
 void hud_diag(PlaydateAPI *pd, const Game *g);
 

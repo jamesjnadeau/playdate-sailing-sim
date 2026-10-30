@@ -53,6 +53,58 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
+static int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+static void tri(PlaydateAPI *pd, float x1, float y1, float x2, float y2, float x3, float y3) {
+    int ax = (int)lroundf(x1), ay = (int)lroundf(y1), bx = (int)lroundf(x2), by = (int)lroundf(y2);
+    int cx = (int)lroundf(x3), cy = (int)lroundf(y3);
+    pd->graphics->fillTriangle(ax, ay, bx, by, cx, cy, kColorBlack);
+    pd->graphics->drawLine(ax, ay, bx, by, 1, kColorWhite);
+    pd->graphics->drawLine(ax, ay, cx, cy, 1, kColorWhite);
+    pd->graphics->drawLine(bx, by, cx, cy, 1, kColorWhite);
+}
+
+void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const Track *tr = &g->track;
+    const Race *r = &g->race;
+    char line[64];
+    const bool done = r->finished || r->next >= tr->nmarks;
+    const int mins = (int)(r->t / 60.0);
+
+    pd->graphics->fillRect(0, 0, CAM_W, 18, kColorBlack);
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    if (done) {
+        snprintf(line, sizeof line, "FINISHED  %02d:%04.1f", mins, fmod(r->t, 60.0));
+        text(pd, line, 4, 2);
+        pd->graphics->setDrawMode(kDrawModeCopy);
+        return;
+    }
+    double mx, my;
+    race_mark_local(r, tr, r->next, &mx, &my);
+    const double dist = hypot(mx - g->b.x, my - g->b.y);
+    snprintf(line, sizeof line, "MARK %s %d/%d  %4.0fm  %02d:%04.1f", tr->marks[r->next].name,
+             r->next + 1, tr->nmarks, dist, mins, fmod(r->t, 60.0));
+    text(pd, line, 4, 2);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+
+    /* indicator: above the buoy when on screen, else an arrow on the edge pointing at it */
+    MarkView mv;
+    camera_mark_view(c, mx, my, CAM_H - 36.0f, &mv);
+    if (mv.on_screen) {
+        float x = mv.x, y = mv.y;
+        tri(pd, x, y, x - 5.0f, y - 10.0f, x + 5.0f, y - 10.0f);
+    } else {
+        float s = sinf(mv.angle), co = cosf(mv.angle);
+        float bcx = mv.x - 6.0f * co, bcy = mv.y - 6.0f * s;
+        tri(pd, mv.x + 6.0f * co, mv.y + 6.0f * s, bcx - 6.0f * s, bcy + 6.0f * co, bcx + 6.0f * s, bcy - 6.0f * co);
+        snprintf(line, sizeof line, "%.0fm", dist);
+        int tx = clampi((int)mv.x + 10, 4, CAM_W - 48);
+        int ty = clampi((int)mv.y - 6, 20, CAM_H - 50);
+        text(pd, line, tx, ty);
+    }
+    pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
 void hud_prompt(PlaydateAPI *pd, const Game *g) {
     if (g->run == RUN_SAILING) return;
     const char *head = g->run == RUN_CAPSIZED ? "CAPSIZED" : "WRECKED";

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "game.h"
 #include "autopilot.h"
+#include "race.h"
 
 static Game g;
 static BoatCfg bc;
@@ -216,6 +217,77 @@ static void test_b_tap_anchors_and_hold_autotrims(void) {
     T_ASSERT(!g.at.on);
 }
 
+static Track tr;
+
+static void race_fresh(void) {
+    fresh(1);
+    track_default(&tr);
+    game_set_track(&g, &tr);
+}
+
+static void test_set_track_places_boat_and_wind(void) {
+    race_fresh();
+    T_ASSERT(g.mode == GAME_RACE);
+    T_NEAR(g.b.x, -60.0, 1e-4);
+    T_NEAR(g.b.y, 30.0, 1e-4);
+    T_NEAR(g.b.heading, deg2rad(-20), 1e-5);
+    T_NEAR(wrap_pi(g.wind.dir0 + (float)M_PI), deg2rad(45), 1e-5);
+    T_ASSERT(g.race.next == 0);
+    T_ASSERT(g.race.t == 0.0);
+}
+
+static void test_race_advances_when_boat_rounds_b(void) {
+    race_fresh();
+    g.b.x = 410.0;
+    g.b.y = 5.0;
+    g.b.heading = deg2rad(-90);
+    g.b.u = 5.0f;
+    for (int i = 0; i < 60 && g.race.next == 0; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(g.race.next == 1);
+}
+
+static void test_restart_resets_race(void) {
+    race_fresh();
+    g.race.next = 1;
+    g.race.t = 50.0;
+    game_restart(&g, 9);
+    T_ASSERT(g.mode == GAME_RACE);
+    T_NEAR(g.b.x, -60.0, 1e-4);
+    T_NEAR(g.b.y, 30.0, 1e-4);
+    T_ASSERT(g.race.next == 0);
+    T_ASSERT(g.race.t == 0.0);
+}
+
+static void test_preset_change_keeps_track_wind(void) {
+    race_fresh();
+    game_set_preset(&g, WEATHER_STORM);
+    T_NEAR(wrap_pi(g.wind.dir0 + (float)M_PI), deg2rad(45), 1e-5);
+}
+
+static void test_recentre_moves_marks_with_boat(void) {
+    race_fresh();
+    g.b.x = 5200.0;
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(g.b.x < 200.0);
+    double mx, my;
+    race_mark_local(&g.race, &g.track, 0, &mx, &my);
+    T_NEAR(mx, 400.0 - 5120.0, 1e-3);
+    T_ASSERT(g.race.next == 0);
+}
+
+static void test_free_range_unchanged(void) {
+    fresh(1);
+    T_ASSERT(g.mode == GAME_FREE);
+    T_NEAR(g.b.x, 0.0, 1e-9);
+    T_NEAR(g.b.y, 0.0, 1e-9);
+    track_default(&tr);
+    game_set_track(&g, &tr);
+    game_set_track(&g, NULL);
+    T_ASSERT(g.mode == GAME_FREE);
+    T_NEAR(g.b.x, 0.0, 1e-9);
+    T_NEAR(g.b.y, 0.0, 1e-9);
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -234,5 +306,11 @@ int main(void) {
     T_RUN(test_autopilot_cleared_on_restart);
     T_RUN(test_autopilot_frozen_when_capsized);
     T_RUN(test_b_tap_anchors_and_hold_autotrims);
+    T_RUN(test_set_track_places_boat_and_wind);
+    T_RUN(test_race_advances_when_boat_rounds_b);
+    T_RUN(test_restart_resets_race);
+    T_RUN(test_preset_change_keeps_track_wind);
+    T_RUN(test_recentre_moves_marks_with_boat);
+    T_RUN(test_free_range_unchanged);
     T_DONE();
 }

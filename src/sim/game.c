@@ -9,6 +9,8 @@ static int clamp_preset(int p) {
 static void start_weather(Game *g) {
     const WeatherPreset *p = &g->weather.preset[g->preset];
     wind_init(&g->wind, p, g->seed);
+    if (g->mode == GAME_RACE)
+        wind_set_base(&g->wind, wrap_pi(g->track.wind_from + (float)M_PI));
     sea_init(&g->sea, p, g->seed);
     memset(&g->wf, 0, sizeof g->wf);
 }
@@ -19,6 +21,12 @@ static void reset(Game *g) {
     controls_init(&g->ctl);
     autopilot_init(&g->ap);
     autotrim_init(&g->at);
+    if (g->mode == GAME_RACE) {
+        g->b.x = g->track.start_x;
+        g->b.y = g->track.start_y;
+        g->b.heading = g->track.start_heading;
+    }
+    race_init(&g->race);
     start_weather(g);
     g->t = 0.0;
     g->run = RUN_SAILING;
@@ -38,6 +46,16 @@ void game_init(Game *g, const BoatCfg *boat, const WeatherCfg *weather, const Wo
     reset(g);
 }
 
+void game_set_track(Game *g, const Track *t) {
+    if (t && t->nmarks >= 1) {
+        g->track = *t;
+        g->mode = GAME_RACE;
+    } else {
+        g->mode = GAME_FREE;
+    }
+    reset(g);
+}
+
 void game_restart(Game *g, uint32_t new_seed) {
     g->seed = new_seed;
     reset(g);
@@ -52,8 +70,12 @@ void game_set_preset(Game *g, int preset) {
    wave bands) never loses precision. The shift is a multiple of SEA_WRAP, so the sea is unchanged. */
 static void recentre(Game *g) {
     const double step = 5.0 * SEA_WRAP;   /* also a multiple of the 5 m fleck cell */
-    if (fabs(g->b.x) > step) g->b.x -= step * floor(g->b.x / step + 0.5);
-    if (fabs(g->b.y) > step) g->b.y -= step * floor(g->b.y / step + 0.5);
+    double dx = 0, dy = 0;
+    if (fabs(g->b.x) > step) dx = step * floor(g->b.x / step + 0.5);
+    if (fabs(g->b.y) > step) dy = step * floor(g->b.y / step + 0.5);
+    g->b.x -= dx;
+    g->b.y -= dy;
+    if (g->mode == GAME_RACE) race_shift(&g->race, dx, dy);   /* marks move with the boat */
 }
 
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
@@ -90,6 +112,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     float h = dt / (float)n;
     g->substeps = n;
 
+    const double x0 = g->b.x, y0 = g->b.y;
     for (int i = 0; i < n; i++) {
         if (g->run == RUN_WRECKED) break;
         boat_step(&g->b, &g->boat, &g->wind, &g->in, &g->wf, h);
@@ -100,6 +123,8 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
             g->b.u = g->b.v = g->b.r = 0.0f;
         } */
     }
+    if (g->mode == GAME_RACE && g->run == RUN_SAILING)
+        race_update(&g->race, &g->track, x0, y0, g->b.x, g->b.y, dt);
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;

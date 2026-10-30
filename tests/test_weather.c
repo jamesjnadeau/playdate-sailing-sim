@@ -139,6 +139,20 @@ static void test_load_clamps_and_warns(void) {
     T_ASSERT(!weather_load(&l, NULL, 0, warn, sizeof warn));
 }
 
+static void test_set_base_keeps_offset(void) {
+    WeatherCfg wc;
+    weather_default(&wc);
+    const WeatherPreset *p = &wc.preset[WEATHER_CHOPPY];
+    Wind w;
+    wind_init(&w, p, 7);
+    float off = wrap_pi(w.dir - w.dir0);
+    wind_set_base(&w, 1.0f);
+    T_NEAR(w.dir0, 1.0, 1e-6);
+    T_NEAR(wrap_pi(w.dir - 1.0f), off, 1e-5);
+    wind_step(&w, p, 0.5f);
+    T_ASSERT(fabsf(wrap_pi(w.dir - 1.0f)) < 1.0f);
+}
+
 int main(void) {
     T_RUN(test_speed_bounded_per_preset);
     T_RUN(test_storm_stronger_than_sunny);
@@ -148,5 +162,6 @@ int main(void) {
     T_RUN(test_wind_init_gives_nonzero_wind);
     T_RUN(test_shipped_config_equals_default);
     T_RUN(test_load_clamps_and_warns);
+    T_RUN(test_set_base_keeps_offset);
     return T_DONE();
 }

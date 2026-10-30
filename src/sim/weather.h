@@ -39,5 +39,7 @@ typedef struct {
 void wind_init(Wind *w, const WeatherPreset *p, uint32_t seed);
 void wind_step(Wind *w, const WeatherPreset *p, float dt);   /* dt clamped to [0, 1] */
 void wind_vec(const Wind *w, float *wx, float *wy);          /* air velocity, world frame */
+/* Sets the base direction (rad, blowing toward); the current dir keeps its offset from it. */
+void wind_set_base(Wind *w, float dir0);
 
 #endif

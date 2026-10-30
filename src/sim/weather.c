@@ -161,6 +161,11 @@ void wind_step(Wind *w, const WeatherPreset *p, float dt) {
     evaluate(w, p);
 }
 
+void wind_set_base(Wind *w, float dir0) {
+    w->dir = wrap_pi(w->dir + (dir0 - w->dir0));
+    w->dir0 = dir0;
+}
+
 void wind_vec(const Wind *w, float *wx, float *wy) {
     *wx = w->speed * cosf(w->dir);
     *wy = w->speed * sinf(w->dir);

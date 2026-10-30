@@ -6,6 +6,7 @@
 #include "autotrim.h"
 #include "boatcfg.h"
 #include "controls.h"
+#include "race.h"
 #include "rocks.h"
 #include "sea.h"
 #include "weather.h"
@@ -17,12 +18,16 @@
 
 typedef enum { RUN_SAILING, RUN_CAPSIZED, RUN_WRECKED } RunState;
 
+typedef enum { GAME_FREE, GAME_RACE } GameMode;
+
 typedef struct {
     BoatCfg boat;           /* copies, so a restart never depends on caller storage */
     WeatherCfg weather;
     WorldCfg world;
     int preset;
     uint32_t seed;
+    GameMode mode;
+    Track track;            /* copy; used when mode == GAME_RACE */
 
     BoatState b;
     BoatInputs in;
@@ -36,6 +41,7 @@ typedef struct {
     RunState run;
     HitKind last_hit;       /* worst contact seen this frame */
     int substeps;           /* substeps run by the last update */
+    Race race;
 
     Rock rocks[ROCKS_MAX];
     int nrocks;
@@ -50,6 +56,9 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
 
 /* One call back to the start state with a new seed (rocks, wind and sea follow the seed). */
 void game_restart(Game *g, uint32_t new_seed);
+
+/* NULL, or a track with no marks, gives the free range. Restarts the run. */
+void game_set_track(Game *g, const Track *t);
 
 /* Out-of-range presets are clamped; the wind and sea are re-seeded from the current seed. */
 void game_set_preset(Game *g, int preset);

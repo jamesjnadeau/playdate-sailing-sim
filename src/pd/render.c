@@ -161,7 +161,7 @@ static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c,
 /* Near the camera the sea is cut into bands parallel to the dominant wave's crest lines, fixed
    in the world, so the pattern slants and converges with the waves and turns as the camera
    orbits. Bands beyond the horizon haze are still lateral lines (they are too far to show it). */
-#define CREST_BANDS_MAX 28
+#define CREST_BANDS_MAX 36
 #define CREST_NEAR 3.0f
 #define CREST_SPREAD 2.2f    /* lateral half-width of the ground drawn, per metre ahead */
 
@@ -188,8 +188,8 @@ static int clip_u(const Gp *in, int n, Gp *out, float na, float nb, float lo, fl
 /* Each band is cut again along the crest line into world-fixed cells, and every cell is shaded from
    the full multi-directional surface (height and slope toward the eye), so crossing swells show as
    a field of humps and hollows instead of parallel strips. */
-#define MOGUL_CELLS_MAX 480
-#define MOGUL_MAX_ACROSS 40
+#define MOGUL_CELLS_MAX 620
+#define MOGUL_MAX_ACROSS 48
 
 static int mogul_cmp(const void *x, const void *y) {
     float a = ((const CrestBand *)x)->depth, b = ((const CrestBand *)y)->depth;
@@ -203,8 +203,8 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
     double fx = cos(c->yaw), fy = sin(c->yaw);
     float na = (float)(wnx * fx + wny * fy), nb = (float)(-wnx * fy + wny * fx);
     float pa = -nb, pb = na;                           /* along the crest line, camera frame */
-    float bw = clampf(wl * 0.09f, 2.5f, 6.0f);
-    float vw = bw * 1.5f;
+    float bw = clampf(wl * 0.075f, 2.0f, 5.0f);
+    float vw = bw * 1.4f;
     Gp trap[4] = { { CREST_NEAR, -CREST_SPREAD * CREST_NEAR }, { CREST_NEAR, CREST_SPREAD * CREST_NEAR },
                    { dfar, CREST_SPREAD * dfar }, { dfar, -CREST_SPREAD * dfar } };
     float umin = 1e9f, umax = -1e9f, vmin = 1e9f, vmax = -1e9f;
@@ -218,7 +218,7 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
     double s = c->x * wnx + c->y * wny;               /* camera's position along the wave normal */
     double s2 = c->x * -wny + c->y * wnx;             /* ... and along the crest line */
     int span = (int)ceilf((umax - umin) / bw) + 1;
-    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.5f; }
+    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.4f; }
     long k0 = (long)floor((s + umin) / bw), k1 = (long)floor((s + umax) / bw);
     long j0 = (long)floor((s2 + vmin) / vw), j1 = (long)floor((s2 + vmax) / vw);
     if (j1 - j0 > MOGUL_MAX_ACROSS) { long mid = (j0 + j1) / 2; j0 = mid - MOGUL_MAX_ACROSS / 2; j1 = mid + MOGUL_MAX_ACROSS / 2; }

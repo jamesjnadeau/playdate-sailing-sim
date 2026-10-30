@@ -412,7 +412,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
         pd->graphics->drawLine(outline[2 * (on - 1)], outline[2 * (on - 1) + 1], outline[0], outline[1], 1, kColorBlack);
 
     /* telltales are disabled: they were too small to read.
-    /* telltales near the luff: stream along the sail when it flows, whip about the wind when it luffs * /
+     * They sat near the luff, streaming along the sail when it flows and whipping about the wind when it luffs.
     float wdx = -cosf(b->awa), wdy = -sinf(b->awa);
     float lm = clampf(lufft * 1.5f, 0.0f, 1.0f);
     for (int t = 0; t < 3; t++) {

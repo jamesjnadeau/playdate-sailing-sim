@@ -213,6 +213,74 @@ static void draw_spray(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     }
 }
 
+/* ---- hull / water interaction ---- */
+
+/* water-plane point from boat-frame (fwd, stbd) metres, ignoring heel: the sea surface stays level */
+static bool water_pt(const Game *g, const CameraPose *c, float fwd, float lat, float *sx, float *sy) {
+    const BoatState *b = &g->b;
+    double ch = cos(b->heading), sh = sin(b->heading);
+    return camera_project(c, b->x + ch * fwd - sh * lat, b->y + sh * fwd + ch * lat, 0.0f, sx, sy, NULL);
+}
+
+/* Foam where the hull meets the water, a bow wave peeling off the stem and a wake that
+ * widens and fades astern. Strength follows speed; heel lifts one rail and buries the other. */
+static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const BoatState *b = &g->b;
+    const LookCfg *lk = &g->boat.look;
+    float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam;
+    float sp = fabsf(b->u);
+    float k = clampf(sp / 4.0f, 0.0f, 1.0f);
+    float sx, sy, px, py;
+    enum { N = 9 };
+
+    /* waterline ring: the hull outline at the surface, thicker on the buried (leeward) side */
+    float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
+    for (int side = -1; side <= 1; side += 2) {
+        float bury = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+        int thick = 1 + (int)(bury * 2.0f + k * 1.0f);
+        bool have = false;
+        for (int i = 0; i < N; i++) {
+            float u = (float)i / (N - 1);
+            float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * 1.08f;
+            if (!water_pt(g, c, L * (0.5f - u), side * w, &sx, &sy)) { have = false; continue; }
+            if (have) pd->graphics->drawLine((int)px, (int)py, (int)sx, (int)sy, thick, kColorWhite);
+            px = sx; py = sy; have = true;
+        }
+    }
+    float tx, ty;                                            /* foam across the transom */
+    if (water_pt(g, c, -0.5f * L, -hb, &px, &py) && water_pt(g, c, -0.5f * L, hb, &tx, &ty))
+        pd->graphics->drawLine((int)px, (int)py, (int)tx, (int)ty, 1, kColorWhite);
+
+    if (sp < 0.5f) return;
+
+    /* bow wave: two crests sweeping back and out from the stem, with a rippling edge */
+    float reach = 0.8f + 2.2f * k, spread = 0.25f + 0.9f * k;
+    uint32_t frame = (uint32_t)(g->t * 12.0);
+    for (int side = -1; side <= 1; side += 2) {
+        bool have = false;
+        for (int i = 0; i <= 6; i++) {
+            float f = (float)i / 6.0f;
+            float jig = (frand(frame + i + (side > 0 ? 7 : 0), 31) - 0.5f) * 0.12f * k;
+            if (!water_pt(g, c, 0.5f * L - f * reach, side * (hb * 0.3f + f * spread + jig), &sx, &sy)) { have = false; continue; }
+            if (have) pd->graphics->drawLine((int)px, (int)py, (int)sx, (int)sy, 1, kColorWhite);
+            px = sx; py = sy; have = true;
+        }
+    }
+
+    /* wake: ripples spaced astern that spread and thin out, shifting back with time */
+    int rings = 6;
+    float phase = fmodf((float)g->t * (0.4f + 0.3f * k), 1.0f);
+    for (int i = 0; i < rings; i++) {
+        float f = ((float)i + phase) / rings;                /* 0 at the transom .. 1 far astern */
+        float back = -0.5f * L - f * (3.0f + 6.0f * k);
+        float half = hb * (0.6f + f * (1.4f + 1.5f * k));
+        if (frand(i + (uint32_t)(g->t * 3.0), 41) < f * 0.6f) continue;   /* breaks up with distance */
+        float ax, ay, bx, by;
+        if (!water_pt(g, c, back, -half, &ax, &ay) || !water_pt(g, c, back, half, &bx, &by)) continue;
+        pd->graphics->drawLine((int)ax, (int)ay, (int)bx, (int)by, 1, kColorWhite);
+    }
+}
+
 /* ---- rig ---- */
 
 typedef struct { const PlaydateAPI *pd; const Game *g; const CameraPose *c; } Ctx;
@@ -425,6 +493,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_streaks(pd, g, c);
     draw_rocks(pd, g, c);
     draw_spray(pd, g, c);
+    draw_waterline(pd, g, c);
     draw_hull(pd, g, c);
     draw_rudder(pd, g, c);   /* head stands above the transom: the waterline sits behind the panel */
     draw_rig(pd, g, c);

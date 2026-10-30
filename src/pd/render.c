@@ -51,7 +51,7 @@ static float fvis(const Game *g) { return g->weather.preset[g->preset].visibilit
 /* ---- sky ---- */
 
 static void draw_clouds(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    static const int shade[WEATHER_PRESETS] = { 2, 5, 8, 11 };
+    static const int shade[WEATHER_PRESETS] = { 2, 5, 8, 11, 13, 6 };
     LCDColor col = render_pattern(shade[g->preset]);
     for (int i = 0; i < CLOUDS; i++) {
         double az = frand(i, 1) * 2.0 * PI_D + g->t * (0.002 + 0.004 * frand(i, 2));
@@ -92,6 +92,11 @@ static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, i
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float vis = fvis(g);
     float t = (float)fmod(g->t, g->sea.period);
+    const WeatherPreset *wp = &g->weather.preset[g->preset];
+    /* scale the shading to this sea so even a light swell shows crests and troughs */
+    float half = fmaxf(0.5f * wp->wave_height, 0.05f);
+    float wl = 1.56f * wp->wave_period * wp->wave_period;
+    float sgain = 5.0f / fmaxf((float)PI_D * wp->wave_height / wl, 0.03f);
     float fy0, fy1;
     if (!sea_line(c, 20000.0f, 0.0f, &fy0, &fy1)) { fy0 = fy1 = CAM_HORIZON_Y; }
     float dist[SEA_BANDS];
@@ -107,7 +112,9 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (!sea_line(c, d, hz, &y0, &y1)) continue;
         float fog = clampf(d / vis, 0.0f, 1.0f);
         float base = 10.0f - 3.0f * (d / 300.0f > 1 ? 1 : d / 300.0f);
-        int level = (int)(base + clampf(-slope * 25.0f, -3.0f, 3.0f) + ((i & 1) ? 1.0f : -1.0f));
+        /* faces tipped toward the eye are light, faces tipped away dark; crests light, troughs dark */
+        float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 0.7f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
+        int level = (int)lroundf(base + shade + ((i & 1) ? 1.0f : -1.0f));
         level = (int)(level * (1.0f - 0.9f * fog * fog));
         strip(pd, fy0, fy1, y0, y1, level);
         fy0 = y0; fy1 = y1;

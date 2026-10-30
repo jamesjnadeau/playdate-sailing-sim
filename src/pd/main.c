@@ -88,7 +88,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     if (event == kEventInit) {
         pd = playdate;
         static const char *boat_names[ASSETS_BOATS] = { "dinghy", "spinnaker" };
-        static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm" };
+        static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
         boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
         weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
         pd->system->addMenuItem("restart", menu_restart, NULL);

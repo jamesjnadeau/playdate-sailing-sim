@@ -6,7 +6,7 @@
 
 #define TRACKS_MAX 16
 
-/* Loads every tracks/*.json (sorted by file name) into out; files that fail to parse are
+/* Loads every .json file in the tracks folder (sorted by file name) into out; files that fail to parse are
    skipped with a warning appended. If none load, out[0] = track_default and returns 1. */
 int tracks_load_all(PlaydateAPI *pd, Track *out, int max, char *warn, size_t warnlen);
 

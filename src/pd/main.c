@@ -142,8 +142,15 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         begin(true);
         if (track_warn[0]) {
             /* append track warnings to the config line, "; "-separated */
-            size_t n = strlen(warn);
-            snprintf(warn + n, sizeof warn - n, "%s%s", n ? "; " : "", track_warn);
+            size_t n = strlen(warn), len = strlen(track_warn);
+            if (n && n + 2 < sizeof warn) {
+                warn[n++] = ';';
+                warn[n++] = ' ';
+                warn[n] = 0;
+            }
+            if (len > sizeof warn - n - 1) len = sizeof warn - n - 1;
+            memcpy(warn + n, track_warn, len);
+            warn[n + len] = 0;
             warn_left = WARN_SHOW_S;
             pd->system->logToConsole("tracks: %s", track_warn);
         }

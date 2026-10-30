@@ -274,6 +274,30 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
         pd->graphics->drawLine(outline[2 * p], outline[2 * p + 1], outline[2 * p + 2], outline[2 * p + 3], 1, kColorBlack);
     if (on >= 3)
         pd->graphics->drawLine(outline[2 * (on - 1)], outline[2 * (on - 1) + 1], outline[0], outline[1], 1, kColorBlack);
+
+    /* telltales near the luff: stream along the sail when it flows, whip about the wind when it luffs */
+    float wdx = -cosf(b->awa), wdy = -sinf(b->awa);
+    float lm = clampf(lufft * 1.5f, 0.0f, 1.0f);
+    for (int t = 0; t < 3; t++) {
+        float u = 0.25f + 0.25f * (float)t;
+        float lx = tx + (hx - tx) * u, lz = tz + (hz - tz) * u;
+        float ex = cx + (hx - cx) * u, ey = cy * (1.0f - u);
+        float cdx = ex - lx, cdy = ey, cl = hypotf(cdx, cdy);
+        if (cl < 1e-3f) continue;
+        float dx = cdx / cl * (1.0f - lm) + wdx * lm, dy = cdy / cl * (1.0f - lm) + wdy * lm;
+        float ax = lx + cdx * 0.12f, ay = cdy * 0.12f + side * s->camber * cl * 0.12f * 0.88f * 4.0f, az = lz;
+        float sx0, sy0;
+        if (!boat_pt(k, ax, ay, az, &sx0, &sy0)) continue;
+        float ppx = sx0, ppy = sy0;
+        for (int seg = 1; seg <= 2; seg++) {
+            float ph = (float)k->g->t * (6.0f + 4.0f * lm) - (float)seg * 1.5f + (float)t * 2.0f;
+            float fl = sinf(ph) * (0.03f + 0.12f * lm) * (float)seg;
+            float ex2, ey2;
+            if (!boat_pt(k, ax + (dx * 0.15f * (float)seg) - dy * fl, ay + dy * 0.15f * (float)seg + dx * fl, az - 0.02f * (float)seg, &ex2, &ey2)) break;
+            pd->graphics->drawLine((int)ppx, (int)ppy, (int)ex2, (int)ey2, 1, kColorBlack);
+            ppx = ex2; ppy = ey2;
+        }
+    }
 }
 
 static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -314,46 +338,24 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     }
 }
 
-/* ---- deck and wheel ---- */
+/* ---- hull and rudder ---- */
 
-static void rot(float a, float dx, float dy, float *ox, float *oy) {
-    float px = dx, py = -dy;
-    float ca = cosf(a), sa = sinf(a);
-    *ox = CAM_W * 0.5f + px * ca - py * sa;
-    *oy = (float)CAM_H + 20.0f - (px * sa + py * ca);
+/* rudder blade seen from above and behind: stock at the stern, trailing edge swung by the helm */
+static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    Ctx k = { pd, g, c };
+    const float chord = 0.45f;
+    float rx = g->boat.hull.rudder_x;
+    float d = g->b.wheel * g->boat.hull.rudder_max_deg * 0.017453f;
+    float tx = rx - chord * cosf(d), ty = chord * sinf(d);
+    float x0, y0, x1, y1, x2, y2, x3, y3;
+    if (!boat_pt(&k, rx, 0, 0.1f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.1f, &x1, &y1) ||
+        !boat_pt(&k, tx, ty, -0.45f, &x2, &y2) || !boat_pt(&k, rx, 0, -0.45f, &x3, &y3)) return;
+    int pts[8] = { (int)x0, (int)y0, (int)x1, (int)y1, (int)x2, (int)y2, (int)x3, (int)y3 };
+    pd->graphics->fillPolygon(4, pts, kColorBlack, kPolygonFillNonZero);
+    pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, kColorBlack);   /* stock */
 }
 
-static void draw_deck(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    /* the deck is fixed to the heeled boat; the view is only partly rolled, so it tilts by the difference */
-    float a = c->roll - c->deck_roll;
-    struct { float x, y; } deck[] = { { -260, -20 }, { 260, -20 }, { 150, 38 }, { -150, 38 } };
-    int pts[8];
-    float sx, sy;
-    for (int i = 0; i < 4; i++) { rot(a, deck[i].x, deck[i].y, &sx, &sy); pts[2 * i] = (int)sx; pts[2 * i + 1] = (int)sy; }
-    pd->graphics->fillPolygon(4, pts, render_pattern((int)(g->boat.look.hull_shade * 16.0f)), kPolygonFillNonZero);
-    for (int i = 0; i < 4; i++)
-        pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * ((i + 1) & 3)], pts[2 * ((i + 1) & 3) + 1], 2, kColorBlack);
-    for (int p = -1; p <= 1; p++) {            /* deck planks */
-        float x0, y0, x1, y1;
-        rot(a, p * 60.0f, 38, &x0, &y0);
-        rot(a, p * 110.0f, -20, &x1, &y1);
-        pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 1, kColorBlack);
-    }
-    /* wheel */
-    float cx, cy;
-    rot(a, 0, 4, &cx, &cy);
-    float ang = g->b.wheel * g->boat.controls.wheel_turns * (float)PI_D;
-    const int R = 24;
-    pd->graphics->fillEllipse((int)cx - R, (int)cy - R, 2 * R, 2 * R, 0, 0, kColorWhite);
-    pd->graphics->drawEllipse((int)cx - R, (int)cy - R, 2 * R, 2 * R, 3, 0, 0, kColorBlack);
-    for (int s = 0; s < 6; s++) {
-        float th = ang + (float)s * (float)PI_D / 3.0f;
-        pd->graphics->drawLine((int)cx, (int)cy, (int)(cx + (R + 5) * sinf(th)), (int)(cy - (R + 5) * cosf(th)), s == 0 ? 3 : 2, kColorBlack);
-    }
-    pd->graphics->fillEllipse((int)cx - 4, (int)cy - 4, 8, 8, 0, 0, kColorBlack);
-}
-
-/* trailing view: the cockpit overlay is replaced by the hull seen from behind */
+/* the hull seen from behind */
 static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
     const LookCfg *lk = &g->boat.look;
@@ -385,8 +387,9 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_streaks(pd, g, c);
     draw_rocks(pd, g, c);
     draw_spray(pd, g, c);
-    if (c->trail) { draw_hull(pd, g, c); draw_rig(pd, g, c); }
-    else { draw_rig(pd, g, c); draw_deck(pd, g, c); }
+    draw_rudder(pd, g, c);
+    draw_hull(pd, g, c);
+    draw_rig(pd, g, c);
     hud_draw(pd, g);
     hud_prompt(pd, g);
 }

@@ -135,21 +135,32 @@ int rocks_near(const WorldCfg *cfg, uint32_t seed, float x, float y, float radiu
     x0 = fmax(x0, -CELL_LIM); x1 = fmin(x1, CELL_LIM);
     y0 = fmax(y0, -CELL_LIM); y1 = fmin(y1, CELL_LIM);
 
+    /* Past the cap the nearest rocks win: a full list drops its farthest member for a closer one. */
     int n = 0;
-    for (int64_t cx = (int64_t)x0; cx <= (int64_t)x1 && n < max; cx++)
-        for (int64_t cy = (int64_t)y0; cy <= (int64_t)y1 && n < max; cy++) {
+    double edge[ROCKS_MAX];
+    for (int64_t cx = (int64_t)x0; cx <= (int64_t)x1; cx++)
+        for (int64_t cy = (int64_t)y0; cy <= (int64_t)y1; cy++) {
             int32_t ix = (int32_t)cx, iy = (int32_t)cy;
             if (!(cellf(ix, iy, seed, K_PRESENT) < c.rock_density)) continue;
             double r = c.rock_r_min + (double)cellf(ix, iy, seed, K_RADIUS) * (c.rock_r_max - c.rock_r_min);
             double rx = (double)ix * cell + r + (double)cellf(ix, iy, seed, K_OFFX) * (cell - 2 * r);
             double ry = (double)iy * cell + r + (double)cellf(ix, iy, seed, K_OFFY) * (cell - 2 * r);
             if (hypot(rx, ry) - r < c.start_clear_radius) continue;
-            if (hypot(rx - x, ry - y) - r > radius) continue;
-            out[n].x = (float)rx;
-            out[n].y = (float)ry;
-            out[n].r = (float)r;
-            out[n].awash = cellf(ix, iy, seed, K_AWASH) > 0.5f;
-            n++;
+            double e = hypot(rx - x, ry - y) - r;
+            if (e > radius) continue;
+            int slot = n;
+            if (n == max) {
+                slot = 0;
+                for (int i = 1; i < n; i++) if (edge[i] > edge[slot]) slot = i;
+                if (!(e < edge[slot])) continue;
+            } else {
+                n++;
+            }
+            edge[slot] = e;
+            out[slot].x = (float)rx;
+            out[slot].y = (float)ry;
+            out[slot].r = (float)r;
+            out[slot].awash = cellf(ix, iy, seed, K_AWASH) > 0.5f;
         }
     return n;
 }

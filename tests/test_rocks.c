@@ -26,6 +26,25 @@ static BoatState at_rock(const Rock *r, float u) {
     return boat_at(r->r + 0.5f * cfg.hull.beam - 0.05f, 0, (float)M_PI, u, 0);
 }
 
+/* A dense field overflows the cap; the rocks kept must be the nearest ones, not the westmost. */
+static void test_cap_keeps_nearest_rocks(void) {
+    WorldCfg d = wc;
+    d.rock_cell_size = 10.0f; d.rock_density = 1.0f; d.rock_r_min = 1.0f; d.rock_r_max = 2.0f;
+    d.start_clear_radius = 0.0f;
+    Rock all[64];
+    int n = rocks_near(&d, 7, 500.0f, 500.0f, 150.0f, all, 64);
+    T_ASSERT(n == 64);
+    double far = 0;
+    for (int i = 0; i < n; i++) {
+        double e = hypot(all[i].x - 500.0, all[i].y - 500.0) - all[i].r;
+        if (e > far) far = e;
+    }
+    T_ASSERT(far < 55.0);                  /* 64 cells of 10 m fit inside ~45 m; the westmost-first bug gave 110+ */
+    Rock few[4];
+    int m = rocks_near(&d, 7, 500.0f, 500.0f, 8.0f, few, 4);
+    T_ASSERT(m == 4);                      /* rocks within 8 m are all found with a small cap */
+}
+
 static void test_same_seed_identical_different_seed_differs(void) {
     Rock a[64], b[64], c[64];
     int na = rocks_near(&wc, 11, 0, 0, 300, a, 64);
@@ -205,6 +224,7 @@ int main(void) {
     world_default(&wc);
     boatcfg_default(&cfg);
     T_RUN(test_same_seed_identical_different_seed_differs);
+    T_RUN(test_cap_keeps_nearest_rocks);
     T_RUN(test_rocks_within_radius_and_sized);
     T_RUN(test_start_area_is_clear);
     T_RUN(test_density_zero_gives_none_and_counts_are_capped);

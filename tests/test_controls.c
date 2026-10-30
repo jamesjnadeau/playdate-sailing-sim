@@ -116,6 +116,16 @@ static void test_bad_inputs_stay_finite(void) {
     T_ASSERT(r.c.sail >= 0 && r.c.sail < r.cfg.sail_count);
 }
 
+static void test_a_toggles_anchor(void) {
+    Rig r; rig_init(&r);
+    T_ASSERT(!r.in.anchor);
+    tick(&r, BTN_A, 0); T_ASSERT(r.in.anchor);
+    tick(&r, 0, 0);     T_ASSERT(r.in.anchor);      /* held state, not a pulse */
+    tick(&r, BTN_A, 0); T_ASSERT(!r.in.anchor);
+    tick(&r, BTN_A | BTN_RIGHT, 0);                 /* A alongside a mode button still toggles */
+    T_ASSERT(r.in.anchor && r.c.mode == MODE_TRIM);
+}
+
 int main(void) {
     T_RUN(test_right_latches_trim);
     T_RUN(test_repress_advances_sail);
@@ -126,5 +136,6 @@ int main(void) {
     T_RUN(test_crank_clamps_ranges);
     T_RUN(test_single_sail_ignores_repress);
     T_RUN(test_bad_inputs_stay_finite);
+    T_RUN(test_a_toggles_anchor);
     return T_DONE();
 }

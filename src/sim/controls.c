@@ -22,6 +22,8 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed,
     if (!isfinite(crank_delta_deg)) crank_delta_deg = 0;
     if (!isfinite(dt) || dt < 0) dt = 0;
 
+    if (pressed & BTN_A) out->anchor = !out->anchor;
+
     if (pressed & BTN_UP) {
         c->mode = MODE_WHEEL;
     } else if (pressed & BTN_RIGHT) {

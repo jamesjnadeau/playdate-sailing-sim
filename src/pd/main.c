@@ -70,7 +70,11 @@ static int update(void *ud) {
     render_frame(pd, &game, &cam);
     if (warn_left > 0.0f) {
         warn_left -= dt;
-        pd->graphics->drawText(warn, strlen(warn), kASCIIEncoding, 4, 24);
+        /* below the HUD bar, on white, clipped to one screen-width line */
+        size_t len = strlen(warn) < 48 ? strlen(warn) : 48;
+        pd->graphics->fillRect(0, 36, CAM_W, 18, kColorWhite);
+        pd->graphics->setDrawMode(kDrawModeCopy);
+        pd->graphics->drawText(warn, len, kASCIIEncoding, 4, 39);
     }
     return 1;
 }

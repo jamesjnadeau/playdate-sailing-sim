@@ -5,6 +5,7 @@
 #include <string.h>
 #include "mathx.h"
 #include "hullgeom.h"
+#include "sail.h"
 
 #define LEVELS 17
 #define SEA_BANDS 15
@@ -581,6 +582,12 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             float flut = lufft > 0.1f ? sinf(k->g->t * s->flutter_hz * 6.2832f + u * 3.0f + v * 5.0f) * 0.1f * lufft * chord * v : 0.0f;
             float x = lx + (ex - lx) * v;
             float y = ey * v + side * bulge + flut;
+            if (s->shape == 2) {                          /* a spinnaker balloons out ahead of its chord */
+                float bx, by;
+                sail_billow(s, lufft, ex - lx, ey, u, v, b->awa, &bx, &by);
+                x += bx;
+                y = ey * v + by + flut;
+            }
             float z = lz + (ez - lz) * v;
             float l, up;
             heel_xf(b, y, z, &l, &up);

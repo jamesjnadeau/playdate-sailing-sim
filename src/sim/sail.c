@@ -49,3 +49,18 @@ SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_ra
     z.aoa = aoa;
     return z;
 }
+
+void sail_billow(const SailCfg *s, float luff, float cx, float cy, float u, float v, float awa_rad,
+                 float *ox, float *oy) {
+    *ox = 0; *oy = 0;
+    float chord = hypotf(cx, cy);
+    if (!(chord > 1e-3f) || !isfinite(awa_rad) || !isfinite(luff)) return;
+    float tx = cx / chord, ty = cy / chord;
+    float nx = -ty, ny = tx;
+    if (nx * -cosf(awa_rad) + ny * -sinf(awa_rad) < 0) { nx = -nx; ny = -ny; }
+    float fill = 1.0f - clampf(luff, 0, 1);
+    float belly = s->camber * chord * 4.0f * v * (1.0f - v) * fill;
+    float swell = 1.0f * s->camber * chord * sinf(PI_F * clampf(u, 0, 1)) * (2.0f * v - 1.0f) * fill;
+    *ox = nx * belly + tx * swell;
+    *oy = ny * belly + ty * swell;
+}

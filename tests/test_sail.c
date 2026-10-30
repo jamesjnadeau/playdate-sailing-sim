@@ -100,6 +100,35 @@ static void test_awa_window_cuts_out_of_range_sail(void) {
     T_ASSERT(out.fx == 0 && out.fy == 0 && out.luff > 0.99f);
 }
 
+static void test_spinnaker_billows_ahead_of_chord_on_a_run(void) {
+    SailCfg s = *main_sail();
+    s.camber = 0.3f;
+    /* clew out to starboard and slightly aft; wind from the port quarter pushes the belly forward and starboard */
+    float cx = -2, cy = 7, chord = hypotf(cx, cy), ox, oy;
+    sail_billow(&s, 0, cx, cy, 0.5f, 0.5f, D(-135), &ox, &oy);
+    T_ASSERT(hypotf(ox, oy) > 0.2f * s.camber * chord);   /* a visible belly, not a flat triangle */
+    T_ASSERT(ox > 0 && oy > 0);
+    /* the tack and clew stay pinned and the edges swell apart */
+    float ax, ay, bx, by;
+    sail_billow(&s, 0, cx, cy, 0.0f, 1.0f, D(-135), &ax, &ay);
+    T_ASSERT(fabsf(ax) < 1e-4f && fabsf(ay) < 1e-4f);
+    sail_billow(&s, 0, cx, cy, 0.5f, 0.0f, D(-135), &ax, &ay);
+    sail_billow(&s, 0, cx, cy, 0.5f, 1.0f, D(-135), &bx, &by);
+    T_ASSERT(ax * cx + ay * cy < 0 && bx * cx + by * cy > 0);
+}
+
+static void test_spinnaker_billow_collapses_when_luffing_and_mirrors(void) {
+    SailCfg s = *main_sail();
+    s.camber = 0.3f;
+    float ox, oy, mx, my;
+    sail_billow(&s, 1, -2, 7, 0.5f, 0.5f, D(-135), &ox, &oy);
+    T_ASSERT(fabsf(ox) < 1e-5f && fabsf(oy) < 1e-5f);
+    sail_billow(&s, 0, -2, 7, 0.5f, 0.5f, D(-135), &ox, &oy);
+    sail_billow(&s, 0, -2, -7, 0.5f, 0.5f, D(135), &mx, &my);
+    T_NEAR(mx, ox, 1e-4f);
+    T_NEAR(my, -oy, 1e-4f);
+}
+
 int main(void) {
     T_RUN(test_beam_reach_drives);
     T_RUN(test_close_hauled_overtrim_stalls);
@@ -112,5 +141,7 @@ int main(void) {
     T_RUN(test_port_wind_mirrors_starboard);
     T_RUN(test_degenerate_inputs_are_finite);
     T_RUN(test_awa_window_cuts_out_of_range_sail);
+    T_RUN(test_spinnaker_billows_ahead_of_chord_on_a_run);
+    T_RUN(test_spinnaker_billow_collapses_when_luffing_and_mirrors);
     T_DONE();
 }

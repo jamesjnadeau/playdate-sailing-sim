@@ -22,7 +22,7 @@ UASRC =
 UDEFS =
 UADEFS =
 ULIBDIR =
-ULIBS =
+ULIBS = --specs=nosys.specs
 
 # Runtime configs ship inside the .pdx as plain files the game reads at start
 # and from the Reload config menu item.

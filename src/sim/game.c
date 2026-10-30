@@ -47,6 +47,14 @@ void game_set_preset(Game *g, int preset) {
     start_weather(g);
 }
 
+/* Floating origin: keep the boat near (0,0) so float maths on world positions (sea phase, fleck cells,
+   wave bands) never loses precision. The shift is a multiple of SEA_WRAP, so the sea is unchanged. */
+static void recentre(Game *g) {
+    const double step = 5.0 * SEA_WRAP;   /* also a multiple of the 5 m fleck cell */
+    if (fabs(g->b.x) > step) g->b.x -= step * floor(g->b.x / step + 0.5);
+    if (fabs(g->b.y) > step) g->b.y -= step * floor(g->b.y / step + 0.5);
+}
+
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
@@ -65,8 +73,10 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     g->wf = sea_hull_forces(&g->sea, &g->b, &g->boat, (float)fmod(g->t, g->sea.period));
     g->b.pitch = g->wf.pitch;
     g->b.heave = g->wf.heave;
-    g->nrocks = rocks_near(&g->world, g->seed, (float)g->b.x, (float)g->b.y,
-                           GAME_ROCK_RADIUS, g->rocks, ROCKS_MAX);
+    /* Rocks are disabled for now (generation, collision and drawing). */
+    g->nrocks = 0;
+    /* g->nrocks = rocks_near(&g->world, g->seed, (float)g->b.x, (float)g->b.y,
+                              GAME_ROCK_RADIUS, g->rocks, ROCKS_MAX); */
 
     int n = (int)ceilf(dt / SIM_DT - 1e-4f);
     if (n < 1) n = 1;
@@ -77,15 +87,16 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     for (int i = 0; i < n; i++) {
         if (g->run == RUN_WRECKED) break;
         boat_step(&g->b, &g->boat, &g->wind, &g->in, &g->wf, h);
-        HitKind k = rocks_collide(&g->world, g->rocks, g->nrocks, &g->b, &g->boat, g->wf.heave);
+        /* HitKind k = rocks_collide(&g->world, g->rocks, g->nrocks, &g->b, &g->boat, g->wf.heave);
         if (k > g->last_hit) g->last_hit = k;
         if (k == HIT_WRECK) {
             g->run = RUN_WRECKED;
             g->b.u = g->b.v = g->b.r = 0.0f;
-        }
+        } */
     }
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;
     g->t += dt;
+    recentre(g);
 }

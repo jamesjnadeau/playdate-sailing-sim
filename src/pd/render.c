@@ -341,7 +341,7 @@ static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 /* ---- rocks ---- */
 
-static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+__attribute__((unused)) static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float vis = fvis(g);
     int order[ROCKS_MAX];
     float depth[ROCKS_MAX];
@@ -735,7 +735,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_clouds(pd, g, c);
     draw_sea(pd, g, c);
     draw_streaks(pd, g, c);
-    draw_rocks(pd, g, c);
+    /* draw_rocks(pd, g, c);   rocks disabled for now */
     draw_spray(pd, g, c);
     draw_waterline(pd, g, c);
     draw_hull(pd, g, c);

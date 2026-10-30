@@ -8,6 +8,7 @@
 #define CAM_H 240
 #define CAM_FOCAL 220.0f          /* px; ~85 deg horizontal field of view */
 #define CAM_HORIZON_Y 110.0f      /* px; horizon row at zero pitch and roll */
+#define HUD_H 20                  /* px; the bottom HUD bar: rows CAM_H - HUD_H .. CAM_H - 1 */
 
 /* World frame as the rest of the sim: forward (cos yaw, sin yaw), starboard (-sin yaw, cos yaw).
    z is height above mean sea level (up). roll > 0 leans the view to starboard, pitch > 0 looks up. */

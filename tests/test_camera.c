@@ -134,7 +134,7 @@ static void test_trailing_view_frames_mast_and_hull_with_margin(void) {
     T_ASSERT(camera_project(&cp, g.b.x - cosf((float)g.b.heading) * 0.5 * bc.hull.length,
                             g.b.y - sinf((float)g.b.heading) * 0.5 * bc.hull.length,
                             0.0f, &sx, &sy, NULL));
-    T_NEAR(sy, 204.0 - m, 3.0);
+    T_NEAR(sy, (CAM_H - HUD_H) - m, 3.0);
 }
 
 static void level_pose(float yaw) {
@@ -143,19 +143,39 @@ static void level_pose(float yaw) {
     cp.yaw = yaw;
 }
 
+static void test_mark_view_bottom_bound(void) {
+    /* eye above the sea so a point just under the bar's top row projects into the 16px band */
+    level_pose(0);
+    cp.height = 10.0f;
+    float wx = 0, sy = 0;
+    for (float d = 12.0f; d < 20.0f; d += 0.01f) {
+        float y;
+        if (camera_project(&cp, d, 0.0, MARK_IND_Z, NULL, &y, NULL) &&
+            y >= (CAM_H - HUD_H - 16) && y < CAM_H - HUD_H) { wx = d; sy = y; break; }
+    }
+    T_ASSERT(sy > 0);
+    MarkView v;
+    camera_mark_view(&cp, wx, 0.0, CAM_H - HUD_H, &v);
+    T_ASSERT(v.on_screen);
+    T_NEAR(v.y, sy, 1e-3);
+    camera_mark_view(&cp, wx, 0.0, CAM_H - HUD_H - 16, &v);
+    T_ASSERT(!v.on_screen);
+    T_ASSERT(v.y <= CAM_H - HUD_H - 16 - MARK_EDGE_PAD + 1e-3);
+}
+
 static void test_mark_ahead_is_on_screen(void) {
     level_pose(0);
     MarkView v;
-    camera_mark_view(&cp, 200.0, 0.0, CAM_H - 36, &v);
+    camera_mark_view(&cp, 200.0, 0.0, CAM_H - HUD_H, &v);
     T_ASSERT(v.on_screen);
     T_NEAR(v.x, CAM_W * 0.5, 1.0);
-    T_ASSERT(v.y < CAM_H - 36);
+    T_ASSERT(v.y < CAM_H - HUD_H);
 }
 
 static void test_mark_far_starboard_goes_to_right_edge(void) {
     level_pose(0);
     MarkView v;
-    camera_mark_view(&cp, 20.0, 200.0, CAM_H - 36, &v);
+    camera_mark_view(&cp, 20.0, 200.0, CAM_H - HUD_H, &v);
     T_ASSERT(!v.on_screen);
     T_NEAR(v.x, CAM_W - MARK_EDGE_PAD, 1.0);
     T_ASSERT(fabsf(v.angle) < (float)M_PI / 2);
@@ -164,11 +184,11 @@ static void test_mark_far_starboard_goes_to_right_edge(void) {
 static void test_mark_behind_goes_to_side_edge(void) {
     level_pose(0);
     MarkView v;
-    camera_mark_view(&cp, -100.0, 0.0, CAM_H - 36, &v);
+    camera_mark_view(&cp, -100.0, 0.0, CAM_H - HUD_H, &v);
     T_ASSERT(!v.on_screen);
     T_NEAR(v.x, CAM_W - MARK_EDGE_PAD, 1.0);
     T_NEAR(v.angle, 0.0, 1e-6);
-    camera_mark_view(&cp, -100.0, -30.0, CAM_H - 36, &v);
+    camera_mark_view(&cp, -100.0, -30.0, CAM_H - HUD_H, &v);
     T_ASSERT(!v.on_screen);
     T_NEAR(fabsf(v.angle), M_PI, 1e-3);
     T_NEAR(v.x, MARK_EDGE_PAD, 1.0);
@@ -177,10 +197,10 @@ static void test_mark_behind_goes_to_side_edge(void) {
 static void test_mark_view_nonfinite_is_safe(void) {
     level_pose(0);
     MarkView v;
-    camera_mark_view(&cp, NAN, NAN, CAM_H - 36, &v);
+    camera_mark_view(&cp, NAN, NAN, CAM_H - HUD_H, &v);
     T_ASSERT(isfinite(v.x) && isfinite(v.y) && isfinite(v.angle));
     level_pose(NAN);
-    camera_mark_view(&cp, 200.0, 0.0, CAM_H - 36, &v);
+    camera_mark_view(&cp, 200.0, 0.0, CAM_H - HUD_H, &v);
     T_ASSERT(isfinite(v.x) && isfinite(v.y) && isfinite(v.angle));
 }
 
@@ -189,6 +209,7 @@ int main(void) {
     T_RUN(test_mark_far_starboard_goes_to_right_edge);
     T_RUN(test_mark_behind_goes_to_side_edge);
     T_RUN(test_mark_view_nonfinite_is_safe);
+    T_RUN(test_mark_view_bottom_bound);
     T_RUN(test_trailing_view_sits_far_aft_and_higher);
     T_RUN(test_roll_clamped_deck_roll_full);
     T_RUN(test_small_heel_passes_through);

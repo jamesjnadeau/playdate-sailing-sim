@@ -3,7 +3,7 @@
 #include "mathx.h"
 
 #define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
-#define HUD_TOP_PX 204        /* the status panel covers the screen below this row */
+#define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
 /* Trailing view framing. With the eye at far_height, find the distance behind the
  * boat and the pitch that put the masthead ribbon frame_margin px below the top of

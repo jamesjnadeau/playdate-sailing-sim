@@ -2,54 +2,73 @@
 #include <stdio.h>
 #include <string.h>
 #include "render.h"
+#include "hudinfo.h"
 #include "mathx.h"
 
-static const char *const MODE_NAMES[] = { "WHEEL", "TRIM", "HOIST", "CAMERA" };
+#define HUD_GLYPH_W 22         /* inverted d-pad mode cell at the left of the bar */
+#define HUD_PAD 6              /* text inset inside a cell */
 
 static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
+static void text_utf8(PlaydateAPI *pd, const char *s, int x, int y) {
+    pd->graphics->drawText(s, strlen(s), kUTF8Encoding, x, y);
+}
+
+/* One-row status bar: mode glyph, then the mode's cells, then AP/AT badges and the wind dial. */
 void hud_draw(PlaydateAPI *pd, const Game *g) {
     const BoatState *b = &g->b;
+    const Mode mode = g->ctl.mode;
     char line[64];
-    const int top = CAM_H - 36;   /* status panel sits along the bottom of the screen */
-    float hdg = fmodf(b->heading * 57.29578f + 360.0f, 360.0f);
+    const int top = CAM_H - HUD_H;
+    const int ty = top + 2;                /* text baseline */
+    const int n = g->boat.sail_count;
+    const int si = (g->ctl.sail >= 0 && g->ctl.sail < n && g->ctl.sail < BOAT_MAX_SAILS) ? g->ctl.sail : 0;
 
-    pd->graphics->fillRect(0, top, CAM_W, 36, kColorBlack);
+    pd->graphics->fillRect(0, top, CAM_W, HUD_H, kColorBlack);
+
+    /* selected mode: its d-pad glyph in an inverted cell */
+    pd->graphics->fillRect(0, top, HUD_GLYPH_W, HUD_H, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillBlack);
+    text_utf8(pd, hud_mode_glyph(mode), 6, ty);
+
     pd->graphics->setDrawMode(kDrawModeFillWhite);
-    const char *sail = g->boat.sails[g->ctl.sail].name;
-    snprintf(line, sizeof line, "%s %s", MODE_NAMES[g->ctl.mode],
-             (g->ctl.mode == MODE_TRIM || g->ctl.mode == MODE_HOIST) ? sail : "");
-    text(pd, line, 4, top + 2);
-    snprintf(line, sizeof line, "%.1fkn  hdg %03.0f  heel %+.0f", fabsf(b->u) * 1.94384f, hdg, b->heel * 57.29578f);
-    text(pd, line, 4, top + 18);
+    if (hud_shows_nav(mode)) {
+        /* speed, heading and heel cells, separated by 1px lines; the AWS number sits by the dial */
+        snprintf(line, sizeof line, "%.1fkn", fabsf(b->u) * 1.94384f);
+        text(pd, line, 22 + HUD_PAD, ty);
+        pd->graphics->drawLine(74, top, 74, CAM_H - 1, 1, kColorWhite);
+        snprintf(line, sizeof line, "%03d\xC2\xB0", hud_heading_deg(b->heading));   /* U+00B0 degree sign */
+        text_utf8(pd, line, 75 + HUD_PAD, ty);
+        pd->graphics->drawLine(119, top, 119, CAM_H - 1, 1, kColorWhite);
+        snprintf(line, sizeof line, "\xE2\x88\xA0%+.0f", b->heel * 57.29578f);       /* U+2220 angle */
+        text_utf8(pd, line, 120 + HUD_PAD, ty);
+        snprintf(line, sizeof line, "%.0f", b->aws);
+        text(pd, line, CAM_W - 12 - 8 - 26, ty);
+    } else if (mode == MODE_TRIM || mode == MODE_HOIST) {
+        /* selected sail: its name, then the trim or hoist bar */
+        snprintf(line, sizeof line, "%.8s", n > 0 ? g->boat.sails[si].name : "");
+        text(pd, line, 22 + HUD_PAD, ty);
+        const float f = hud_sail_fraction(mode, &g->boat.sails[si], b->trims[si], b->hoists[si]);
+        pd->graphics->drawRect(120, top + 6, 74, 8, kColorWhite);
+        pd->graphics->fillRect(122, top + 8, (int)(70.0f * f), 4, kColorWhite);
+    } else {
+        text(pd, "Look", 22 + HUD_PAD, ty);
+    }
 
     if (g->ap.on) {
-        snprintf(line, sizeof line, "AP %03.0f", fmodf(g->ap.target * 57.29578f + 360.0f, 360.0f));
-        text(pd, line, 250, top + 2);
+        snprintf(line, sizeof line, "AP %03d", hud_heading_deg(g->ap.target));
+        text(pd, line, 236, ty);
     }
-    if (g->at.on) text(pd, "AT", 250, top + 18);
+    if (g->at.on) text(pd, "AT", 290, ty);
 
     /* apparent wind dial: the tick shows where the wind comes from relative to the bow (up) */
-    const int cx = CAM_W - 22, cy = top + 18, R = 15;
+    const int cx = CAM_W - 12, cy = top + HUD_H / 2, R = 8;
     pd->graphics->drawEllipse(cx - R, cy - R, 2 * R, 2 * R, 1, 0, 0, kColorWhite);
     float a = b->awa;
     pd->graphics->drawLine(cx, cy, (int)(cx + R * sinf(a)), (int)(cy - R * cosf(a)), 2, kColorWhite);
     pd->graphics->drawLine(cx, cy - R - 2, cx, cy - R + 2, 1, kColorWhite);
-    snprintf(line, sizeof line, "%.0f", b->aws);
-    text(pd, line, cx - 58, top + 10);
-
-    /* selected sail: trim or hoist bar */
-    if (g->ctl.mode == MODE_TRIM || g->ctl.mode == MODE_HOIST) {
-        const SailCfg *s = &g->boat.sails[g->ctl.sail];
-        float f = g->ctl.mode == MODE_HOIST ? b->hoists[g->ctl.sail]
-                : (b->trims[g->ctl.sail] - s->trim_min_deg * 0.017453f) /
-                  fmaxf((s->trim_max_deg - s->trim_min_deg) * 0.017453f, 1e-3f);
-        f = clampf(f, 0.0f, 1.0f);
-        pd->graphics->drawRect(150, top + 6, 82, 8, kColorWhite);
-        pd->graphics->fillRect(152, top + 8, (int)(78.0f * f), 4, kColorWhite);
-    }
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
@@ -89,7 +108,7 @@ void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
     /* indicator: above the buoy when on screen, else an arrow on the edge pointing at it */
     MarkView mv;
-    camera_mark_view(c, mx, my, CAM_H - 36.0f, &mv);
+    camera_mark_view(c, mx, my, (float)(CAM_H - HUD_H), &mv);
     if (mv.on_screen) {
         float x = mv.x, y = mv.y;
         tri(pd, x, y, x - 5.0f, y - 10.0f, x + 5.0f, y - 10.0f);
@@ -99,7 +118,7 @@ void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         tri(pd, mv.x + 6.0f * co, mv.y + 6.0f * s, bcx - 6.0f * s, bcy + 6.0f * co, bcx + 6.0f * s, bcy - 6.0f * co);
         snprintf(line, sizeof line, "%.0fm", dist);
         int tx = clampi((int)mv.x + 10, 4, CAM_W - 48);
-        int ty = clampi((int)mv.y - 6, 20, CAM_H - 50);
+        int ty = clampi((int)mv.y - 6, 20, CAM_H - HUD_H - 18);
         text(pd, line, tx, ty);
     }
     pd->graphics->setDrawMode(kDrawModeCopy);

@@ -3,3 +3,6 @@ build/
 *.pdx/
 !AtTheHelmDemo.pdx/
 .superpowers/
+Source/boats/
+Source/config/
+Source/pdex.*

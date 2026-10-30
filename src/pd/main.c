@@ -1,0 +1,99 @@
+#include <stdio.h>
+#include <string.h>
+#include "pd_api.h"
+#include "assets.h"
+#include "camera.h"
+#include "game.h"
+
+#define WARN_SHOW_S 3.0f
+
+static PlaydateAPI *pd;
+static Game game;
+static CameraPose cam;
+static BoatCfg boat_cfg;
+static WeatherCfg weather_cfg;
+static WorldCfg world_cfg;
+static int boat_index, preset_index;
+static uint32_t restart_count;
+static char warn[ASSETS_WARN_LEN];
+static float warn_left;
+
+static PDMenuItem *boat_item, *weather_item;
+
+static uint32_t fresh_seed(void) {
+    return pd->system->getCurrentTimeMilliseconds() * 2654435761u + (++restart_count) * 40503u;
+}
+
+static void begin(bool reload) {
+    if (reload) {
+        assets_load(pd, boat_index, &boat_cfg, &weather_cfg, &world_cfg, warn, sizeof warn);
+        warn_left = warn[0] ? WARN_SHOW_S : 0.0f;
+        if (warn[0]) pd->system->logToConsole("config: %s", warn);
+    }
+    game_init(&game, &boat_cfg, &weather_cfg, &world_cfg, preset_index, fresh_seed());
+    memset(&cam, 0, sizeof cam);
+    camera_update(&cam, &game, &game.boat, 1.0f / 30);
+    pd->system->resetElapsedTime();
+}
+
+static void menu_boat(void *ud) {
+    (void)ud;
+    boat_index = pd->system->getMenuItemValue(boat_item);
+    begin(true);
+}
+static void menu_weather(void *ud) {
+    (void)ud;
+    preset_index = pd->system->getMenuItemValue(weather_item);
+    game_set_preset(&game, preset_index);
+}
+static void menu_restart(void *ud) { (void)ud; game_restart(&game, fresh_seed()); }
+static void menu_reload(void *ud) { (void)ud; begin(true); }
+
+static int update(void *ud) {
+    (void)ud;
+    PDButtons cur, pushed, released;
+    pd->system->getButtonState(&cur, &pushed, &released);
+    float dt = pd->system->getElapsedTime();
+    pd->system->resetElapsedTime();
+    float crank = pd->system->getCrankChange();
+
+    /* A restarts once the run is over; while sailing it is the anchor button. */
+    if (game.run != RUN_SAILING && (pushed & kButtonA)) {
+        game_restart(&game, fresh_seed());
+        pushed = 0;
+        dt = 1.0f / 30;
+    }
+    game_update(&game, (uint32_t)pushed, crank, dt);
+    camera_update(&cam, &game, &game.boat, dt);
+
+    pd->graphics->clear(kColorWhite);
+    char line[96];
+    snprintf(line, sizeof line, "t %.1f  hdg %.0f  spd %.1f  heel %.0f  run %d",
+             game.t, game.b.heading * 57.2958f, game.b.u, game.b.heel * 57.2958f, (int)game.run);
+    pd->graphics->drawText(line, strlen(line), kASCIIEncoding, 4, 4);
+    if (warn_left > 0.0f) {
+        warn_left -= dt;
+        pd->graphics->drawText(warn, strlen(warn), kASCIIEncoding, 4, 24);
+    }
+    return 1;
+}
+
+#ifdef _WINDLL
+__declspec(dllexport)
+#endif
+int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
+    (void)arg;
+    if (event == kEventInit) {
+        pd = playdate;
+        static const char *boat_names[ASSETS_BOATS] = { "dinghy", "spinnaker" };
+        static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm" };
+        boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
+        weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
+        pd->system->addMenuItem("restart", menu_restart, NULL);
+        pd->system->addMenuItem("reload config", menu_reload, NULL);
+        pd->display->setRefreshRate(30.0f);
+        begin(true);
+        pd->system->setUpdateCallback(update, NULL);
+    }
+    return 0;
+}

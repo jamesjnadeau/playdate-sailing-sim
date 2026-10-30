@@ -46,7 +46,7 @@ Crank-driven, same as before.
   is shared between trim and hoist modes. *(My call: the user said "the sail select button" — I mapped it onto the existing trim/hoist buttons.)*
 - **Deploying extra sails** = hoisting them (a sail at hoist 0 is stowed and contributes nothing). No extra button. *(My call.)*
 - **DOWN** = camera-look mode: crank rotates camera yaw (head turn). Selecting any other mode returns the camera to centre at a configurable rate. *(Return behavior is my call.)*
-- **A** = anchor toggle (as in the demo). **B** is unused for now (the map returns with islands).
+- **A** = autopilot (hold toggles; a tap steps the target heading, skipping into-wind headings). **B** = anchor toggle. (The map returns with islands.)
 - **Reset:** system-menu item "restart" plus a quick-restart prompt on capsize or a hard rock strike (A to restart immediately). Reset = same boat,
   start position, fresh weather seed. Without islands, position still matters for the sea pattern, so the sea is generated from position and time. *(My call.)*
 

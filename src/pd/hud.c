@@ -25,6 +25,11 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     snprintf(line, sizeof line, "%.1fkn  hdg %03.0f  heel %+.0f", fabsf(b->u) * 1.94384f, hdg, b->heel * 57.29578f);
     text(pd, line, 4, top + 18);
 
+    if (g->ap.on) {
+        snprintf(line, sizeof line, "AP %03.0f", fmodf(g->ap.target * 57.29578f + 360.0f, 360.0f));
+        text(pd, line, 250, top + 2);
+    }
+
     /* apparent wind dial: the tick shows where the wind comes from relative to the bow (up) */
     const int cx = CAM_W - 22, cy = top + 18, R = 15;
     pd->graphics->drawEllipse(cx - R, cy - R, 2 * R, 2 * R, 1, 0, 0, kColorWhite);

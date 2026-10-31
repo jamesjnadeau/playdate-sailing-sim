@@ -13,7 +13,7 @@
 #define STREAKS 24
 #define PI_D 3.14159265358979323846
 
-static int sea_style = SEA_HEXC;
+static int sea_style = SEA_TRI;   /* the sea tiling; change here (or call render_set_sea_style) to try another */
 void render_set_sea_style(int style) { sea_style = style < 0 || style >= SEA_STYLES ? SEA_GRID : style; }
 int render_sea_style(void) { return sea_style; }
 

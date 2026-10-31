@@ -1,14 +1,16 @@
 {
   "name": "Trapezoid 70 50%",
+  "info": "Beat, short 70 deg reach, run, reach, beat, run.",
   "wind_from_deg": 0,
   "wind_speed_kn": 15.55,
   "start": { "x": -30, "y": 20, "heading_deg": -40 },
+  "route": [[-30, 20], [100, 0], [117.1, -47], [17.1, -47], [0, 0], [100, 0], [-15, -15]],
   "marks": [
-    { "name": "1", "x": 100.0, "y": 0.0, "gate_deg": 50.6, "rounding": "port" },
-    { "name": "2", "x": 117.1, "y": -47.0, "gate_deg": -35.0, "rounding": "port" },
-    { "name": "3", "x": 17.1, "y": -47.0, "gate_deg": -125.0, "rounding": "port" },
-    { "name": "4", "x": 0.0, "y": 0.0, "gate_deg": 145.0, "rounding": "port" },
-    { "name": "1", "x": 100.0, "y": 0.0, "gate_deg": 3.7, "rounding": "port" },
-    { "name": "FIN", "x": -15.0, "y": -15.0, "gate_deg": 90.0, "rounding": "starboard" }
+    { "name": "1", "x": 100, "y": 0, "gate_deg": 50.6, "rounding": "port" },
+    { "name": "2", "x": 117.1, "y": -47, "gate_deg": -35, "rounding": "port" },
+    { "name": "3", "x": 17.1, "y": -47, "gate_deg": -125, "rounding": "port" },
+    { "name": "4", "x": 0, "y": 0, "gate_deg": 145, "rounding": "port" },
+    { "name": "1", "x": 100, "y": 0, "gate_deg": 3.7, "rounding": "port" },
+    { "name": "FIN", "x": -15, "y": -15, "gate_deg": 90, "rounding": "starboard" }
   ]
 }

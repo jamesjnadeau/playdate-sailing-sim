@@ -122,6 +122,45 @@ static void test_load_garbage_gives_default(void) {
     expect_same_track(&t, &def);
 }
 
+static const char *ROUTE_JSON =
+    "{\"name\":\"R\",\"info\":\"hello\",\"wind_from_deg\":0,\"start\":{\"x\":0,\"y\":0,\"heading_deg\":0},"
+    "\"marks\":[{\"name\":\"A\",\"x\":30,\"y\":0,\"gate_deg\":0,\"rounding\":\"port\"}],"
+    "\"route\":[[0,0],[30,0],[30,40]]}";
+
+static void test_route_and_info_load(void) {
+    Track t;
+    char warn[128];
+    T_ASSERT(track_load(&t, ROUTE_JSON, strlen(ROUTE_JSON), warn, sizeof warn));
+    T_ASSERT(strcmp(t.info, "hello") == 0);
+    T_ASSERT(t.nroute == 3);
+    T_NEAR(track_route_len(&t), 70.0, 1e-4);
+    float x, y, h;
+    track_route_at(&t, 45.0f, &x, &y, &h);
+    T_NEAR(x, 30.0, 1e-4);
+    T_NEAR(y, 15.0, 1e-4);
+    T_NEAR(h, D2R(90), 1e-4);
+    track_route_at(&t, 1000.0f, &x, &y, &h);   /* clamped to the end */
+    T_NEAR(y, 40.0, 1e-4);
+}
+
+static void test_missing_route_uses_start_and_marks(void) {
+    Track t;
+    const char *js = "{\"name\":\"R\",\"wind_from_deg\":0,\"marks\":[{\"name\":\"A\",\"x\":30,\"y\":0,\"gate_deg\":0,\"rounding\":\"port\"}]}";
+    char warn[128];
+    track_load(&t, js, strlen(js), warn, sizeof warn);
+    T_ASSERT(t.nroute == 2);
+    T_NEAR(t.route[1][0], 30.0, 1e-4);
+}
+
+static void test_bad_route_warns_and_falls_back(void) {
+    Track t;
+    const char *js = "{\"name\":\"R\",\"route\":[[1,2],\"x\"],\"marks\":[{\"name\":\"A\",\"x\":30,\"y\":0,\"gate_deg\":0,\"rounding\":\"port\"}]}";
+    char warn[128];
+    T_ASSERT(!track_load(&t, js, strlen(js), warn, sizeof warn));
+    T_ASSERT(t.nroute == 2);
+    T_NEAR(t.route[1][0], 30.0, 1e-4);
+}
+
 static Track trk;
 static Race r;
 
@@ -183,6 +222,9 @@ int main(void) {
     T_RUN(test_load_matches_default);
     T_RUN(test_load_bad_rounding_and_overflow_warn);
     T_RUN(test_load_garbage_gives_default);
+    T_RUN(test_route_and_info_load);
+    T_RUN(test_missing_route_uses_start_and_marks);
+    T_RUN(test_bad_route_warns_and_falls_back);
     T_RUN(test_race_rounds_in_order_and_finishes);
     T_RUN(test_wind_speed_kn);
     T_RUN(test_race_clock_freezes_at_finish);

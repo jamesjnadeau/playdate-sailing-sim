@@ -20,6 +20,19 @@ static void set_mark(Mark *m, const char *name, float x, float y, float gate, in
     m->rounding = rounding;
 }
 
+/* start, then each mark in order: a straight-line preview when a track gives no route */
+static void default_route(Track *t) {
+    int n = 0;
+    t->route[n][0] = t->start_x;
+    t->route[n][1] = t->start_y;
+    n++;
+    for (int i = 0; i < t->nmarks && n < TRACK_ROUTE_MAX; i++, n++) {
+        t->route[n][0] = t->marks[i].x;
+        t->route[n][1] = t->marks[i].y;
+    }
+    t->nroute = n;
+}
+
 void track_default(Track *out) {
     memset(out, 0, sizeof *out);
     snprintf(out->name, sizeof out->name, "%s", "Two Buoys");
@@ -30,6 +43,7 @@ void track_default(Track *out) {
     out->nmarks = 2;
     set_mark(&out->marks[0], "B", 400.0f, 0.0f, 0.0f, ROUND_PORT);
     set_mark(&out->marks[1], "A", 0.0f, 0.0f, wrap_pi(deg2rad(180.0f)), ROUND_PORT);
+    default_route(out);
 }
 
 /* ---- loading ---- */
@@ -168,8 +182,69 @@ bool track_load(Track *out, const char *buf, size_t len, char *warn, size_t warn
         }
     }
 
+    const JsonNode *info = json_get(root, "info");   /* optional */
+    if (info) {
+        const char *is = json_str(info, NULL);
+        if (is) snprintf(out->info, sizeof out->info, "%s", is);
+        else warnf(&w, "track.info: expected a string");
+    }
+
+    default_route(out);   /* the marks may have changed; an explicit route below replaces this */
+    const JsonNode *rt = json_get(root, "route");     /* optional */
+    if (rt) {
+        int n = json_is_array(rt) ? json_array_len(rt) : 0;
+        if (n > TRACK_ROUTE_MAX) warnf(&w, "route: %d points given, only the first %d are used", n, TRACK_ROUTE_MAX);
+        float pts[TRACK_ROUTE_MAX][2];
+        int k = 0;
+        for (int i = 0; i < n && k < TRACK_ROUTE_MAX; i++) {
+            const JsonNode *p = json_array_at(rt, i);
+            if (!json_is_array(p) || json_array_len(p) != 2 ||
+                !json_is_number(json_array_at(p, 0)) || !json_is_number(json_array_at(p, 1)) ||
+                !isfinite(json_num(json_array_at(p, 0), 0.0f)) || !isfinite(json_num(json_array_at(p, 1), 0.0f))) {
+                warnf(&w, "route[%d]: expected [x, y], skipped", i);
+                continue;
+            }
+            pts[k][0] = clampf(json_num(json_array_at(p, 0), 0.0f), -POS_LIM, POS_LIM);
+            pts[k][1] = clampf(json_num(json_array_at(p, 1), 0.0f), -POS_LIM, POS_LIM);
+            k++;
+        }
+        if (k >= 2) {
+            memcpy(out->route, pts, sizeof(float) * 2 * (size_t)k);
+            out->nroute = k;
+        } else {
+            warnf(&w, "route: needs at least 2 points, using the marks");
+        }
+    }
+
     json_free(doc);
     return !w.any;
+}
+
+/* ---- preview route ---- */
+
+float track_route_len(const Track *t) {
+    float len = 0.0f;
+    for (int i = 1; i < t->nroute; i++)
+        len += hypotf(t->route[i][0] - t->route[i - 1][0], t->route[i][1] - t->route[i - 1][1]);
+    return len;
+}
+
+void track_route_at(const Track *t, float d, float *x, float *y, float *heading) {
+    *x = t->start_x; *y = t->start_y; *heading = t->start_heading;
+    if (t->nroute < 2) return;
+    int i = 1;
+    for (; i < t->nroute; i++) {
+        float dx = t->route[i][0] - t->route[i - 1][0], dy = t->route[i][1] - t->route[i - 1][1];
+        float seg = hypotf(dx, dy);
+        if (d <= seg || i == t->nroute - 1) {
+            float f = seg > 0.0f ? clampf(d / seg, 0.0f, 1.0f) : 0.0f;
+            *x = t->route[i - 1][0] + f * dx;
+            *y = t->route[i - 1][1] + f * dy;
+            if (seg > 0.0f) *heading = atan2f(dy, dx);
+            return;
+        }
+        d -= seg;
+    }
 }
 
 /* ---- gates and progress ---- */

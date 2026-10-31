@@ -1,10 +1,12 @@
 {
   "name": "Two Buoys 100m",
+  "info": "Round B then A, repeatedly. Windward and back.",
   "wind_from_deg": 45,
   "wind_speed_kn": 15.55,
   "start": { "x": -60, "y": 30, "heading_deg": -20 },
+  "route": [[-60, 30], [100, 0], [0, 0], [100, 0]],
   "marks": [
-    { "name": "B", "x": 100, "y": 0, "gate_deg": 0,   "rounding": "port" },
-    { "name": "A", "x": 0,   "y": 0, "gate_deg": 180, "rounding": "port" }
+    { "name": "B", "x": 100, "y": 0, "gate_deg": 0, "rounding": "port" },
+    { "name": "A", "x": 0, "y": 0, "gate_deg": 180, "rounding": "port" }
   ]
 }

@@ -97,6 +97,7 @@ static int update(void *ud) {
 
     if (app == APP_MENU) {
         MenuAction act = menu_update(&menu, (uint32_t)pushed);
+        menu_crank(&menu, crank);
         if (act == MENU_START_FREE) {
             game_set_track(&game, NULL);
             camera_snap();

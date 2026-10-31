@@ -5,6 +5,8 @@
 
 #define TRACK_MAX_MARKS 16
 #define TRACK_NAME_LEN 24
+#define TRACK_INFO_LEN 56      /* one line under the course preview */
+#define TRACK_ROUTE_MAX 64     /* points on the preview line */
 enum { ROUND_PORT = -1, ROUND_STARBOARD = 1 };
 
 typedef struct {
@@ -21,6 +23,9 @@ typedef struct {
     float start_x, start_y, start_heading;   /* m, m, rad */
     int nmarks;                      /* 1..TRACK_MAX_MARKS */
     Mark marks[TRACK_MAX_MARKS];
+    char info[TRACK_INFO_LEN];       /* short description shown with the preview; may be empty */
+    int nroute;                      /* >= 2: the line the preview animates, start to finish */
+    float route[TRACK_ROUTE_MAX][2]; /* m, track frame */
 } Track;
 
 typedef struct {
@@ -33,6 +38,11 @@ typedef struct {
 void track_default(Track *out);   /* the two-buoy track below */
 /* Always fills out from the default first. False if any warning was raised; warn is "; "-separated. */
 bool track_load(Track *out, const char *buf, size_t len, char *warn, size_t warnlen);
+
+/* Length of the preview route, m. */
+float track_route_len(const Track *t);
+/* Point d metres along the preview route (clamped to its ends) and the heading of the leg there. */
+void track_route_at(const Track *t, float d, float *x, float *y, float *heading);
 
 /* Did the move p0 -> p1 cross the ray from (mx, my) at heading `gate`, in the direction of
    `rounding`? All in one frame. Non-finite input -> false. */

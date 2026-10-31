@@ -13,6 +13,7 @@ import unittest
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 FB2PNG = os.path.join(TOOLS, "fb2png.py")
 FBDIFF = os.path.join(TOOLS, "fbdiff.py")
+STATEDIFF = os.path.join(TOOLS, "statediff.py")
 
 W, H, ROW = 400, 240, 50          # 400 bits per row = 50 bytes, MSB-first
 FRAME_BYTES = ROW * H             # 12000
@@ -136,6 +137,63 @@ class FbDiffTest(FbToolTest):
         self.assertEqual(r.returncode, 0, r.stderr)
         with Image.open(out) as img:
             self.assertEqual(img.size, (3 * 800, 480))
+
+
+class StateDiffTest(FbToolTest):
+    BASE = "app=play\nmode=0\nrun=1\nt=2.0000\nheading=-0.0231\nx=1.500\n"
+
+    def states(self, real, host):
+        return self.write("real.state", real.encode()), self.write("host.state", host.encode())
+
+    def test_identical_passes(self):
+        a, b = self.states(self.BASE, self.BASE)
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_within_tolerance_passes(self):
+        a, b = self.states(self.BASE, self.BASE.replace("-0.0231", "-0.0299"))
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_outside_tolerance_fails_and_names_key(self):
+        a, b = self.states(self.BASE, self.BASE.replace("x=1.500", "x=1.600"))
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("x", r.stdout)
+        self.assertIn("1.600", r.stdout)
+
+    def test_tolerance_flag(self):
+        a, b = self.states(self.BASE, self.BASE.replace("x=1.500", "x=1.600"))
+        r = run(STATEDIFF, a, b, "--tolerance", "0.5")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_string_key_differs_fails(self):
+        a, b = self.states(self.BASE, self.BASE.replace("app=play", "app=menu"))
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("app", r.stdout)
+
+    def test_missing_key_fails(self):
+        a, b = self.states(self.BASE, self.BASE.replace("x=1.500\n", ""))
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("x", r.stdout)
+
+    def test_extra_key_fails(self):
+        a, b = self.states(self.BASE, self.BASE + "y=3.000\n")
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("y", r.stdout)
+
+    def test_unreadable_exits_2(self):
+        a, _ = self.states(self.BASE, self.BASE)
+        r = run(STATEDIFF, a, self.path("nope.state"))
+        self.assertEqual(r.returncode, 2)
+
+    def test_malformed_line_exits_2(self):
+        a, b = self.states(self.BASE, "app=play\ngarbage\n")
+        r = run(STATEDIFF, a, b)
+        self.assertEqual(r.returncode, 2)
 
 
 @unittest.skipUnless(HAVE_PIL, "Pillow not installed")

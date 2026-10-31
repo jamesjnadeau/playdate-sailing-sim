@@ -967,7 +967,7 @@ static void fill_clipped(PlaydateAPI *pd, const float *poly, int n, const float 
 
 /* The cockpit well: a four-sided opening in the deck with a floor below it. The deck is opaque, so only
  * what shows through the opening is drawn: the floor and the inner walls facing the eye, each cut to the
- * outline of the opening on screen. The floor is cut against the sea like the deck. */
+ * outline of the opening on screen. The opening never shows the sea. */
 static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
     const Game *g = k->g;
     const LookCfg *lk = &g->boat.look;
@@ -990,19 +990,9 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
     }
     if (!ok) return;
 
-    /* floor: cut against the sea, projected, then to the opening */
-    float d[4], sx, sy;
-    HgPt cp[8];
-    bool cut[8];
-    sea_dist(g, bot, 4, d);
-    int cn = hull_clip_above(bot, d, 4, cp, cut, 8);
-    if (cn >= 3) {
-        float fp[16];
-        int fv = 0;
-        for (int i = 0; i < cn; i++)
-            if (rel_pt(k, cp[i].f, cp[i].l, cp[i].z, &sx, &sy)) { fp[2 * fv] = sx; fp[2 * fv + 1] = sy; fv++; }
-        fill_clipped(pd, fp, fv, rim, render_pattern((int)(lk->hull_shade * 16.0f) + 9));
-    }
+    /* floor: the whole floor, not cut against the sea. The opening is a hole in an opaque deck, so
+     * whatever is under it must paint over the opening, or a heeled boat shows the sea through it. */
+    fill_clipped(pd, flo, 4, rim, render_pattern((int)(lk->hull_shade * 16.0f) + 9));
 
     /* walls: an inner face shows when the eye is on the well's side of its plane */
     const BoatState *b = &g->b;

@@ -96,7 +96,8 @@ static void dump_frame(const char *dir, int i) {
     fclose(f);
 }
 
-/* Scripted J/24 promo clip: sail, switch to camera mode, pan, hold. Env: FRAME_DIR, PRESET,
+/* Scripted promo clip: sail, switch to camera mode, pan, hold. Env: BOAT (boat json, default
+ * boats/j24.json), FRAME_DIR, PRESET,
  * WIND (mean m/s override), REL (heading off the wind, deg, + = wind on the starboard side), PAN_DEG, FPS. */
 int main(void) {
     const char *dir = getenv("FRAME_DIR") ? getenv("FRAME_DIR") : ".";
@@ -113,9 +114,11 @@ int main(void) {
 
     BoatCfg bc; WeatherCfg wc; WorldCfg wo;
     boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
-    FILE *jf = fopen("boats/j24.json", "rb");
-    if (jf) { static char buf[1 << 16]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
-              char w[128]; boatcfg_load(&bc, buf, n, w, sizeof w); }
+    const char *boat_path = getenv("BOAT") ? getenv("BOAT") : "boats/j24.json";
+    FILE *jf = fopen(boat_path, "rb");
+    if (!jf) { fprintf(stderr, "gif_clip: cannot open boat file %s\n", boat_path); return 1; }
+    static char buf[1 << 16]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
+    char w[128]; boatcfg_load(&bc, buf, n, w, sizeof w);
     game_init(&g, &bc, &wc, &wo, preset, 1);
     if (getenv("WIND")) wind_set_speed(&g.wind, &g.weather.preset[g.preset], (float)atof(getenv("WIND")));
     memset(&cp, 0, sizeof cp); cp.trail = true;

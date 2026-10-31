@@ -1,6 +1,6 @@
 # Sailing Sim
 
-A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24 or a TP52 around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
+A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, a TP52 or a Viking longship (free range only) around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
 
 ## Features
 

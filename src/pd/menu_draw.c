@@ -167,7 +167,10 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         if (start < 0) start = 0;
         for (int i = 0; i < ROWS_VIS && start + i < m->nboats; i++) {
             int k = start + i;
-            row(pd, ASSET_BOAT_NAMES[k], 100 + ROW_H * i, k == m->sel);
+            char label[64];
+            if (m->raceable && !m->raceable[k]) snprintf(label, sizeof label, "%s (free range only)", ASSET_BOAT_NAMES[k]);
+            else snprintf(label, sizeof label, "%s", ASSET_BOAT_NAMES[k]);
+            row(pd, label, 100 + ROW_H * i, k == m->sel);
         }
         text(pd, m->nweather > 0 ? "A select  B back" : "A race  B back", 8, 220);
     } else if (m->screen == MENU_WEATHER) {

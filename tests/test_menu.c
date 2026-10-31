@@ -200,6 +200,88 @@ static void test_multiple_buttons_one_frame(void) {
     T_ASSERT(m.sel == 0);
 }
 
+/* Free range, Racing, then the track: the boat screen opens after the track's preview. */
+static void enter_boats(Menu *m) {
+    menu_update(m, BTN_DOWN);
+    menu_update(m, BTN_A);
+    menu_update(m, BTN_A);
+    menu_update(m, BTN_A);
+}
+
+/* Cruisers (raceable 0) are skipped by UP and DOWN on the boat screen. */
+static void test_boat_screen_skips_cruisers(void) {
+    static const bool raceable[5] = { true, true, true, true, false };
+    Menu m;
+    menu_init(&m, 3, 5);
+    menu_set_boat_racing(&m, raceable);
+    m.boat = 3;
+    enter_boats(&m);
+    T_ASSERT(m.screen == MENU_BOATS);
+    T_ASSERT(m.sel == 3);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == 0);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.sel == 3);
+}
+
+/* A cruiser as the current boat: the screen opens on the first racer, and that is what races. */
+static void test_boat_screen_opens_on_a_racer_when_current_boat_is_a_cruiser(void) {
+    static const bool raceable[5] = { true, true, true, true, false };
+    Menu m;
+    menu_init(&m, 3, 5);
+    menu_set_boat_racing(&m, raceable);
+    menu_set_weather(&m, 2, 0);
+    m.boat = 4;
+    enter_boats(&m);
+    T_ASSERT(m.sel == 0);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_RACE);
+    T_ASSERT(m.boat == 0);
+}
+
+/* B from the weather screen returns to the boat row that was picked, a racer. */
+static void test_boat_screen_b_returns_to_a_racer_row(void) {
+    static const bool raceable[5] = { true, true, true, true, false };
+    Menu m;
+    menu_init(&m, 3, 5);
+    menu_set_boat_racing(&m, raceable);
+    menu_set_weather(&m, 2, 0);
+    m.boat = 4;
+    enter_boats(&m);
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    menu_update(&m, BTN_B);
+    T_ASSERT(m.screen == MENU_BOATS);
+    T_ASSERT(m.sel == 0);
+    T_ASSERT(raceable[m.sel]);
+}
+
+/* No racer at all: every boat stays selectable rather than leaving the screen empty. */
+static void test_all_cruisers_falls_back_to_all_selectable(void) {
+    static const bool raceable[5] = { false, false, false, false, false };
+    Menu m;
+    menu_init(&m, 3, 5);
+    menu_set_boat_racing(&m, raceable);
+    enter_boats(&m);
+    T_ASSERT(m.sel == 0);
+    for (int i = 1; i < 5; i++) {
+        menu_update(&m, BTN_DOWN);
+        T_ASSERT(m.sel == i);
+    }
+}
+
+/* No raceable list set: every boat is selectable, including the last. */
+static void test_null_raceable_selects_every_boat(void) {
+    Menu m;
+    menu_init(&m, 3, 5);
+    m.boat = 4;
+    enter_boats(&m);
+    T_ASSERT(m.sel == 4);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == 0);
+}
+
 int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
@@ -217,5 +299,10 @@ int main(void) {
     T_RUN(test_b_goes_back_to_racing_row);
     T_RUN(test_no_tracks_racing_stays);
     T_RUN(test_multiple_buttons_one_frame);
+    T_RUN(test_boat_screen_skips_cruisers);
+    T_RUN(test_boat_screen_opens_on_a_racer_when_current_boat_is_a_cruiser);
+    T_RUN(test_boat_screen_b_returns_to_a_racer_row);
+    T_RUN(test_all_cruisers_falls_back_to_all_selectable);
+    T_RUN(test_null_raceable_selects_every_boat);
     return T_DONE();
 }

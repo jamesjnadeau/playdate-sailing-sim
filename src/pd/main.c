@@ -34,6 +34,7 @@ static HelpLine help[HELP_ROWS_MAX];
 static int nhelp;
 
 static PDMenuItem *boat_item, *weather_item;
+static bool boat_raceable[ASSETS_BOATS];   /* cruisers are free range only */
 
 static uint32_t fresh_seed(void) {
     return pd->system->getCurrentTimeMilliseconds() * 2654435761u + (++restart_count) * 40503u;
@@ -62,6 +63,7 @@ static void begin(bool reload) {
 static void show_menu(void) {
     app = APP_MENU;
     menu_init(&menu, ntracks, ASSETS_BOATS);
+    menu_set_boat_racing(&menu, boat_raceable);
     menu.boat = boat_index;   /* the boat screen opens on the current boat */
     menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
     menu_set_help(&menu, nhelp);
@@ -90,11 +92,10 @@ static void menu_main(void *ud) { (void)ud; show_menu(); }
 
 /* A race is set up from the main menu, so the system menu only offers boat and weather in free range. */
 static void sys_menu_build(bool racing) {
-    static const char *boat_names[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52" };
     pd->system->removeAllMenuItems();
     boat_item = weather_item = NULL;
     if (!racing) {
-        boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
+        boat_item = pd->system->addOptionsMenuItem("boat", (const char **)ASSET_BOAT_NAMES, ASSETS_BOATS, menu_boat, NULL);
         weather_item = pd->system->addOptionsMenuItem("weather", WEATHER_NAMES, WEATHER_PRESETS, menu_weather, NULL);
         pd->system->setMenuItemValue(boat_item, boat_index);
         pd->system->setMenuItemValue(weather_item, preset_index);
@@ -179,6 +180,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     if (event == kEventInit) {
         pd = playdate;
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
+        assets_boat_raceable(pd, boat_raceable);
         sys_menu_build(false);
         pd->display->setRefreshRate(30.0f);
         help_load();

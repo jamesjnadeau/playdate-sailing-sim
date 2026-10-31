@@ -16,6 +16,34 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->help_rows = 0;
     m->help_top = 0;
     m->help_crank = 0;
+    m->raceable = NULL;
+}
+
+void menu_set_boat_racing(Menu *m, const bool *raceable) {
+    m->raceable = raceable;
+}
+
+/* A boat row is selectable when it may race; with no racer at all, every row is. */
+static bool row_ok(const Menu *m, int row) {
+    if (!m->raceable) return true;
+    for (int i = 0; i < m->nboats; i++) if (m->raceable[i]) return m->raceable[row];
+    return true;
+}
+
+/* Nearest selectable boat row from row, stepping dir (+1 or -1) and wrapping; row when none can race. */
+static int next_ok(const Menu *m, int row, int dir) {
+    int n = m->nboats;
+    for (int i = 0; i < n; i++) {
+        int k = ((row + dir * i) % n + n) % n;
+        if (row_ok(m, k)) return k;
+    }
+    return row;
+}
+
+/* The boat screen's starting row: the current boat if it may race, else the first racer. */
+static int boat_start(const Menu *m) {
+    int row = m->boat < m->nboats ? m->boat : 0;
+    return next_ok(m, row, 1);
 }
 
 void menu_set_weather(Menu *m, int n, int current) {
@@ -66,7 +94,7 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
                 m->tick = 0;
             } else {
                 m->screen = MENU_BOATS;
-                m->sel = m->boat < m->nboats ? m->boat : 0;
+                m->sel = boat_start(m);
             }
         } else if (m->screen == MENU_BOATS) {
             m->screen = MENU_PREVIEW;
@@ -85,14 +113,20 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
         if (!(pressed & BTN_A)) return MENU_NONE;
         if (m->nboats < 1) return enter_weather(m);
         m->screen = MENU_BOATS;
-        m->sel = m->boat < m->nboats ? m->boat : 0;
+        m->sel = boat_start(m);
         return MENU_NONE;
     }
 
     int n = m->screen == MENU_MAIN ? MENU_MAIN_ITEMS : m->screen == MENU_TRACKS ? m->ntracks : m->screen == MENU_BOATS ? m->nboats : m->nweather;
     if (n > 0) {
-        if (pressed & BTN_DOWN) m->sel = (m->sel + 1) % n;
-        if (pressed & BTN_UP) m->sel = (m->sel + n - 1) % n;
+        if (m->screen == MENU_BOATS) {
+            /* Step past cruiser rows; next_ok returns the same row when none can race. */
+            if (pressed & BTN_DOWN) m->sel = next_ok(m, (m->sel + 1) % n, 1);
+            if (pressed & BTN_UP) m->sel = next_ok(m, (m->sel + n - 1) % n, -1);
+        } else {
+            if (pressed & BTN_DOWN) m->sel = (m->sel + 1) % n;
+            if (pressed & BTN_UP) m->sel = (m->sel + n - 1) % n;
+        }
     }
 
     if (!(pressed & BTN_A)) return MENU_NONE;

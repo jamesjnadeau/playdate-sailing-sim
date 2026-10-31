@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const ASSET_BOAT_NAMES[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52" };
+const char *const ASSET_BOAT_NAMES[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52", "longship" };
 
 #define FILE_MAX 16384
 static char filebuf[FILE_MAX];
@@ -31,6 +31,22 @@ int assets_read_file(PlaydateAPI *pd, const char *path, char **buf) {
     int n = read_file(pd, path);
     *buf = filebuf;
     return n;
+}
+
+void assets_boat_raceable(PlaydateAPI *pd, bool out[ASSETS_BOATS]) {
+    char path[96], msg[160];
+    BoatCfg boat;
+    for (int i = 0; i < ASSETS_BOATS; i++) {
+        /* Reading or parsing failure leaves boatcfg_default, which is a racer. */
+        boatcfg_default(&boat);
+        snprintf(path, sizeof path, "boats/%s.json", ASSET_BOAT_NAMES[i]);
+        int n = read_file(pd, path);
+        if (n >= 0) {
+            msg[0] = 0;
+            boatcfg_load(&boat, filebuf, (size_t)n, msg, sizeof msg);
+        }
+        out[i] = boat.boat_class != BOAT_CLASS_CRUISER;
+    }
 }
 
 bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *weather,

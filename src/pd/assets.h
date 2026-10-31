@@ -6,9 +6,13 @@
 #include "game.h"
 
 #define ASSETS_WARN_LEN 512
-#define ASSETS_BOATS 4
+#define ASSETS_BOATS 5
 
 extern const char *const ASSET_BOAT_NAMES[ASSETS_BOATS];
+
+/* Sets out[i] true for each boat that may race (boat_class racer). An unreadable or invalid file
+   counts as a racer, as the built-in default does. */
+void assets_boat_raceable(PlaydateAPI *pd, bool out[ASSETS_BOATS]);
 
 /* Reads boat, weather and world configs into out params. A missing or unreadable file leaves the
    built-in default and adds a message; a parse problem adds the loader's warnings. Always fills

@@ -35,7 +35,7 @@ typedef struct {
     float master;
     SoundParams cur;    /* p, smoothed */
     float wash_s[2][2], swell_s[2], slap_s[2], thump_s[2], gur_s[2], burble;
-    float svf_low, svf_band, wobble, flut_phase, flut_gate;
+    float svf_low, svf_band, wobble, flut_phase, flut_gate, flut_lp, flut_body, flut_amp, flut_len;
     float slap_env, thump_env;
     float k_fast, k_master;
 } SeaSound;

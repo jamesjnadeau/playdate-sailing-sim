@@ -1,7 +1,12 @@
 #include "scenario.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static bool is_frame_cmd(ScCmdKind k) {
+    return k == SC_C_WAIT || k == SC_C_PRESS || k == SC_C_HOLD || k == SC_C_CRANK;
+}
 
 static void set_err(char *err, size_t errn, int line, const char *msg) {
     if (err && errn) snprintf(err, errn, "line %d: %s", line, msg);
@@ -24,7 +29,7 @@ static bool parse_float(const char *t, float *out) {
     double v;
     if (!t) return false;
     v = strtod(t, &e);
-    if (e == t || *e) return false;
+    if (e == t || *e || !isfinite(v)) return false;
     *out = (float)v;
     return true;
 }
@@ -117,6 +122,7 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
 bool scenario_parse(Scenario *s, const char *text, char *err, size_t errn) {
     int lineno = 0;
     bool have_frame = false;
+    int sys_line = 0;                 /* line of a sysmenu not yet followed by a frame */
     const char *p = text;
     memset(s, 0, sizeof *s);
     if (err && errn) err[0] = 0;
@@ -141,15 +147,12 @@ bool scenario_parse(Scenario *s, const char *text, char *err, size_t errn) {
         if (msg && !*msg) continue;
         if (msg) { set_err(err, errn, lineno, msg); return false; }
         if (s->ncmds >= SC_MAX_CMDS) { set_err(err, errn, lineno, "too many commands"); return false; }
-        if (c.kind == SC_C_WAIT || c.kind == SC_C_PRESS || c.kind == SC_C_HOLD || c.kind == SC_C_CRANK)
-            have_frame = true;
+        if (is_frame_cmd(c.kind)) { have_frame = true; sys_line = 0; }
+        if (c.kind == SC_C_SYS && !sys_line) sys_line = lineno;
         s->cmds[s->ncmds++] = c;
     }
+    if (sys_line) { set_err(err, errn, sys_line, "sysmenu with no following frame"); return false; }
     return true;
-}
-
-static bool is_frame_cmd(ScCmdKind k) {
-    return k == SC_C_WAIT || k == SC_C_PRESS || k == SC_C_HOLD || k == SC_C_CRANK;
 }
 
 bool scenario_poll(Scenario *s, ScFrame *f) {
@@ -183,6 +186,12 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
 ScAfterKind scenario_after(Scenario *s, char name[SC_NAME_MAX]) {
     const ScCmd *c;
     if (s->k != 0) return SC_AFTER_NONE;          /* mid-command */
+    /* sysmenu is consumed into the pending action so snap/state behind it still fire */
+    while (s->pc < s->ncmds && s->cmds[s->pc].kind == SC_C_SYS) {
+        s->pend_sys = s->cmds[s->pc].sys;
+        s->pend_arg = s->cmds[s->pc].n;
+        s->pc++;
+    }
     if (s->pc >= s->ncmds) return SC_AFTER_END;
     c = &s->cmds[s->pc];
     switch (c->kind) {

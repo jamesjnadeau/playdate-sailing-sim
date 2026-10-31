@@ -91,6 +91,32 @@ static void test_sysmenu(void) {
     T_ASSERT(f.sys == SC_SYS_WEATHER && f.sys_arg == 1);
 }
 
+static void test_snap_behind_sysmenu(void) {
+    ScFrame f;
+    char name[SC_NAME_MAX];
+    P("wait 1\nsysmenu restart\nsnap a\nstate\nwait 1\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.sys == SC_SYS_NONE);
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP);
+    T_ASSERT(strcmp(name, "a") == 0);
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_STATE);
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_NONE);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.sys == SC_SYS_RESTART);
+}
+
+static void test_snap_after_press_and_hold(void) {
+    ScFrame f;
+    char name[SC_NAME_MAX];
+    P("press A\nsnap p\nhold B 2\nsnap h\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP && strcmp(name, "p") == 0);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_NONE);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP && strcmp(name, "h") == 0);
+}
+
 static bool fails(const char *text, const char *want) {
     char err[96] = "";
     if (scenario_parse(&S, text, err, sizeof err)) return false;
@@ -106,6 +132,8 @@ static void test_errors_have_line_numbers(void) {
     T_ASSERT(fails("wait 1\nhold A", "line 2"));
     T_ASSERT(fails("wait 1\nsnap", "line 2"));
     T_ASSERT(fails("snap a\nwait 1", "line 1"));
+    T_ASSERT(fails("wait 1\nsysmenu main\n", "line 2"));
+    T_ASSERT(fails("crank nan for 2", "line 1"));
     big[0] = 0;
     for (i = 0; i < 600; i++) strcat(big, "wait 1\n");
     T_ASSERT(fails(big, "line 513"));
@@ -135,6 +163,8 @@ int main(void) {
     T_RUN(test_snap_after_frame);
     T_RUN(test_state_after_frame);
     T_RUN(test_sysmenu);
+    T_RUN(test_snap_behind_sysmenu);
+    T_RUN(test_snap_after_press_and_hold);
     T_RUN(test_errors_have_line_numbers);
     T_RUN(test_eof_ends);
     T_RUN(test_comments_and_blank_lines);

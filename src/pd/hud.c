@@ -168,6 +168,119 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
+/* Course map in the pause panel: north-up, x north / y east in the track frame. */
+#define MAP_L 2
+#define MAP_T 62
+#define MAP_W 194
+#define MAP_H 174
+
+typedef struct { float cx, cy, scale, x0, y0; } MapView;
+
+static int map_sx(const MapView *v, float wy) { return (int)lroundf(v->cx + (wy - v->y0) * v->scale); }
+static int map_sy(const MapView *v, float wx) { return (int)lroundf(v->cy - (wx - v->x0) * v->scale); }
+
+static void map_dashed(PlaydateAPI *pd, int x0, int y0, int x1, int y1) {
+    const float dx = (float)(x1 - x0), dy = (float)(y1 - y0), len = hypotf(dx, dy);
+    for (float d = 0; d < len; d += 6.0f) {
+        float e = fminf(d + 3.0f, len);
+        pd->graphics->drawLine((int)lroundf(x0 + dx * d / len), (int)lroundf(y0 + dy * d / len),
+                               (int)lroundf(x0 + dx * e / len), (int)lroundf(y0 + dy * e / len), 1, kColorBlack);
+    }
+}
+
+/* A 270 degree arc round (cx, cy) with an arrowhead, clockwise on the map for starboard roundings
+   and anticlockwise for port: the way the boat has to go round the mark. */
+static void map_round_arrow(PlaydateAPI *pd, int cx, int cy, int rounding) {
+    const float R = 11.0f, sweep = 4.712389f;   /* 270 deg */
+    const float dir = rounding == ROUND_STARBOARD ? 1.0f : -1.0f;
+    const float a0 = 3.14159265f - dir * sweep / 2;   /* gap at the bottom of the mark */
+    int px = 0, py = 0;
+    float a = a0;
+    for (int i = 0; i <= 12; i++) {
+        a = a0 + dir * sweep * i / 12.0f;
+        int qx = cx + (int)lroundf(R * sinf(a)), qy = cy - (int)lroundf(R * cosf(a));
+        if (i) pd->graphics->drawLine(px, py, qx, qy, 2, kColorBlack);
+        px = qx;
+        py = qy;
+    }
+    /* tangent at the end of the arc, in screen coordinates */
+    const float tx = dir * cosf(a), ty = dir * sinf(a);
+    pd->graphics->fillTriangle(px + (int)lroundf(6 * tx), py + (int)lroundf(6 * ty),
+                               px - (int)lroundf(4 * ty), py + (int)lroundf(4 * tx),
+                               px + (int)lroundf(4 * ty), py - (int)lroundf(4 * tx), kColorBlack);
+}
+
+static void draw_course_map(PlaydateAPI *pd, const Game *g) {
+    const Track *tr = &g->track;
+    const Race *r = &g->race;
+    const struct playdate_graphics *gr = pd->graphics;
+    const float bx = (float)(g->b.x + r->ox), by = (float)(g->b.y + r->oy);   /* boat, track frame */
+    float lo_x = tr->start_x, hi_x = lo_x, lo_y = tr->start_y, hi_y = lo_y;
+#define EXT(X, Y) do { float _x = (X), _y = (Y); \
+        if (_x < lo_x) lo_x = _x; if (_x > hi_x) hi_x = _x; \
+        if (_y < lo_y) lo_y = _y; if (_y > hi_y) hi_y = _y; } while (0)
+    for (int i = 0; i < tr->nmarks; i++) EXT(tr->marks[i].x, tr->marks[i].y);
+    EXT(bx, by);
+#undef EXT
+    float sx = hi_y - lo_y, sy = hi_x - lo_x;
+    if (sx < 20) sx = 20;
+    if (sy < 20) sy = 20;
+    const int pad = 18;
+    MapView v = { MAP_L + MAP_W / 2.0f, MAP_T + MAP_H / 2.0f,
+                  fminf((MAP_W - 2 * pad) / sx, (MAP_H - 2 * pad) / sy), (hi_x + lo_x) / 2, (hi_y + lo_y) / 2 };
+    gr->drawRect(MAP_L, MAP_T, MAP_W, MAP_H, kColorBlack);
+
+    const bool done = r->finished || r->next >= tr->nmarks;
+    int px = map_sx(&v, tr->start_y), py = map_sy(&v, tr->start_x);
+    gr->fillRect(px - 3, py - 3, 7, 7, kColorBlack);
+    /* the legs, dashed; the leg being sailed is drawn solid from the boat */
+    for (int i = 0; i < tr->nmarks; i++) {
+        int qx = map_sx(&v, tr->marks[i].y), qy = map_sy(&v, tr->marks[i].x);
+        map_dashed(pd, px, py, qx, qy);
+        px = qx;
+        py = qy;
+    }
+    for (int i = 0; i < tr->nmarks; i++) {
+        const Mark *k = &tr->marks[i];
+        int mx = map_sx(&v, k->y), my = map_sy(&v, k->x);
+        const bool next = !done && i == r->next;
+        if (strcmp(k->name, "FIN") == 0) {
+            gr->drawLine(mx, my - 5, mx, my + 5, 2, kColorBlack);
+            gr->drawLine(mx - 5, my, mx + 5, my, 2, kColorBlack);
+        } else {
+            gr->fillEllipse(mx - 4, my - 4, 9, 9, 0, 0, next ? kColorBlack : kColorWhite);
+            gr->drawEllipse(mx - 4, my - 4, 9, 9, 2, 0, 0, kColorBlack);
+        }
+        if (next) map_round_arrow(pd, mx, my, k->rounding);
+        char lab[10];
+        snprintf(lab, sizeof lab, "%s", k->name);
+        text(pd, lab, mx + 8, my - 18);
+    }
+    if (!done) {
+        const Mark *k = &tr->marks[r->next];
+        gr->drawLine(map_sx(&v, by), map_sy(&v, bx), map_sx(&v, k->y), map_sy(&v, k->x), 3, kColorBlack);
+    }
+
+    /* the boat: a triangle pointing along its heading (heading h -> screen (sin h, -cos h)) */
+    const float h = g->b.heading, fx = sinf(h), fy = -cosf(h);
+    const int ox = map_sx(&v, by), oy = map_sy(&v, bx);
+    gr->fillEllipse(ox - 6, oy - 6, 13, 13, 0, 0, kColorWhite);
+    gr->fillTriangle(ox + (int)lroundf(8 * fx), oy + (int)lroundf(8 * fy),
+                     ox - (int)lroundf(5 * fx + 4 * fy), oy - (int)lroundf(5 * fy - 4 * fx),
+                     ox - (int)lroundf(5 * fx - 4 * fy), oy - (int)lroundf(5 * fy + 4 * fx), kColorBlack);
+
+    /* wind arrow, pointing the way the wind blows */
+    const float wd = tr->wind_from + 3.14159265f;
+    const int ax = MAP_L + 18, ay = MAP_T + 22;
+    const int tx = ax + (int)lroundf(12 * sinf(wd)), ty = ay - (int)lroundf(12 * cosf(wd));
+    gr->drawLine(ax - (int)lroundf(12 * sinf(wd)), ay + (int)lroundf(12 * cosf(wd)), tx, ty, 2, kColorBlack);
+    gr->fillTriangle(tx, ty,
+                     tx - (int)lroundf(5 * sinf(wd) + 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) - 3 * sinf(wd)),
+                     tx - (int)lroundf(5 * sinf(wd) - 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) + 3 * sinf(wd)),
+                     kColorBlack);
+    text(pd, "WIND", MAP_L + 4, MAP_T + MAP_H - 18);
+}
+
 /* System pause-menu panel: the left ~200px of a 400x240 bitmap show beside the menu. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
     const Track *tr = &g->track;
@@ -189,6 +302,8 @@ void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
         hud_fmt_mark(tr->marks[r->next].name, r->next + 1, tr->nmarks, hypot(mx - g->b.x, my - g->b.y), mark, sizeof mark);
         ROW("Time %s", time);
         ROW("%s", mark);
+        ROW("Round to %s", tr->marks[r->next].rounding == ROUND_STARBOARD ? "starboard" : "port");
     }
 #undef ROW
+    draw_course_map(pd, g);
 }

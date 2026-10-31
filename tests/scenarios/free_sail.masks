@@ -1,0 +1,7 @@
+# snapshot x y w h: text regions masked (stub draws no text)
+free_autopilot 4 219 268 20
+free_autopilot 350 219 28 20
+free_cranked 4 219 268 20
+free_cranked 350 219 28 20
+free_start 4 219 268 20
+free_start 350 219 28 20

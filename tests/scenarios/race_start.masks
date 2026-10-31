@@ -1,0 +1,7 @@
+# snapshot x y w h: text regions masked (stub draws no text)
+race_sailing 4 219 268 20
+race_sailing 350 219 28 20
+race_start 4 219 268 20
+race_start 350 219 28 20
+race_sailing 296 74 44 18
+race_start 296 74 44 18

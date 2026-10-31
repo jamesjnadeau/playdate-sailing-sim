@@ -1,0 +1,12 @@
+# snapshot x y w h: text regions masked (stub draws no text)
+boat_changed 4 219 268 20
+boat_changed 350 219 28 20
+restarted 4 219 268 20
+restarted 350 219 28 20
+weather_changed 4 219 268 20
+weather_changed 350 219 28 20
+main_menu 148 29 92 18
+main_menu 50 99 100 20
+main_menu 50 129 100 20
+main_menu 50 159 100 20
+main_menu 4 219 76 20

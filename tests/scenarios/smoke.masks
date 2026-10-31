@@ -1,0 +1,8 @@
+# snapshot x y w h: text regions masked (stub draws no text)
+sailing 4 219 268 20
+sailing 350 219 28 20
+menu_home 148 29 92 18
+menu_home 50 99 100 20
+menu_home 50 129 100 20
+menu_home 50 159 100 20
+menu_home 4 219 76 20

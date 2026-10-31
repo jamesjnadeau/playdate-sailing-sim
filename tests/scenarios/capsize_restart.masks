@@ -1,0 +1,10 @@
+# snapshot x y w h: text regions masked (stub draws no text)
+hurricane_crank 4 219 268 20
+hurricane_crank 350 219 28 20
+restarted 4 219 268 20
+restarted 350 219 28 20
+sailing_before 4 219 268 20
+sailing_before 350 219 28 20
+capsized 4 219 268 20
+capsized 350 219 28 20
+capsized 96 89 148 44

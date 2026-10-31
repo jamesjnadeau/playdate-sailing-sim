@@ -1,3 +1,17 @@
+# Fidelity calibration (host stub vs real-simulator goldens; tests/scenarios/*.masks, default.tolerance)
+# Before masks: every snapshot 0.83%-1.86% mismatch (800-1800 px of 96000), almost all of it the system
+# font, which the stub does not draw. Rasterizer variants tried (line offset (wd-1)/2, polygon edge
+# inclusion) were all worse (non-text mismatch 3974 px -> 8911 / ~4050 over the sailing frames), so the
+# stub is unchanged and the host goldens were not regenerated.
+# Masks: tight rects over text only (HUD label strip and the number at its right, menu title/items/footer,
+# the capsized box text, the "132m" marker label). Masks cover ~6000-15600 px; the compass icon and every
+# non-text pixel stay compared. Menu frames match exactly once text is masked.
+# After masks (fraction of unmasked px): menus 0; capsized 0.0019; boat_weather 0.0020-0.0023;
+# capsize/free/menu_nav sailing 0.0026-0.0044 (worst free_sail/free_cranked 0.00436); race_start 0.0040.
+# What remains: 1px differences along sail/boom/hull edges and the dashed horizon line, in line
+# caps/rounding that were not reproducible with a simple offset change.
+# Tolerance 0.0065 = worst remaining 0.0044 + ~0.002 margin (~585 px of 90000; baseline 230-390 px),
+# so a stray solid block of roughly 19x19 px or larger fails (checked: 40x40 fails at 2.0%; 14x14 passes).
 # Host harness: the real src/pd main loop against a stub Playdate API.
 # make run SCEN=name | run-all | check-determinism | update-golden
 CC     ?= gcc

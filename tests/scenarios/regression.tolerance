@@ -1,0 +1,7 @@
+# Regression (host output vs host goldens) tolerance, read by harness/check.sh.
+# First non-comment line: <fb mismatch fraction> [<.state numeric tolerance>]
+# The host goldens were generated on a different libc/libm than the CI runner (ubuntu-24.04), so
+# a few pixels along rasterised edges or a last-digit state difference are expected. 0.0005 of
+# 96000 px is 48 px; 0.001 is the state tolerance (states print 3-4 decimals). Identical files
+# always pass without consulting these. Set the first value to 0 to demand exact frames.
+0.0005 0.001

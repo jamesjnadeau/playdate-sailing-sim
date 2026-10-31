@@ -120,6 +120,12 @@ class FbDiffTest(FbToolTest):
         self.assertEqual(r.returncode, 2)
         self.assertIn("12000", r.stderr)
 
+    def test_non_finite_tolerance_exits_2(self):
+        a = self.write("a.fb", white_frame())
+        for tol in ("nan", "inf", "-0.1"):
+            r = run(FBDIFF, a, a, "--tolerance", tol)
+            self.assertEqual(r.returncode, 2, tol)
+
     def test_bad_mask_exits_2(self):
         a = self.write("a.fb", white_frame())
         r = run(FBDIFF, a, a, "--mask", "1,2,3")
@@ -194,6 +200,20 @@ class StateDiffTest(FbToolTest):
         a, b = self.states(self.BASE, "app=play\ngarbage\n")
         r = run(STATEDIFF, a, b)
         self.assertEqual(r.returncode, 2)
+
+    def test_nan_on_either_side_fails(self):
+        nan = self.BASE.replace("x=1.500", "x=nan")
+        for real, host in ((self.BASE, nan), (nan, self.BASE), (nan, nan)):
+            a, b = self.states(real, host)
+            r = run(STATEDIFF, a, b)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("x", r.stdout)
+
+    def test_non_finite_tolerance_exits_2(self):
+        a, b = self.states(self.BASE, self.BASE)
+        for tol in ("nan", "inf", "-1"):
+            r = run(STATEDIFF, a, b, "--tolerance", tol)
+            self.assertEqual(r.returncode, 2, tol)
 
 
 @unittest.skipUnless(HAVE_PIL, "Pillow not installed")

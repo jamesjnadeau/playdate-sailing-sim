@@ -76,5 +76,42 @@ mk t15; rm -rf "$T/out" "$T/host"; run regression
 mk t14; fb "$T/real/s/a.fb" ff; run all
 [ $RC != 0 ]; expect "all runs fidelity too" $?
 
+# regression tolerance: default 0.0005 of 96000 px = 48 px. 5 bytes flipped = 40 px passes, 50 bytes = 400 px fails.
+flipbytes() { python3 -I -c 'import sys; d=bytearray(open(sys.argv[1],"rb").read()); n=int(sys.argv[2]); d[:n]=b"\xff"*n; open(sys.argv[1],"wb").write(d)' "$1" "$2"; }
+mk t16; flipbytes "$T/out/s/a.fb" 5; run regression
+[ $RC = 0 ] && echo "$OUTPUT" | grep -q "within tolerance"; expect "small regression frame diff passes" $?
+
+mk t17; flipbytes "$T/out/s/a.fb" 50; run regression
+[ $RC != 0 ] && [ -s "$T/diff/s/a.png" ]; expect "large regression frame diff fails" $?
+
+mk t18; flipbytes "$T/out/s/a.fb" 50; echo "0.01" > "$T/scen/regression.tolerance"; run regression
+[ $RC = 0 ]; expect "regression.tolerance file widens the limit" $?
+
+mk t19; flipbytes "$T/out/s/a.fb" 5; echo "nan" > "$T/scen/regression.tolerance"; run regression
+[ $RC != 0 ]; expect "malformed regression tolerance fails closed" $?
+
+mk t20; flipbytes "$T/out/s/a.fb" 5; echo "0" > "$T/scen/regression.tolerance"; run regression
+[ $RC != 0 ]; expect "regression tolerance 0 demands exact frames" $?
+
+STATE='app=play\nx=1.500\nheading=-0.0231\n'
+mk t21; printf "$STATE" > "$T/host/s/a.state"; printf 'app=play\nx=1.5004\nheading=-0.0231\n' > "$T/out/s/a.state"; run regression
+[ $RC = 0 ]; expect "small regression state diff passes" $?
+
+mk t22; printf "$STATE" > "$T/host/s/a.state"; printf 'app=play\nx=1.600\nheading=-0.0231\n' > "$T/out/s/a.state"; run regression
+[ $RC != 0 ] && echo "$OUTPUT" | grep -q "a.state"; expect "large regression state diff fails" $?
+
+mk t23; printf "$STATE" > "$T/host/s/a.state"; printf 'app=play\nx=nan\nheading=-0.0231\n' > "$T/out/s/a.state"; run regression
+[ $RC != 0 ]; expect "nan regression state fails" $?
+
+# fidelity: real .state compared against the host output (tolerance 0.01)
+mk t24; fb "$T/real/s/a.fb" 00; printf "$STATE" > "$T/real/s/a.state"; printf 'app=play\nx=1.505\nheading=-0.0231\n' > "$T/out/s/a.state"; run fidelity
+[ $RC = 0 ] && echo "$OUTPUT" | grep -q "PASS fidelity s/a.state"; expect "real state within tolerance passes" $?
+
+mk t25; fb "$T/real/s/a.fb" 00; printf "$STATE" > "$T/real/s/a.state"; printf 'app=play\nx=1.600\nheading=-0.0231\n' > "$T/out/s/a.state"; run fidelity
+[ $RC != 0 ] && echo "$OUTPUT" | grep -q "FAIL fidelity s/a.state"; expect "real state beyond tolerance fails" $?
+
+mk t26; fb "$T/real/s/a.fb" 00; printf "$STATE" > "$T/real/s/a.state"; rm "$T/out/s/a.state"; run fidelity
+[ $RC != 0 ]; expect "real state with no output state fails" $?
+
 [ $fails = 0 ] || { echo "$fails test(s) failed"; exit 1; }
 echo "all check.sh tests passed"

@@ -16,6 +16,7 @@ Prints "mismatch=<count> fraction=<f> masked=<count>". Exit 0 pass, 1 fail, 2 ba
 passes: mismatches are red, masked pixels grey, other pixels show the expected colour.
 Pillow is imported only when --png is given."""
 import argparse
+import math
 import sys
 
 W, H, ROW = 400, 240, 50
@@ -90,8 +91,8 @@ def main():
                    help="allowed mismatch fraction of unmasked pixels (default 0)")
     p.add_argument("--png", metavar="OUT.png", help="write expected | actual | diff")
     a = p.parse_args()
-    if a.tolerance < 0:
-        print("fbdiff: --tolerance must be >= 0", file=sys.stderr)
+    if not math.isfinite(a.tolerance) or a.tolerance < 0:
+        print("fbdiff: --tolerance must be a finite number >= 0", file=sys.stderr)
         return 2
     try:
         exp_bytes = read_fb(a.expected)

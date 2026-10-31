@@ -77,7 +77,7 @@ The host binary exits 0 on success, 1 on timeout and 2 on a parse error. Frames 
 `make -C harness check` runs both (`check-fidelity` and `check-regression` run one each):
 
 - Fidelity compares the host frames with the real-simulator goldens in `tests/golden/real/`, ignoring the masks in `NAME.masks` (text regions the host stub does not draw) and allowing the mismatch in `tests/scenarios/default.tolerance` (0.0065, a fraction of the unmasked pixels). A scenario with no real golden only warns.
-- Regression compares the host frames and states byte for byte with `tests/golden/host/`. It always blocks and fails if it checked no snapshots. After an intended change, review the frames and run `make -C harness update-golden`.
+- Regression compares the host frames and states with `tests/golden/host/`: identical bytes pass, otherwise frames may differ by `tests/scenarios/regression.tolerance` (default 0.0005 of pixels, for libc differences between machines) and states within 0.001. It always blocks and fails if it checked no snapshots. Fidelity also compares every real `.state` with the host output (tolerance 0.01). After an intended change, review the frames and run `make -C harness update-golden`.
 
 CI runs both and uploads PNGs of any failing frames as the `scenario-diffs` artifact (locally they are in `harness/build/diff/`).
 

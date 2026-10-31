@@ -8,6 +8,7 @@ key (app, mode label, ...) must match exactly. A key present in only one file is
 Prints one line per differing key ("key: real=<v> host=<v>"). Exit 0 pass, 1 mismatch,
 2 bad input (unreadable file or a line that is not key=value)."""
 import argparse
+import math
 import sys
 
 
@@ -42,7 +43,8 @@ def diff(real, host, tolerance):
             continue
         rn, hn = as_number(r), as_number(h)
         if rn is not None and hn is not None:
-            if abs(rn - hn) > tolerance:
+            # written so NaN on either side is a mismatch (any comparison with NaN is false)
+            if not (abs(rn - hn) <= tolerance):
                 bad.append((key, r, h, f"delta={abs(rn - hn):.6g}"))
         elif r != h:
             bad.append((key, r, h, "differs"))
@@ -52,7 +54,7 @@ def diff(real, host, tolerance):
 def max_delta(real, host):
     deltas = [abs(float(real[k]) - float(host[k])) for k in real.keys() & host.keys()
               if as_number(real[k]) is not None and as_number(host[k]) is not None]
-    return max(deltas, default=0.0)
+    return max((d for d in deltas if math.isfinite(d)), default=0.0)
 
 
 def main(argv=None):
@@ -61,6 +63,9 @@ def main(argv=None):
     ap.add_argument("host")
     ap.add_argument("--tolerance", type=float, default=1e-2)
     args = ap.parse_args(argv)
+    if not math.isfinite(args.tolerance) or args.tolerance < 0:
+        print("statediff: --tolerance must be a finite number >= 0", file=sys.stderr)
+        return 2
     try:
         real, host = read_state(args.real), read_state(args.host)
     except (OSError, ValueError) as e:

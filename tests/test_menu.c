@@ -299,6 +299,62 @@ static void test_null_raceable_selects_every_boat(void) {
     T_ASSERT(m.sel == 0);
 }
 
+/* A list longer than MENU_LIST_VIS scrolls just far enough to keep the selection on screen, wrapping too. */
+static void test_long_list_scrolls_with_selection(void) {
+    Menu m;
+    menu_init(&m, 8, 3);
+    menu_update(&m, BTN_DOWN);   /* main: Racing */
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_TRACKS);
+    T_ASSERT(m.top == 0);
+    for (int i = 0; i < MENU_LIST_VIS - 1; i++) menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == MENU_LIST_VIS - 1);
+    T_ASSERT(m.top == 0);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.top == 1);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.top == 1);   /* sel 4 is still on screen */
+    m.sel = 0; menu_update(&m, BTN_UP);   /* wrap to the last track */
+    T_ASSERT(m.sel == 7);
+    T_ASSERT(m.top == 8 - MENU_LIST_VIS);
+    menu_update(&m, BTN_DOWN);   /* and back to the first */
+    T_ASSERT(m.sel == 0);
+    T_ASSERT(m.top == 0);
+}
+
+/* Entering a screen with the selection low in a long list shows it at the bottom of the window. */
+static void test_entering_screen_scrolls_to_selection(void) {
+    Menu m;
+    menu_init(&m, 3, 9);
+    m.boat = 7;
+    m.sel = MENU_ITEM_JOURNEY;
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_BOATS);
+    T_ASSERT(m.sel == 7);
+    T_ASSERT(m.top == 7 - (MENU_LIST_VIS - 1));
+    menu_update(&m, BTN_B);
+    T_ASSERT(m.screen == MENU_MAIN);
+    T_ASSERT(m.top == 0);
+}
+
+/* menu_rows and menu_row_enabled describe the list being drawn. */
+static void test_rows_and_enabled_rows(void) {
+    static const bool raceable[4] = { true, false, true, true };
+    Menu m;
+    menu_init(&m, 6, 4);
+    menu_set_boat_racing(&m, raceable);
+    T_ASSERT(menu_rows(&m) == MENU_MAIN_ITEMS);
+    T_ASSERT(menu_row_enabled(&m, 1));
+    m.screen = MENU_TRACKS;
+    T_ASSERT(menu_rows(&m) == 6);
+    m.screen = MENU_BOATS;
+    T_ASSERT(menu_rows(&m) == 4);
+    T_ASSERT(menu_row_enabled(&m, 0));
+    T_ASSERT(!menu_row_enabled(&m, 1));
+    m.screen = MENU_PREVIEW;
+    T_ASSERT(menu_rows(&m) == 0);
+}
+
 int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
@@ -322,5 +378,8 @@ int main(void) {
     T_RUN(test_boat_screen_b_returns_to_a_racer_row);
     T_RUN(test_all_cruisers_falls_back_to_all_selectable);
     T_RUN(test_null_raceable_selects_every_boat);
+    T_RUN(test_long_list_scrolls_with_selection);
+    T_RUN(test_entering_screen_scrolls_to_selection);
+    T_RUN(test_rows_and_enabled_rows);
     return T_DONE();
 }

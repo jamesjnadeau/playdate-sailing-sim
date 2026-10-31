@@ -52,6 +52,7 @@ static int pat_white(LCDColor c, int x, int y) {
 }
 static void plot(int x, int y, LCDColor c) {
     if (x < 0 || y < 0 || x >= tw || y >= th) return;
+    if (c != kColorBlack && c != kColorWhite && !((((const uint8_t *)c)[8 + (y & 7)] >> (7 - (x & 7))) & 1)) return;   /* masked out */
     tgt[y * tw + x] = (uint8_t)pat_white(c, x, y);
 }
 static void s_clear(LCDColor c) { for (int y = 0; y < th; y++) for (int x = 0; x < tw; x++) plot(x, y, c); }
@@ -108,6 +109,13 @@ static void s_fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, LCDCo
     s_fillPolygon(3, p, c, kPolygonFillNonZero);
 }
 /* text is masked out of the goldens, so nothing is drawn */
+/* fonts: a dummy handle, and an 8 px per character width so layout code has something to measure */
+static LCDFont *s_loadFont(const char *path, const char **err) { (void)path; if (err) *err = NULL; return (LCDFont *)&gfx_api; }
+static void s_setFont(LCDFont *f) { (void)f; }
+static void s_setTextTracking(int t) { (void)t; }
+static int s_getTextWidth(LCDFont *f, const void *t, size_t l, PDStringEncoding e, int tracking) {
+    (void)f; (void)t; (void)e; return (int)l * (8 + tracking);
+}
 static int s_drawText(const void *t, size_t l, PDStringEncoding e, int x, int y) { (void)t; (void)e; (void)x; (void)y; return (int)l; }
 static LCDBitmapDrawMode s_setDrawMode(LCDBitmapDrawMode m) { return m; }
 
@@ -280,6 +288,8 @@ PlaydateAPI *pdstub_init(const char *outdir, const char *assets_root, const char
     gfx_api.clear = s_clear; gfx_api.drawLine = s_drawLine; gfx_api.drawRect = s_drawRect; gfx_api.fillRect = s_fillRect;
     gfx_api.drawEllipse = s_drawEllipse; gfx_api.fillEllipse = s_fillEllipse; gfx_api.fillPolygon = s_fillPolygon;
     gfx_api.fillTriangle = s_fillTriangle; gfx_api.drawText = s_drawText; gfx_api.setDrawMode = s_setDrawMode;
+    gfx_api.loadFont = s_loadFont; gfx_api.setFont = s_setFont; gfx_api.setTextTracking = s_setTextTracking;
+    gfx_api.getTextWidth = s_getTextWidth;
     gfx_api.newBitmap = s_newBitmap; gfx_api.freeBitmap = s_freeBitmap;
     gfx_api.pushContext = s_pushContext; gfx_api.popContext = s_popContext;
     gfx_api.getFrame = s_getFrame; gfx_api.getDisplayFrame = s_getFrame;

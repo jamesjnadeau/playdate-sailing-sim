@@ -1,14 +1,13 @@
 # snapshot x y w h: text regions masked (stub draws no text)
 free_started 4 219 268 20
 free_started 350 219 28 20
-menu_main 148 29 92 18
-menu_main 50 99 100 20
-menu_main 50 129 100 20
-menu_main 50 159 100 20
-menu_main 4 219 76 20
-menu_tracks 148 29 60 18
-menu_tracks 50 99 150 20
-menu_tracks 50 129 150 20
-menu_tracks 50 159 150 20
-menu_tracks 50 189 150 20
-menu_tracks 4 219 128 20
+menu_main 12 36 140 18
+menu_main 12 54 140 58
+menu_main 12 120 140 36
+menu_main 186 30 206 156
+menu_main 4 217 392 23
+menu_tracks 12 36 140 18
+menu_tracks 12 54 140 58
+menu_tracks 12 120 140 36
+menu_tracks 186 30 206 156
+menu_tracks 4 217 392 23

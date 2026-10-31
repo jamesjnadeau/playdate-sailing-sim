@@ -7,6 +7,7 @@ const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS] = { "Off", "Low", "Med", "
 void menu_init(Menu *m, int ntracks, int nboats) {
     m->screen = MENU_MAIN;
     m->sel = 0;
+    m->top = 0;
     m->ntracks = ntracks < 0 ? 0 : ntracks;
     m->nboats = nboats < 0 ? 0 : nboats;
     m->track = 0;
@@ -51,6 +52,20 @@ static int next_ok(const Menu *m, int row, int dir) {
 static int boat_start(const Menu *m) {
     int row = m->boat < m->nboats ? m->boat : 0;
     return next_ok(m, row, 1);
+}
+
+int menu_rows(const Menu *m) {
+    switch (m->screen) {
+    case MENU_MAIN: return MENU_MAIN_ITEMS;
+    case MENU_TRACKS: return m->ntracks;
+    case MENU_BOATS: return m->nboats;
+    case MENU_WEATHER: return m->nweather;
+    default: return 0;
+    }
+}
+
+bool menu_row_enabled(const Menu *m, int row) {
+    return m->screen != MENU_BOATS || row_ok(m, row);
 }
 
 void menu_set_weather(Menu *m, int n, int current) {
@@ -99,7 +114,7 @@ static MenuAction help_update(Menu *m, uint32_t pressed) {
     return MENU_NONE;
 }
 
-MenuAction menu_update(Menu *m, uint32_t pressed) {
+static MenuAction update(Menu *m, uint32_t pressed) {
     if (m->screen == MENU_HELP) return help_update(m, pressed);
     if (pressed & BTN_B) {
         if (m->screen == MENU_WEATHER) {
@@ -135,7 +150,7 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
         return MENU_NONE;
     }
 
-    int n = m->screen == MENU_MAIN ? MENU_MAIN_ITEMS : m->screen == MENU_TRACKS ? m->ntracks : m->screen == MENU_BOATS ? m->nboats : m->nweather;
+    int n = menu_rows(m);
     if (n > 0) {
         if (m->screen == MENU_BOATS) {
             /* Step past cruiser rows; next_ok returns the same row when none can race. */
@@ -185,4 +200,17 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
     }
     m->boat = m->sel;
     return enter_weather(m);
+}
+
+MenuAction menu_update(Menu *m, uint32_t pressed) {
+    MenuScreen was = m->screen;
+    MenuAction a = update(m, pressed);
+    /* Scroll just far enough to show the selection; a new screen starts from its top. */
+    if (m->screen != was) m->top = 0;
+    if (m->sel < m->top) m->top = m->sel;
+    if (m->sel >= m->top + MENU_LIST_VIS) m->top = m->sel - (MENU_LIST_VIS - 1);
+    int last = menu_rows(m) - MENU_LIST_VIS;
+    if (m->top > last) m->top = last;
+    if (m->top < 0) m->top = 0;
+    return a;
 }

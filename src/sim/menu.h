@@ -8,6 +8,7 @@ typedef enum { MENU_NONE, MENU_START_FREE, MENU_START_RACE, MENU_START_JOURNEY }
 enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_JOURNEY, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
 #define MENU_SOUND_LEVELS 4
 extern const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS];   /* "Off", "Low", "Med", "High" */
+#define MENU_LIST_VIS 5    /* list rows that fit on screen; longer lists scroll */
 #define MENU_HELP_VIS 10   /* help rows that fit on screen */
 #define MENU_HELP_CRANK_DEG 30.0f   /* crank degrees per help row scrolled */
 extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Journey", "Controls", "Sound" */
@@ -15,6 +16,7 @@ extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "R
 typedef struct {
     MenuScreen screen;
     int sel;        /* highlighted row on the current screen */
+    int top;        /* first list row on screen; menu_update keeps sel within MENU_LIST_VIS of it */
     int ntracks;    /* rows on the track screen */
     int nboats;     /* rows on the boat screen, shown after a track is picked; 0 skips the screen */
     int track;      /* chosen track once MENU_START_RACE is returned */
@@ -44,6 +46,11 @@ void menu_set_help(Menu *m, int rows);
 void menu_set_boat_racing(Menu *m, const bool *raceable);
 /* One frame of input; pressed is the BTN_* newly-pressed mask. Order: B, then UP/DOWN, then A. */
 MenuAction menu_update(Menu *m, uint32_t pressed);
+
+/* Rows in the current screen's list; 0 on the preview and help screens. */
+int menu_rows(const Menu *m);
+/* Whether a row of the current list can be selected (false for cruisers on the boat screen). */
+bool menu_row_enabled(const Menu *m, int row);
 
 /* Scrolls the help screen with the crank (clockwise = down); ignored on other screens. */
 void menu_crank(Menu *m, float crank_delta_deg);

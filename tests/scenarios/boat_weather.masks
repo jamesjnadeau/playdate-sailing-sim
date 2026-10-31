@@ -5,8 +5,8 @@ restarted 4 219 268 20
 restarted 350 219 28 20
 weather_changed 4 219 268 20
 weather_changed 350 219 28 20
-main_menu 148 29 92 18
-main_menu 50 99 100 20
-main_menu 50 129 100 20
-main_menu 50 159 100 20
-main_menu 4 219 76 20
+main_menu 12 36 140 18
+main_menu 12 54 140 58
+main_menu 12 120 140 36
+main_menu 186 30 206 156
+main_menu 4 217 392 23

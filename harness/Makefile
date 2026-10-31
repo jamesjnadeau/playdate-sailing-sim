@@ -25,7 +25,7 @@ SCEN   ?= smoke
 SCENS  := $(filter-out typo,$(basename $(notdir $(wildcard $(ROOT)/tests/scenarios/*.txt))))
 GOLDEN := $(ROOT)/tests/golden/host
 
-.PHONY: all assets run run-all check-determinism update-golden clean
+.PHONY: all assets run run-all check-determinism update-golden check check-regression check-fidelity clean
 all: $(BUILD)/harness
 
 $(BUILD)/harness: $(SRC) $(wildcard $(ROOT)/src/*/*.h) pdstub.h
@@ -58,6 +58,15 @@ check-determinism: $(BUILD)/harness $(BUILD)/assets
 update-golden: run-all
 	rm -rf $(GOLDEN) && mkdir -p $(GOLDEN)
 	cp -r $(BUILD)/out/* $(GOLDEN)/
+
+check-regression: run-all
+	@OUT_DIR=$(BUILD)/out bash check.sh regression
+
+check-fidelity: run-all
+	@OUT_DIR=$(BUILD)/out bash check.sh fidelity
+
+check: run-all
+	@OUT_DIR=$(BUILD)/out bash check.sh all
 
 clean:
 	rm -rf $(BUILD)

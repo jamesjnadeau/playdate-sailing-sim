@@ -38,11 +38,17 @@ PDX="$ROOT/SailingSimScenario.pdx"
 
 BUNDLE=$(sed -n 's/^bundleID=//p' Source/pdxinfo | head -n 1)
 [ -n "$BUNDLE" ] || { echo "golden_refresh: no bundleID in Source/pdxinfo" >&2; exit 1; }
-DATA="$PLAYDATE_SDK_PATH/Disk/Data/$BUNDLE"
+# $DATA is rm -rf'd before every scenario, so be strict about what it can be.
+if ! printf '%s\n' "$BUNDLE" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$BUNDLE" = . ] || [ "$BUNDLE" = .. ]; then
+    echo "golden_refresh: refusing odd bundleID '$BUNDLE' in Source/pdxinfo" >&2; exit 1
+fi
+DATA_ROOT=$(realpath -m "$PLAYDATE_SDK_PATH/Disk/Data")
+DATA=$(realpath -m "$DATA_ROOT/$BUNDLE")
 case "$DATA" in
-    */Disk/Data/?*) ;;
-    *) echo "golden_refresh: refusing odd Data path '$DATA'" >&2; exit 1 ;;
+    "$DATA_ROOT"/?*) ;;
+    *) echo "golden_refresh: refusing Data path '$DATA' (not under $DATA_ROOT)" >&2; exit 1 ;;
 esac
+[ "$(dirname "$DATA")" = "$DATA_ROOT" ] || { echo "golden_refresh: refusing Data path '$DATA'" >&2; exit 1; }
 echo "== simulator Data dir: $DATA"
 
 # Scenario list
@@ -113,9 +119,11 @@ else
 fi
 
 echo "== building $(basename "$PDX")"
-# the dylib rule tracks source timestamps only; the Makefile's variant stamp covers
-# switching between the normal and scenario builds
-make SCENARIO=1
+# Simulator target only: the SDK's default `all` also builds device_bin, which needs
+# arm-none-eabi-gcc (absent on CI and not needed here). `simulator` builds pdex.so and runs pdc.
+# The dylib rule tracks source timestamps only; the Makefile's variant stamp covers
+# switching between the normal and scenario builds.
+make SCENARIO=1 simulator
 [ -d "$PDX" ] || { echo "golden_refresh: $PDX was not produced" >&2; exit 1; }
 
 for name in "${NAMES[@]}"; do
@@ -140,6 +148,11 @@ for name in "${NAMES[@]}"; do
         waited=$((waited + 1))
     done
     stop_sim
+    if grep -q '^error' "$DATA/done.marker" 2>/dev/null; then
+        echo "golden_refresh: $name failed on the device side: $(cat "$DATA/done.marker")" >&2
+        cat "$LOG" >&2
+        exit 1
+    fi
 
     out="tests/golden/real/$name"
     rm -rf "$out"

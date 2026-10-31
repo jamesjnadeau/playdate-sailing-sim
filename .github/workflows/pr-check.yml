@@ -18,7 +18,9 @@ jobs:
           fetch-depth: 0
 
       - name: Install Pillow
-        run: sudo apt-get install -y --no-install-recommends python3-pil
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-pil
 
       # The SDK licence does not allow redistributing its headers, so fetch it from Panic.
       - name: Cache Playdate SDK

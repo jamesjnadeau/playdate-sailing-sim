@@ -15,6 +15,7 @@ typedef struct {
     uint32_t cur, pushed, released;   /* BTN_* / PDButtons bits: left 1, right 2, up 4, down 8, B 16, A 32 */
     float crank;                      /* degrees this frame */
     ScSys sys; int sys_arg;           /* system-menu action to apply BEFORE this frame's update */
+    char sys_name[SC_NAME_MAX];       /* `sysmenu boat NAME`: boat by name (sys_arg is then -1) */
 } ScFrame;
 
 typedef enum {
@@ -38,6 +39,7 @@ struct Scenario {
     int k;                            /* frames already emitted of cmds[pc] */
     uint32_t prev;                    /* buttons held on the previous frame */
     ScSys pend_sys; int pend_arg;     /* sysmenu waiting for the next frame */
+    char pend_name[SC_NAME_MAX];
 };
 typedef struct Scenario Scenario;
 

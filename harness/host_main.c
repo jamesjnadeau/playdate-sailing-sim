@@ -20,6 +20,10 @@ int main(int argc, char **argv) {
     size_t n = fread(text, 1, sizeof text - 1, f);
     fclose(f);
     text[n] = 0;
+    if (n == 0) {   /* the device build treats an empty scenario.txt as an error too */
+        fprintf(stderr, "%s: empty scenario\n", argv[1]);
+        return 2;
+    }
 
     /* scenario_init only logs a parse error, so check here to get a failing exit code */
     char err[96] = "";

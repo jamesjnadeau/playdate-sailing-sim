@@ -1,9 +1,9 @@
-# Free range: system-menu boat 1, weather 2, restart, then main menu (state shows the run reset and app change)
+# Free range: system-menu boat dinghy, weather 2, restart, then main menu (state shows the run reset and app change)
 wait 2
 press A
 wait 60
 state
-sysmenu boat 1
+sysmenu boat dinghy
 wait 30
 snap boat_changed
 state

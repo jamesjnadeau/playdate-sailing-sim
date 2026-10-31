@@ -106,7 +106,21 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
         } else if (!strcmp(tok[1], "boat") || !strcmp(tok[1], "weather")) {
             char *e;
             long v;
-            if (nt != 3) return "usage: sysmenu boat|weather N";
+            if (nt != 3) return "usage: sysmenu boat NAME|N, sysmenu weather N";
+            if (tok[1][0] == 'b' && (tok[2][0] < '0' || tok[2][0] > '9')) {
+                /* a boat by name survives boats being added to or removed from boats/ */
+                size_t k, len = strlen(tok[2]);
+                if (len < 1 || len > 23) return "bad boat name";
+                for (k = 0; k < len; k++) {
+                    char ch = tok[2][k];
+                    if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-'))
+                        return "bad boat name";
+                }
+                c->sys = SC_SYS_BOAT;
+                c->n = -1;
+                strcpy(c->name, tok[2]);
+                return NULL;
+            }
             v = strtol(tok[2], &e, 10);
             if (e == tok[2] || *e || v < 0 || v > 1000000) return "bad sysmenu index";
             c->sys = tok[1][0] == 'b' ? SC_SYS_BOAT : SC_SYS_WEATHER;
@@ -163,7 +177,7 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
     while (s->pc < s->ncmds && !is_frame_cmd(s->cmds[s->pc].kind)) {
         c = &s->cmds[s->pc];
         if (c->kind == SC_C_END) { s->pc = s->ncmds; break; }
-        if (c->kind == SC_C_SYS) { s->pend_sys = c->sys; s->pend_arg = c->n; }
+        if (c->kind == SC_C_SYS) { s->pend_sys = c->sys; s->pend_arg = c->n; strcpy(s->pend_name, c->name); }
         s->pc++;
     }
     if (s->pc >= s->ncmds) return false;
@@ -176,8 +190,10 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
     f->crank = crank;
     f->sys = s->pend_sys;
     f->sys_arg = s->pend_arg;
+    strcpy(f->sys_name, s->pend_name);
     s->pend_sys = SC_SYS_NONE;
     s->pend_arg = 0;
+    s->pend_name[0] = 0;
     s->prev = cur;
     if (++s->k >= c->n) { s->pc++; s->k = 0; }
     return true;
@@ -190,6 +206,7 @@ ScAfterKind scenario_after(Scenario *s, char name[SC_NAME_MAX]) {
     while (s->pc < s->ncmds && s->cmds[s->pc].kind == SC_C_SYS) {
         s->pend_sys = s->cmds[s->pc].sys;
         s->pend_arg = s->cmds[s->pc].n;
+        strcpy(s->pend_name, s->cmds[s->pc].name);
         s->pc++;
     }
     if (s->pc >= s->ncmds) return SC_AFTER_END;

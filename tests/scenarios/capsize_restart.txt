@@ -1,4 +1,4 @@
-# Capsize the dinghy in a hurricane with a hard crank, then press A to restart into a fresh sailing run
+# Capsize the default boat (sunfish) in a hurricane with a hard crank, then press A to restart into a fresh sailing run
 wait 2
 press A
 wait 5

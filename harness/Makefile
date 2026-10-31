@@ -60,6 +60,7 @@ run: $(BUILD)/harness $(BUILD)/assets
 
 # run-all keeps going past a failing scenario but still fails overall
 run-all: $(BUILD)/harness $(BUILD)/assets
+	@rm -rf $(BUILD)/out
 	@rc=0; for s in $(SCENS); do $(MAKE) --no-print-directory run SCEN=$$s || rc=1; done; exit $$rc
 
 check-determinism: $(BUILD)/harness $(BUILD)/assets

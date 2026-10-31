@@ -124,7 +124,17 @@ static void scenario_sys(const ScFrame *f) {
             pd->system->logToConsole("scenario: sysmenu item not available (racing)");
             break;
         }
-        pd->system->setMenuItemValue(item, f->sys_arg);
+        int idx = f->sys_arg;
+        if (f->sys == SC_SYS_BOAT && idx < 0) {   /* by name */
+            const char *const *names = assets_boat_names();
+            for (int i = 0; i < assets_boat_count(); i++)
+                if (!strcmp(names[i], f->sys_name)) { idx = i; break; }
+            if (idx < 0) {
+                pd->system->logToConsole("scenario: no boat named %s", f->sys_name);
+                break;
+            }
+        }
+        pd->system->setMenuItemValue(item, idx);
         if (f->sys == SC_SYS_BOAT) menu_boat(NULL);
         else menu_weather(NULL);
         break;

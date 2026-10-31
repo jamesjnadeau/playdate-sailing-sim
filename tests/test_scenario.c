@@ -86,6 +86,9 @@ static void test_sysmenu(void) {
     T_ASSERT(f.sys == SC_SYS_BOAT && f.sys_arg == 2);
     T_ASSERT(scenario_poll(&S, &f));
     T_ASSERT(f.sys == SC_SYS_NONE);
+    P("sysmenu boat dinghy\nwait 1");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.sys == SC_SYS_BOAT && f.sys_arg == -1 && !strcmp(f.sys_name, "dinghy"));
     P("sysmenu restart\nsysmenu weather 1\nwait 1");
     T_ASSERT(scenario_poll(&S, &f));
     T_ASSERT(f.sys == SC_SYS_WEATHER && f.sys_arg == 1);
@@ -127,6 +130,7 @@ static void test_errors_have_line_numbers(void) {
     static char big[600 * 8 + 1];
     int i;
     T_ASSERT(fails("wait 1\nfrobnicate\n", "line 2"));
+    T_ASSERT(fails("sysmenu boat Bad!\nwait 1", "bad boat name"));
     T_ASSERT(fails("wait x", "line 1"));
     T_ASSERT(fails("press Z", "line 1"));
     T_ASSERT(fails("wait 1\nhold A", "line 2"));

@@ -1,5 +1,6 @@
 /* Playdate-side half of the scenario harness: reads the script, feeds scripted input,
  * and writes snapshots. Built only with -DSCENARIO. */
+#ifdef SCENARIO
 #include <stdio.h>
 #include <string.h>
 #include "scenario.h"
@@ -32,10 +33,15 @@ static void write_all(PlaydateAPI *pd, const char *path, const void *buf, unsign
     pd->file->close(f);
 }
 
-static void write_marker(PlaydateAPI *pd) {
+/* note is NULL for a normal finish ("done"); otherwise the marker reads "error: <note>" so a
+ * refresh script can tell a failed scenario from a finished one. */
+static void write_marker(PlaydateAPI *pd, const char *note) {
+    char buf[160];
+    int n;
     if (scen_marked) return;
     scen_marked = true;
-    write_all(pd, "done.marker", "done\n", 5);
+    n = note ? snprintf(buf, sizeof buf, "error: %s\n", note) : snprintf(buf, sizeof buf, "done\n");
+    write_all(pd, "done.marker", buf, (unsigned)n);
 }
 
 void scenario_init(PlaydateAPI *pd) {
@@ -47,16 +53,16 @@ void scenario_init(PlaydateAPI *pd) {
         pd->file->close(f);
     }
     if (n <= 0) {
-        pd->system->logToConsole("scenario: cannot read scenario.txt");
+        pd->system->logToConsole("scenario: cannot read scenario.txt (missing or empty)");
         scen_ended = true;
-        write_marker(pd);
+        write_marker(pd, "cannot read scenario.txt (missing or empty)");
         return;
     }
     scen_text[n] = 0;
     if (!scenario_parse(&scen, scen_text, err, sizeof err)) {
         pd->system->logToConsole("scenario: %s", err);
         scen_ended = true;
-        write_marker(pd);
+        write_marker(pd, err);
     }
 }
 
@@ -104,13 +110,13 @@ static void write_snapshot(PlaydateAPI *pd, const Game *g, const char *app_name,
 
 void scenario_frame_done(PlaydateAPI *pd, const Game *g, const char *app_name) {
     char name[SC_NAME_MAX];
-    if (scen_ended) { write_marker(pd); return; }
+    if (scen_ended) { write_marker(pd, NULL); return; }
     for (;;) {
         ScAfterKind k = scenario_after(&scen, name);
         if (k == SC_AFTER_NONE) break;
         if (k == SC_AFTER_END) {
             scen_ended = true;
-            write_marker(pd);
+            write_marker(pd, NULL);
             break;
         }
         if (k == SC_AFTER_SNAP) {
@@ -126,3 +132,5 @@ void scenario_frame_done(PlaydateAPI *pd, const Game *g, const char *app_name) {
 uint32_t scenario_seed(uint32_t counter) {
     return counter * 2654435761u + 12345u;
 }
+
+#endif /* SCENARIO */

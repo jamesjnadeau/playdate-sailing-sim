@@ -1,0 +1,19 @@
+# Racing start: Racing > first track > preview > first boat > weather, then the race begins
+wait 2
+press down
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 5
+snap race_start
+wait 60
+snap race_sailing
+state
+end

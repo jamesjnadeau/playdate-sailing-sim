@@ -1,0 +1,16 @@
+# Capsize the dinghy in a hurricane with a hard crank, then press A to restart into a fresh sailing run
+wait 2
+press A
+wait 5
+snap sailing_before
+sysmenu weather 4
+crank 90 for 20
+snap hurricane_crank
+wait 250
+snap capsized
+state
+press A
+wait 30
+snap restarted
+state
+end

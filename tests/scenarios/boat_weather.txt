@@ -1,0 +1,22 @@
+# Free range: system-menu boat 1, weather 2, restart, then main menu (state shows the run reset and app change)
+wait 2
+press A
+wait 60
+state
+sysmenu boat 1
+wait 30
+snap boat_changed
+state
+sysmenu weather 2
+wait 60
+snap weather_changed
+state
+sysmenu restart
+wait 5
+snap restarted
+state
+sysmenu main
+wait 2
+snap main_menu
+state
+end

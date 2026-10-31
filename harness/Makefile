@@ -48,10 +48,12 @@ run-all: $(BUILD)/harness $(BUILD)/assets
 	@rc=0; for s in $(SCENS); do $(MAKE) --no-print-directory run SCEN=$$s || rc=1; done; exit $$rc
 
 check-determinism: $(BUILD)/harness $(BUILD)/assets
-	@rm -rf $(BUILD)/det1 $(BUILD)/det2 && mkdir -p $(BUILD)/det1 $(BUILD)/det2
-	$(BUILD)/harness $(ROOT)/tests/scenarios/smoke.txt $(BUILD)/det1 $(BUILD)/assets
-	$(BUILD)/harness $(ROOT)/tests/scenarios/smoke.txt $(BUILD)/det2 $(BUILD)/assets
-	diff -r $(BUILD)/det1 $(BUILD)/det2 && echo "deterministic: outputs identical"
+	@for s in $(SCENS); do \
+	  rm -rf $(BUILD)/det1 $(BUILD)/det2 && mkdir -p $(BUILD)/det1 $(BUILD)/det2 && \
+	  $(BUILD)/harness $(ROOT)/tests/scenarios/$$s.txt $(BUILD)/det1 $(BUILD)/assets 2>/dev/null && \
+	  $(BUILD)/harness $(ROOT)/tests/scenarios/$$s.txt $(BUILD)/det2 $(BUILD)/assets 2>/dev/null && \
+	  diff -r $(BUILD)/det1 $(BUILD)/det2 >/dev/null && echo "deterministic: $$s" || { echo "NONDETERMINISTIC: $$s"; exit 1; }; \
+	done
 
 update-golden: run-all
 	rm -rf $(GOLDEN) && mkdir -p $(GOLDEN)

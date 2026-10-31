@@ -1,0 +1,13 @@
+# Free range: start, engage the autopilot with a hold of A, crank the wheel, and sail
+wait 2
+press A
+wait 5
+snap free_start
+hold A 20
+wait 60
+snap free_autopilot
+crank 90 for 30
+wait 30
+snap free_cranked
+state
+end

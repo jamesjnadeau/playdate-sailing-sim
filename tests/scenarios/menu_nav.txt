@@ -1,0 +1,15 @@
+# Navigate the main menu: open Racing, step down the track list, back out, then pick Free Range
+wait 2
+snap menu_main
+press down
+press A
+press down
+wait 2
+snap menu_tracks
+press B
+press up
+press A
+wait 5
+snap free_started
+state
+end

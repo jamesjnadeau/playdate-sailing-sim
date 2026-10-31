@@ -1,7 +1,7 @@
 CC      ?= gcc
-CFLAGS  := -std=c99 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -I. -I../src/sim
+CFLAGS  := -std=c99 -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -I. -I../src/sim -I../src/pd
 LDLIBS  := -lm
-SRC     := $(wildcard ../src/sim/*.c)
+SRC     := $(wildcard ../src/sim/*.c) ../src/pd/scenario.c
 TESTS   := $(wildcard test_*.c)
 BINS    := $(TESTS:%.c=build/%)
 
@@ -9,7 +9,7 @@ BINS    := $(TESTS:%.c=build/%)
 test: $(BINS)
 	@for b in $(BINS); do echo "== $$b"; ./$$b || exit 1; done
 
-build/%: %.c t.h $(SRC) $(wildcard ../src/sim/*.h)
+build/%: %.c t.h $(SRC) $(wildcard ../src/sim/*.h) ../src/pd/scenario.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) -o $@ $< $(SRC) $(LDLIBS)
 

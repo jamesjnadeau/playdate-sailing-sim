@@ -112,6 +112,53 @@ static void test_voice_waking_from_zero_is_bounded(void) {
     }
 }
 
+static void all_voices_on(void) {
+    seasound_init(&ss);
+    ss.p = (SoundParams){ .wash = 1, .bright = 0.6f, .swell = 1, .gurgle = 1, .pan = 0.3f,
+                          .wind = 1, .whistle_hz = 700, .flutter = 1 };
+}
+
+/* Any block size gives the same samples as one big call: a chunk can span two calls. */
+static void test_split_calls_match_one_call(void) {
+    static int16_t al[4096], ar[4096], bl[4096], br[4096];
+    static const int sizes[] = { 1, 3, 100, 7, 1, 64, 33, 2 };
+    all_voices_on();
+    seasound_render(&ss, al, ar, 4096);
+    all_voices_on();
+    for (int at = 0, k = 0; at < 4096; k++) {
+        int n = sizes[k % 8];
+        if (n > 4096 - at) n = 4096 - at;
+        seasound_render(&ss, bl + at, br + at, n);
+        at += n;
+    }
+    T_ASSERT(memcmp(al, bl, sizeof al) == 0);
+    T_ASSERT(memcmp(ar, br, sizeof ar) == 0);
+}
+
+/* After a fade to silence, sound comes back on the master ramp, not from a stale sample. */
+static void test_resume_after_silence_has_no_click(void) {
+    seasound_init(&ss);
+    ss.p.wash = 1.0f;
+    for (int i = 0; i < 20; i++) seasound_render(&ss, L, R, 4096);
+    seasound_set_active(&ss, 0);
+    for (int i = 0; i < 200 && seasound_render(&ss, L, R, 4096); i++) {}
+    T_ASSERT(seasound_render(&ss, L, R, 4096) == 0);
+    seasound_set_active(&ss, 1);
+    T_ASSERT(seasound_render(&ss, L, R, 4096) == 1);
+    T_ASSERT(abs(L[0]) < 200 && abs(L[1]) < 200);
+}
+
+/* The whistle at the top of its range stays stable at the internal rate. */
+static void test_whistle_top_of_range_is_stable(void) {
+    seasound_init(&ss);
+    ss.p.wind = 1.0f; ss.p.whistle_hz = 4000.0f;
+    for (int i = 0; i < 40; i++) {
+        seasound_render(&ss, L, R, 4096);
+        T_ASSERT(peak_of(L, 4096) < 30000);
+    }
+    T_ASSERT(rms_of(L, 4096) > 0.005f);
+}
+
 static void test_wash_gets_brighter_with_bright(void) {
     SoundParams p;
     memset(&p, 0, sizeof p);
@@ -246,6 +293,10 @@ static void test_bad_state_stays_finite(void) {
     const float *f = (const float *)&ss.p;
     for (int i = 0; i < (int)(sizeof ss.p / sizeof *f); i++) T_ASSERT(isfinite(f[i]));
     T_ASSERT(seasound_render(&ss, L, R, 100) == 1);   /* n not a multiple of the chunk */
+    T_ASSERT(seasound_render(&ss, L, R, 1) == 1);
+    L[0] = 1234;
+    seasound_render(&ss, L, R, 0);
+    T_ASSERT(L[0] == 1234);
 }
 
 /* Sails through a rough sea under way: bow slaps fire at a sensible, not constant, rate. */
@@ -280,6 +331,9 @@ int main(void) {
     T_RUN(test_voice_levels_match_reference);
     T_RUN(test_slap_level_matches_reference);
     T_RUN(test_voice_waking_from_zero_is_bounded);
+    T_RUN(test_split_calls_match_one_call);
+    T_RUN(test_resume_after_silence_has_no_click);
+    T_RUN(test_whistle_top_of_range_is_stable);
     T_RUN(test_wash_gets_brighter_with_bright);
     T_RUN(test_gurgle_sits_on_the_heeled_side);
     T_RUN(test_slap_is_a_decaying_burst);

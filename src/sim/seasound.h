@@ -38,6 +38,14 @@ typedef struct {
     float svf_low, svf_band, wobble, flut_phase, flut_gate, flut_lp, flut_body, flut_amp, flut_len;
     float slap_env, thump_env;
     float k_fast, k_master;
+    float out_prev[2], out_cur[2];   /* the last two internal stereo samples, after master and soft-clip, -1..1 */
+    int sub;                         /* output position within the current internal sample */
+    int chunk_left;                  /* internal samples left before the next coefficient update */
+    struct {                         /* per-chunk coefficients, kept here because a chunk can span two calls */
+        float a_wash, g_wash, a_swell, g_swell, a_slap, g_slap, a_thump, g_thump, a_gur, g_gur;
+        float a_burble, g_burble, a_wob, g_wob, slap_d, thump_d, flut_d, flut_hz, gl, gr, f, g_wi;
+        int on_wash, on_swell, on_slap, on_thump, on_gur, on_wind, on_flut;
+    } k;
 } SeaSound;
 
 void seasound_init(SeaSound *s);

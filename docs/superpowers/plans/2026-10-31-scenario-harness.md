@@ -75,7 +75,7 @@
 
 - [ ] **Step 1: Write failing tests** in `tests/test_scenario.c` (names → assertions):
   - `test_press_is_one_frame_then_release`: `"press A\nwait 1\nend"` → frame 0 `pushed==cur==32`; frame 1 `cur==0, released==32`.
-  - `test_hold_n_frames`: `"hold B 3\nend"` → frames 0..2 have `cur==16`, only frame 0 has `pushed`; frame 3 has `released==16`.
+  - `test_hold_n_frames`: `"hold B 3\nwait 1\nend"` → frames 0..2 have `cur==16`, only frame 0 has `pushed`; frame 3 (the `wait` frame) has `released==16`.
   - `test_crank_for`: `"crank 15.5 for 2\nend"` → two frames with `crank==15.5f` (`T_NEAR`), third 0.
   - `test_wait_counts_frames`: `"wait 4\nend"` → exactly 4 frames then `scenario_poll` false.
   - `test_snap_after_frame`: `"wait 2\nsnap a\nwait 1\nsnap b\nend"` → after frame 1 `scenario_after` returns `SC_AFTER_SNAP` with name `"a"`, then `NONE`; after frame 2 `"b"`; then `SC_AFTER_END`.
@@ -84,7 +84,7 @@
   - `test_eof_ends`: `"wait 1"` (no `end`) → after frame 0, `scenario_after` returns `SC_AFTER_END`.
   - `test_comments_and_blank_lines`: `"# hi\n\n wait 1 # x\nend"` parses.
 - [ ] **Step 2: Run** `make -C tests test` — expect compile failure (no `scenario.h`).
-- [ ] **Step 3: Implement** `scenario.c`: pre-tokenise into a fixed `ScCmd` array; the player expands time commands per frame (`press` = pushed frame then a released frame, `hold X N` = N held frames then a released frame, `sysmenu` attaches to the next frame, `snap`/`state`/`end` are zero-time and surface through `scenario_after`). `snap` names are `[A-Za-z0-9_]+` ≤ `SC_NAME_MAX-1`.
+- [ ] **Step 3: Implement** `scenario.c`: pre-tokenise into a fixed `ScCmd` array; the player expands time commands per frame (`press` = one pushed+held frame, `hold X N` = N held frames; the release is reported on the next frame (no extra frame is added, so a script that ends right after emits none), `sysmenu` attaches to the next frame, `snap`/`state`/`end` are zero-time and surface through `scenario_after`). `snap` names are `[A-Za-z0-9_]+` ≤ `SC_NAME_MAX-1`.
 - [ ] **Step 4: Run** `make -C tests test` — all pass.
 - [ ] **Step 5: Commit** `feat: scenario parser and per-frame player`.
 
@@ -104,7 +104,7 @@
   uint32_t scenario_seed(uint32_t counter);       /* deterministic fresh_seed */
   ```
   `scenario_io.c` includes `pd_api.h`; `scenario.c` stays pd-free.
-  Output location: path prefix `NAME.fb` / `NAME.state` relative to the `pd->file` root (Data dir in the simulator, the stub's output dir on host); `done.marker` written on `end`/EOF/parse error. `.state` keys (one `key=value` per line): `app, mode, run, t, heading, speed (u), heel, awa, aws, wheel, x, y` using the actual `Game` fields (`g->t`, `g->run`, `g->mode`, `g->b.*`); builder confirms field names against `src/sim/boat.h` and `game.h`.
+  Output location: path prefix `NAME.fb` / `NAME.state` relative to the `pd->file` root (Data dir in the simulator, the stub's output dir on host; on host the stub serves the scenario text as the file `scenario.txt`); `done.marker` written on `end`/EOF/parse error. `.state` keys (one `key=value` per line): `app, mode, run, t, heading, speed (u), heel, awa, aws, wheel, x, y` using the actual `Game` fields (`g->t`, `g->run`, `g->mode`, `g->b.*`); builder confirms field names against `src/sim/boat.h` and `game.h`.
   The `app` value lives in `main.c`, so `scenario_frame_done` takes it through a `const char *app_name` argument (add it to the signature).
 
 - [ ] **Step 1: Write the failing check** — `make SCENARIO=1` is not yet defined, so use the host build in Task 3 as the test. For this task, add a compile-only check: `gcc -fsyntax-only -DSCENARIO -DTARGET_SIMULATOR=1 -Isrc/sim -Isrc/pd -I$SDK/C_API src/pd/main.c src/pd/scenario_io.c` must succeed, and the same without `-DSCENARIO` must still succeed. Run both now; expect failure for the first.

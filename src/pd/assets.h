@@ -4,15 +4,20 @@
 #include <stddef.h>
 #include "pd_api.h"
 #include "game.h"
+#include "boatlist.h"
 
 #define ASSETS_WARN_LEN 512
-#define ASSETS_BOATS 5
 
-extern const char *const ASSET_BOAT_NAMES[ASSETS_BOATS];
+/* Lists boats/ once at startup. Call before any other boat function; sunfish is first and the
+   default, and an empty or unreadable directory leaves just sunfish. */
+void assets_scan_boats(PlaydateAPI *pd);
+int assets_boat_count(void);
+/* assets_boat_count() names, stable until the next scan */
+const char *const *assets_boat_names(void);
 
 /* Sets out[i] true for each boat that may race (boat_class racer). An unreadable or invalid file
    counts as a racer, as the built-in default does. */
-void assets_boat_raceable(PlaydateAPI *pd, bool out[ASSETS_BOATS]);
+void assets_boat_raceable(PlaydateAPI *pd, bool out[BOATLIST_MAX]);
 
 /* Reads boat, weather and world configs into out params. A missing or unreadable file leaves the
    built-in default and adds a message; a parse problem adds the loader's warnings. Always fills

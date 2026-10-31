@@ -2,7 +2,21 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const ASSET_BOAT_NAMES[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52", "longship" };
+static BoatList boats;
+
+static void collect_boat(const char *name, void *ud) {
+    (void)ud;
+    boatlist_add(&boats, name);
+}
+
+void assets_scan_boats(PlaydateAPI *pd) {
+    boatlist_init(&boats);
+    pd->file->listfiles("boats", collect_boat, NULL, 0);
+    boatlist_finish(&boats);
+}
+
+int assets_boat_count(void) { return boats.count; }
+const char *const *assets_boat_names(void) { return boats.ptr; }
 
 #define FILE_MAX 16384
 static char filebuf[FILE_MAX];
@@ -33,13 +47,13 @@ int assets_read_file(PlaydateAPI *pd, const char *path, char **buf) {
     return n;
 }
 
-void assets_boat_raceable(PlaydateAPI *pd, bool out[ASSETS_BOATS]) {
+void assets_boat_raceable(PlaydateAPI *pd, bool out[BOATLIST_MAX]) {
     char path[96], msg[160];
     BoatCfg boat;
-    for (int i = 0; i < ASSETS_BOATS; i++) {
+    for (int i = 0; i < boats.count; i++) {
         /* Reading or parsing failure leaves boatcfg_default, which is a racer. */
         boatcfg_default(&boat);
-        snprintf(path, sizeof path, "boats/%s.json", ASSET_BOAT_NAMES[i]);
+        snprintf(path, sizeof path, "boats/%s.json", boats.name[i]);
         int n = read_file(pd, path);
         if (n >= 0) {
             msg[0] = 0;
@@ -53,12 +67,12 @@ bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *wea
                  WorldCfg *world, char *warn, size_t warnlen) {
     char path[96], msg[160];
     warn[0] = 0;
-    if (boat_index < 0 || boat_index >= ASSETS_BOATS) boat_index = 0;
+    if (boat_index < 0 || boat_index >= boats.count) boat_index = 0;
     boatcfg_default(boat);
     weather_default(weather);
     world_default(world);
 
-    snprintf(path, sizeof path, "boats/%s.json", ASSET_BOAT_NAMES[boat_index]);
+    snprintf(path, sizeof path, "boats/%s.json", boats.name[boat_index]);
     int n = read_file(pd, path);
     if (n < 0) addmsg(warn, warnlen, "%s: %s", path, "missing or too large, using built-in boat");
     else {

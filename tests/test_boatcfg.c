@@ -162,6 +162,23 @@ static void test_sunfish_json(void) {
     T_ASSERT(c.look.mast_x > d.look.mast_x);                 /* mast well forward */
 }
 
+static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
+    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json" };
+    for (int i = 0; i < 4; i++) {
+        size_t n = 0;
+        char *buf = slurp(files[i], &n);
+        BoatCfg c;
+        char warn[W];
+        T_ASSERT(buf && boatcfg_load(&c, buf, n, warn, W) && warn[0] == 0);
+        const LookCfg *l = &c.look;
+        float hb = 0.5f * c.hull.beam, half = 0.5f * c.hull.length;
+        T_ASSERT(l->cockpit_depth > 0 && l->cockpit_depth < l->freeboard + 0.3f);
+        T_ASSERT(l->cockpit_x0 < l->cockpit_x1 && l->cockpit_x0 > -half && l->cockpit_x1 < half);
+        T_ASSERT(l->cockpit_w0 > 0 && l->cockpit_w1 > 0 && l->cockpit_w0 < hb && l->cockpit_w1 < hb);
+        free(buf);
+    }
+}
+
 int main(void) {
     T_RUN(test_default_is_sane);
     T_RUN(test_dinghy_json_reproduces_default);
@@ -174,5 +191,6 @@ int main(void) {
     T_RUN(test_j24_json);
     T_RUN(test_tp52_json);
     T_RUN(test_sunfish_json);
+    T_RUN(test_every_boat_has_a_cockpit_inside_the_hull);
     return T_DONE();
 }

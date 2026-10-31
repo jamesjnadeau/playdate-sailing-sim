@@ -17,13 +17,17 @@ ignored (default kept) with a warning.
 | `foils` | `board_*` (area, lift_slope, stall_deg, cd0, x), `rudder_*` (area, max_deg, lift_slope, stall_deg, x) |
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |
 | `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time autopilot_hold_s autopilot_step_deg autopilot_no_go_deg autopilot_crank_deg autopilot_kp autopilot_kd autotrim_hold_s autotrim_smooth_s autotrim_heel_deg autotrim_hoist_min` |
-| `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade` |
+| `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth` |
 | `camera` | `height x_offset far_height frame_margin heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain yaw_range_deg return_rate` |
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws
 force for `awa_min_deg` to `awa_max_deg`; `boats/sunfish.json` (the default boat) is a single large lateen mainsail with the mast well forward. Boat files are read into a 16 KB buffer, so keep them compact.
 Righting-moment tables should fold in crew weight for big boats (`crew_mass` is capped at 500).
+
+The cockpit is a four-sided well in the deck: `cockpit_x0`/`cockpit_x1` are its aft/forward ends (m forward of the
+boat centre), `cockpit_w0`/`cockpit_w1` the half-width at those ends (so unequal widths give a trapezoid), and
+`cockpit_depth` the drop to its floor; a depth of 0 means no cockpit.
 
 Final field ranges for the sail entries, with the camera and control fields most often tuned:
 

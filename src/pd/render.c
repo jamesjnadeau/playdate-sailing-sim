@@ -920,6 +920,125 @@ static void draw_panel(PlaydateAPI *pd, const Ctx *k, const HgPt *in, int n, LCD
     }
 }
 
+/* Sutherland-Hodgman: the subject polygon cut to a convex clip polygon, both in screen pixels.
+ * Returns the vertex count of out (capped at max). */
+static int clip_convex(const float *sub, int n, const float *clip, int m, float *out, int max) {
+    float area = 0.0f;
+    for (int i = 0; i < m; i++) {
+        int j = (i + 1) % m;
+        area += clip[2 * i] * clip[2 * j + 1] - clip[2 * j] * clip[2 * i + 1];
+    }
+    float s = area >= 0.0f ? 1.0f : -1.0f;
+    float a[64], b[64];
+    int na = n < 32 ? n : 32;
+    for (int i = 0; i < 2 * na; i++) a[i] = sub[i];
+    for (int e = 0; e < m && na > 0; e++) {
+        int f = (e + 1) % m;
+        float ex = clip[2 * f] - clip[2 * e], ey = clip[2 * f + 1] - clip[2 * e + 1];
+        int nb = 0;
+        for (int i = 0; i < na; i++) {
+            int j = (i + 1) % na;
+            float di = s * (ex * (a[2 * i + 1] - clip[2 * e + 1]) - ey * (a[2 * i] - clip[2 * e]));
+            float dj = s * (ex * (a[2 * j + 1] - clip[2 * e + 1]) - ey * (a[2 * j] - clip[2 * e]));
+            if (di >= 0.0f && nb < 31) { b[2 * nb] = a[2 * i]; b[2 * nb + 1] = a[2 * i + 1]; nb++; }
+            if ((di >= 0.0f) != (dj >= 0.0f) && nb < 31) {
+                float t = di / (di - dj);
+                b[2 * nb] = a[2 * i] + t * (a[2 * j] - a[2 * i]);
+                b[2 * nb + 1] = a[2 * i + 1] + t * (a[2 * j + 1] - a[2 * i + 1]);
+                nb++;
+            }
+        }
+        na = nb;
+        for (int i = 0; i < 2 * na; i++) a[i] = b[i];
+    }
+    if (na > max) na = max;
+    for (int i = 0; i < 2 * na; i++) out[i] = a[i];
+    return na;
+}
+
+static void fill_clipped(PlaydateAPI *pd, const float *poly, int n, const float *rim, LCDColor fill) {
+    float o[64];
+    int c = clip_convex(poly, n, rim, 4, o, 32);
+    if (c < 3) return;
+    int q[64];
+    for (int i = 0; i < 2 * c; i++) q[i] = (int)lroundf(o[i]);
+    pd->graphics->fillPolygon(c, q, fill, kPolygonFillNonZero);
+}
+
+/* The cockpit well: a four-sided opening in the deck with a floor below it. The deck is opaque, so only
+ * what shows through the opening is drawn: the floor and the inner walls facing the eye, each cut to the
+ * outline of the opening on screen. The floor is cut against the sea like the deck. */
+static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
+    const Game *g = k->g;
+    const LookCfg *lk = &g->boat.look;
+    if (lk->cockpit_depth <= 0.0f) return;
+    float fb = lk->freeboard, zf = fb - lk->cockpit_depth;
+    /* corners, going round: forward port, forward starboard, aft starboard, aft port */
+    const float cf[4] = { lk->cockpit_x1, lk->cockpit_x1, lk->cockpit_x0, lk->cockpit_x0 };
+    const float cl[4] = { -lk->cockpit_w1, lk->cockpit_w1, lk->cockpit_w0, -lk->cockpit_w0 };
+    HgPt top[4], bot[4];
+    float rim[8], flo[8];
+    bool ok = true;
+    for (int i = 0; i < 4; i++) {
+        float l, z;
+        heel_xf(&g->b, cl[i], fb, &l, &z);
+        top[i] = (HgPt){ cf[i], l, z };
+        heel_xf(&g->b, cl[i], zf, &l, &z);
+        bot[i] = (HgPt){ cf[i], l, z };
+        ok = ok && rel_pt(k, top[i].f, top[i].l, top[i].z, &rim[2 * i], &rim[2 * i + 1])
+                && rel_pt(k, bot[i].f, bot[i].l, bot[i].z, &flo[2 * i], &flo[2 * i + 1]);
+    }
+    if (!ok) return;
+
+    /* floor: cut against the sea, projected, then to the opening */
+    float d[4], sx, sy;
+    HgPt cp[8];
+    bool cut[8];
+    sea_dist(g, bot, 4, d);
+    int cn = hull_clip_above(bot, d, 4, cp, cut, 8);
+    if (cn >= 3) {
+        float fp[16];
+        int fv = 0;
+        for (int i = 0; i < cn; i++)
+            if (rel_pt(k, cp[i].f, cp[i].l, cp[i].z, &sx, &sy)) { fp[2 * fv] = sx; fp[2 * fv + 1] = sy; fv++; }
+        fill_clipped(pd, fp, fv, rim, render_pattern((int)(lk->hull_shade * 16.0f) + 9));
+    }
+
+    /* walls: an inner face shows when the eye is on the well's side of its plane */
+    const BoatState *b = &g->b;
+    double ch = cos(b->heading), sh = sin(b->heading);
+    float eye[3] = { (float)((k->c->x - b->x) * ch + (k->c->y - b->y) * sh),
+                     (float)(-sh * (k->c->x - b->x) + ch * (k->c->y - b->y)),
+                     k->c->height - b->heave };
+    float mid[3] = { 0, 0, 0 };
+    for (int i = 0; i < 4; i++) {
+        mid[0] += 0.125f * (top[i].f + bot[i].f);
+        mid[1] += 0.125f * (top[i].l + bot[i].l);
+        mid[2] += 0.125f * (top[i].z + bot[i].z);
+    }
+    LCDColor wall_col = render_pattern((int)(lk->hull_shade * 16.0f) + 3);
+    for (int i = 0; i < 4; i++) {
+        int j = (i + 1) % 4;
+        float u[3] = { top[j].f - top[i].f, top[j].l - top[i].l, top[j].z - top[i].z };
+        float v[3] = { bot[i].f - top[i].f, bot[i].l - top[i].l, bot[i].z - top[i].z };
+        float n[3] = { u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0] };
+        float pm[3] = { 0.5f * (top[i].f + top[j].f), 0.5f * (top[i].l + top[j].l), 0.5f * (top[i].z + top[j].z) };
+        float in = n[0] * (mid[0] - pm[0]) + n[1] * (mid[1] - pm[1]) + n[2] * (mid[2] - pm[2]);
+        if (in < 0.0f) { n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2]; }        /* point into the well */
+        if (n[0] * (eye[0] - pm[0]) + n[1] * (eye[1] - pm[1]) + n[2] * (eye[2] - pm[2]) <= 0.0f) continue;
+        float w[8] = { rim[2 * i], rim[2 * i + 1], rim[2 * j], rim[2 * j + 1],
+                       flo[2 * j], flo[2 * j + 1], flo[2 * i], flo[2 * i + 1] };
+        fill_clipped(pd, w, 4, rim, wall_col);
+    }
+
+    int q[8];                                  /* the rim on the deck */
+    for (int i = 0; i < 8; i++) q[i] = (int)lroundf(rim[i]);
+    for (int i = 0; i < 4; i++) {
+        int j = (i + 1) % 4;
+        pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 2, kColorBlack);
+    }
+}
+
 /* the hull seen from behind */
 static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
@@ -991,7 +1110,10 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (hidden == 0 && rel_pt(&k, xs, tr[2].l, tr[2].z, &ax, &ay) && rel_pt(&k, xs, tr[3].l, tr[3].z, &bx, &by))
             pd->graphics->drawLine((int)ax, (int)ay, (int)bx, (int)by, 1, kColorWhite);
     }
-    if (up) draw_panel(pd, &k, deck, 2 * N, deck_col, 2);
+    if (up) {
+        draw_panel(pd, &k, deck, 2 * N, deck_col, 2);
+        draw_cockpit(pd, &k);
+    }
 }
 
 /* ---- race buoys ---- */

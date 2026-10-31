@@ -126,6 +126,11 @@ static const Field LOOK_F[] = {
     FI(LookCfg, wheel_style, 1, 0, 1),
     FI(LookCfg, panel_compass, 1, 0, 1),
     FF(LookCfg, hull_shade, 0.35f, 0, 1),
+    FF(LookCfg, cockpit_x0, -1.4f, -20, 20),
+    FF(LookCfg, cockpit_x1, 0.2f, -20, 20),
+    FF(LookCfg, cockpit_w0, 0.4f, 0, 5),
+    FF(LookCfg, cockpit_w1, 0.5f, 0, 5),
+    FF(LookCfg, cockpit_depth, 0.25f, 0, 2),
 };
 
 static const Field CAMERA_F[] = {

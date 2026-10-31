@@ -70,6 +70,12 @@ typedef struct {
     float freeboard, mast_x, mast_height, forestay_x, shroud_width;
     int wheel_style, panel_compass;
     float hull_shade;
+    /* Cockpit well cut into the deck: a symmetric four-sided polygon (a trapezoid) with a floor
+     * cockpit_depth below the deck. x is metres forward of the boat centre, w the half-width there.
+     * A depth of 0 leaves the deck solid. */
+    float cockpit_x0, cockpit_x1;         /* aft and forward ends */
+    float cockpit_w0, cockpit_w1;         /* half-width at the aft / forward end */
+    float cockpit_depth;
 } LookCfg;
 
 typedef struct {

@@ -6,7 +6,7 @@
 #include "game.h"
 
 #define ASSETS_WARN_LEN 512
-#define ASSETS_BOATS 3
+#define ASSETS_BOATS 4
 
 extern const char *const ASSET_BOAT_NAMES[ASSETS_BOATS];
 

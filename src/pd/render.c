@@ -998,6 +998,9 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 #define BUOY_TOP_M 2.5f     /* m above the sea surface */
 #define BUOY_HALF_M 0.8f    /* m, half the base width */
+#define GATE_LEN_M 20.0f    /* m, drawn length of the gate line from the mark */
+#define GATE_HEIGHT_M 2.0f  /* m above the sea surface */
+#define GATE_DASH_M 1.0f    /* m, dash length; the gap is the same */
 
 typedef struct {
     float depth;
@@ -1019,6 +1022,28 @@ static void draw_buoy(PlaydateAPI *pd, const MarkDraw *m) {
     pd->graphics->drawLine(lx, by, rx, by, 1, kColorWhite);
 }
 
+/* The next mark's gate: a dashed line raised above the sea along the ray the boat has to cross. */
+static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    if (g->race.finished || g->race.next >= g->track.nmarks) return;
+    const Mark *mk = &g->track.marks[g->race.next];
+    double mx, my;
+    race_mark_local(&g->race, &g->track, g->race.next, &mx, &my);
+    const float t = (float)fmod(g->t, g->sea.period);
+    const double dx = cos(mk->gate), dy = sin(mk->gate);
+    for (float s = 0.0f; s < GATE_LEN_M; s += 2.0f * GATE_DASH_M) {
+        float sx[2], sy[2], d[2];
+        bool ok = true;
+        for (int e = 0; e < 2 && ok; e++) {
+            double px = mx + dx * (s + e * GATE_DASH_M), py = my + dy * (s + e * GATE_DASH_M);
+            float z = sea_height(&g->sea, (float)px, (float)py, t) + GATE_HEIGHT_M;
+            ok = camera_project(c, px, py, z, &sx[e], &sy[e], &d[e]) && d[e] <= fvis(g);
+        }
+        if (!ok) continue;
+        pd->graphics->drawLine((int)sx[0], (int)sy[0], (int)sx[1], (int)sy[1], 3, kColorWhite);
+        pd->graphics->drawLine((int)sx[0], (int)sy[0], (int)sx[1], (int)sy[1], 1, kColorBlack);
+    }
+}
+
 static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     MarkDraw dm[TRACK_MAX_MARKS];
     int n = 0;
@@ -1037,6 +1062,7 @@ static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         m->hw = fmaxf(2.0f, BUOY_HALF_M * CAM_FOCAL / bd);
         n++;
     }
+    draw_gate(pd, g, c);
     qsort(dm, (size_t)n, sizeof dm[0], mark_far_first);
     /* the next mark is drawn last so it sits on top */
     for (int k = 0; k < n; k++)

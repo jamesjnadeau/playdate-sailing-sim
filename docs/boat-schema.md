@@ -21,9 +21,8 @@ ignored (default kept) with a warning.
 | `camera` | `height x_offset far_height frame_margin heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain yaw_range_deg return_rate` |
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
-Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) and
-`boats/tp52.json` (TP52 racer, 15.9 m, built for speed) each add a third sail (`shape` 2) that only draws
-force for `awa_min_deg` to `awa_max_deg`. Boat files are read into a 16 KB buffer, so keep them compact.
+Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws
+force for `awa_min_deg` to `awa_max_deg`; `boats/sunfish.json` (the default boat) is a single large lateen mainsail with the mast well forward. Boat files are read into a 16 KB buffer, so keep them compact.
 Righting-moment tables should fold in crew weight for big boats (`crew_mass` is capped at 500).
 
 Final field ranges for the sail entries, with the camera and control fields most often tuned:

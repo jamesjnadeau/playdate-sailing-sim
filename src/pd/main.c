@@ -138,7 +138,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     }
     if (event == kEventInit) {
         pd = playdate;
-        static const char *boat_names[ASSETS_BOATS] = { "dinghy", "j24", "tp52" };
+        static const char *boat_names[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52" };
         static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
         boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);

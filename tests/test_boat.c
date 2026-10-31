@@ -1,5 +1,6 @@
 #include "t.h"
 #include <string.h>
+#include <stdio.h>
 #include "boat.h"
 #include <math.h>
 
@@ -144,6 +145,25 @@ static void test_moderate_wind_does_not_capsize(void) {
     T_ASSERT(maxheel < D(45));
 }
 
+static void test_sunfish_sails_without_capsizing(void) {
+    Sim s; sim_init(&s, 60, 12 * KN, 1.0f);
+    FILE *f = fopen("../boats/sunfish.json", "rb");
+    static char buf[16384];
+    size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
+    if (f) fclose(f);
+    T_ASSERT(n > 0 && boatcfg_load(&s.cfg, buf, n, NULL, 0));
+    boat_init(&s.b, &s.cfg);
+    s.b.heading = (float)M_PI - D(60); s.b.u = 1.0f;
+    boat_inputs_init(&s.in, &s.cfg);
+    float maxheel = 0;
+    for (int i = 0; i < (int)(60 / DT); i++) {
+        sim_step(&s);
+        maxheel = fmaxf(maxheel, fabsf(s.b.heel));
+    }
+    T_ASSERT(maxheel < D(s.cfg.hull.capsize_deg));
+    T_ASSERT(s.b.u > 1.0f);
+}
+
 static void test_no_nan_zero_wind(void) {
     Sim s; sim_init(&s, 0, 0, 0);
     s.in.wheel_target = 0.5f;
@@ -200,6 +220,7 @@ int main(void) {
     T_RUN(test_irons_no_steerage);
     T_RUN(test_capsize_in_gust);
     T_RUN(test_moderate_wind_does_not_capsize);
+    T_RUN(test_sunfish_sails_without_capsizing);
     T_RUN(test_no_nan_zero_wind);
     T_RUN(test_bad_dt_stays_finite);
     T_RUN(test_far_from_origin_still_moves);

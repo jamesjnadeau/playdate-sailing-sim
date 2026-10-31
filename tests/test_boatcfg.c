@@ -129,23 +129,38 @@ static void test_garbage_buffer_gives_default(void) {
     T_ASSERT(memcmp(&c, &d, sizeof d) == 0);
 }
 
-static void check_keelboat(const char *path, float min_len, int shape2_awa_min) {
+static void load_boat(const char *path, BoatCfg *c) {
     size_t n;
     char *buf = slurp(path, &n);
-    BoatCfg c;
     char warn[W];
     T_ASSERT(buf != NULL);
     T_ASSERT(n < 16000);                                     /* assets.c reads boats into a 16 KB buffer */
-    T_ASSERT(boatcfg_load(&c, buf, n, warn, sizeof warn));   /* no warnings */
-    T_ASSERT(c.hull.length >= min_len);
-    T_ASSERT(c.sail_count == 3);
-    T_ASSERT(c.sails[2].shape == 2);
-    T_ASSERT(c.sails[2].awa_min_deg >= (float)shape2_awa_min);
+    T_ASSERT(boatcfg_load(c, buf, n, warn, sizeof warn));    /* no warnings */
     free(buf);
 }
 
-static void test_j24_json(void) { check_keelboat("../boats/j24.json", 7.3f, 90); }
-static void test_tp52_json(void) { check_keelboat("../boats/tp52.json", 15.8f, 80); }
+static void test_j24_json(void) {
+    BoatCfg c; load_boat("../boats/j24.json", &c);
+    T_ASSERT(c.hull.length >= 7.3f);
+    T_ASSERT(c.sail_count == 2);                             /* main + jib, no spinnaker */
+    T_ASSERT(c.sails[1].shape == 1);
+}
+
+static void test_tp52_json(void) {
+    BoatCfg c; load_boat("../boats/tp52.json", &c);
+    T_ASSERT(c.hull.length >= 15.8f);
+    T_ASSERT(c.sail_count == 3);
+    T_ASSERT(c.sails[2].shape == 2 && c.sails[2].awa_min_deg >= 80);
+    T_ASSERT(strcmp(c.sails[2].name, "spinnaker") == 0);
+}
+
+static void test_sunfish_json(void) {
+    BoatCfg c, d; load_boat("../boats/sunfish.json", &c);
+    boatcfg_default(&d);
+    T_ASSERT(c.sail_count == 1 && c.sails[0].shape == 0);    /* one lateen mainsail, no jib */
+    T_ASSERT(c.sails[0].area > d.sails[0].area);             /* bigger than the dinghy's main */
+    T_ASSERT(c.look.mast_x > d.look.mast_x);                 /* mast well forward */
+}
 
 int main(void) {
     T_RUN(test_default_is_sane);
@@ -158,5 +173,6 @@ int main(void) {
     T_RUN(test_garbage_buffer_gives_default);
     T_RUN(test_j24_json);
     T_RUN(test_tp52_json);
+    T_RUN(test_sunfish_json);
     return T_DONE();
 }

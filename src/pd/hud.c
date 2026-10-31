@@ -14,6 +14,22 @@ static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
+/* The system font has no gear or compass glyph, so the AT and AP badges are drawn as small icons. */
+static void icon_gear(PlaydateAPI *pd, int cx, int cy) {
+    static const int dx[8] = { 1, 1, 0, -1, -1, -1, 0, 1 }, dy[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+    pd->graphics->drawEllipse(cx - 4, cy - 4, 9, 9, 1, 0, 0, kColorWhite);
+    for (int i = 0; i < 8; i++)   /* teeth */
+        pd->graphics->drawLine(cx + dx[i] * 4, cy + dy[i] * 4, cx + dx[i] * 6, cy + dy[i] * 6, i & 1 ? 1 : 2, kColorWhite);
+    pd->graphics->fillRect(cx - 1, cy - 1, 3, 3, kColorWhite);
+}
+
+static void icon_compass(PlaydateAPI *pd, int cx, int cy) {
+    pd->graphics->drawEllipse(cx - 6, cy - 6, 13, 13, 1, 0, 0, kColorWhite);
+    pd->graphics->fillTriangle(cx, cy - 5, cx - 2, cy, cx + 2, cy, kColorWhite);   /* north needle */
+    pd->graphics->drawLine(cx - 2, cy, cx, cy + 5, 1, kColorWhite);               /* south needle */
+    pd->graphics->drawLine(cx + 2, cy, cx, cy + 5, 1, kColorWhite);
+}
+
 /* Sailing term for what each d-pad mode controls. */
 static const char *mode_word(Mode m) {
     switch (m) {
@@ -25,7 +41,7 @@ static const char *mode_word(Mode m) {
     return "?";
 }
 
-/* One-row status bar: mode glyph, then the mode's cells, then AP/AT badges and the wind dial. */
+/* One-row status bar: mode glyph, then the mode's cells, then autopilot/autotrim icons and the wind dial. */
 void hud_draw(PlaydateAPI *pd, const Game *g) {
     const BoatState *b = &g->b;
     const Mode mode = g->ctl.mode;
@@ -64,10 +80,12 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         pd->graphics->fillRect(HUD_MODE_W + 56, top + 8, (int)(70.0f * f), 4, kColorWhite);
     }
 
-    if (g->at.on) text(pd, "AT", 268, ty);
+    const int iy = top + HUD_H / 2;
+    if (g->at.on) icon_gear(pd, 274, iy);
     if (g->ap.on) {
-        snprintf(line, sizeof line, "AP %03d", hud_heading_deg(g->ap.target));
-        text(pd, line, 292, ty);
+        icon_compass(pd, 298, iy);
+        snprintf(line, sizeof line, "%03d", hud_heading_deg(g->ap.target));
+        text(pd, line, 308, ty);
     }
 
     /* apparent wind dial: the needle points where the wind is going (downwind), relative to the bow (up) */

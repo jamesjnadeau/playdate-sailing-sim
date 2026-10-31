@@ -4,11 +4,14 @@
 #include "assets.h"
 #include "camera.h"
 #include "game.h"
+#include "helptext.h"
 #include "menu.h"
 #include "render.h"
 #include "tracks.h"
 
 #define WARN_SHOW_S 3.0f
+#define HELP_ROWS_MAX 96
+#define HELP_COLS 44
 
 typedef enum { APP_MENU, APP_PLAY } AppState;
 
@@ -27,6 +30,8 @@ static AppState app = APP_MENU;
 static Menu menu;
 static Track tracks[TRACKS_MAX];
 static int ntracks;
+static HelpLine help[HELP_ROWS_MAX];
+static int nhelp;
 
 static PDMenuItem *boat_item, *weather_item;
 
@@ -58,6 +63,15 @@ static void show_menu(void) {
     app = APP_MENU;
     menu_init(&menu, ntracks, ASSETS_BOATS);
     menu.boat = boat_index;   /* the boat screen opens on the current boat */
+    menu_set_help(&menu, nhelp);
+}
+
+/* config/help.md is laid out once; a missing file leaves a one-line notice */
+static void help_load(void) {
+    char *md;
+    nhelp = 0;
+    if (assets_read_file(pd, "config/help.md", &md) > 0) nhelp = helptext_layout(md, HELP_COLS, help, HELP_ROWS_MAX);
+    if (nhelp == 0) nhelp = helptext_layout("config/help.md is missing", HELP_COLS, help, HELP_ROWS_MAX);
 }
 
 static void menu_boat(void *ud) {
@@ -97,7 +111,7 @@ static int update(void *ud) {
             camera_snap();
             app = APP_PLAY;
         }
-        menu_draw(pd, &menu, tracks);
+        menu_draw(pd, &menu, tracks, help);
         return 1;
     }
 
@@ -154,6 +168,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         pd->system->addMenuItem("restart", menu_restart, NULL);
         pd->system->addMenuItem("main menu", menu_main, NULL);
         pd->display->setRefreshRate(30.0f);
+        help_load();
         begin(true);
         if (track_warn[0]) {
             /* append track warnings to the config line, "; "-separated */

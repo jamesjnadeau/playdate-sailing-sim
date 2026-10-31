@@ -3,6 +3,7 @@
 #include "pd_api.h"
 #include "camera.h"
 #include "game.h"
+#include "helptext.h"
 #include "menu.h"
 #include "race.h"
 
@@ -20,7 +21,7 @@ void render_set_sea_style(int style);
 int render_sea_style(void);
 
 /* Main menu screen (menu_draw.c). */
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks);
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLine *help);
 
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);

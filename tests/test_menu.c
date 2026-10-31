@@ -15,9 +15,36 @@ static void test_down_up_wrap(void) {
     menu_update(&m, BTN_DOWN);
     T_ASSERT(m.sel == 1);
     menu_update(&m, BTN_DOWN);
+    menu_update(&m, BTN_DOWN);
     T_ASSERT(m.sel == 0);
     menu_update(&m, BTN_UP);
-    T_ASSERT(m.sel == 1);
+    T_ASSERT(m.sel == MENU_ITEM_HELP);
+}
+
+static void test_help_opens_scrolls_and_returns(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    menu_set_help(&m, MENU_HELP_VIS + 2);
+    menu_update(&m, BTN_UP);                          /* wraps to the last row: controls */
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_HELP);
+    for (int i = 0; i < 5; i++) menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.help_top == 2);                        /* stops at the last full page */
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.help_top == 1);
+    menu_update(&m, BTN_B);
+    T_ASSERT(m.screen == MENU_MAIN);
+    T_ASSERT(m.sel == MENU_ITEM_HELP);
+}
+
+static void test_short_help_does_not_scroll(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    menu_set_help(&m, 3);
+    m.sel = MENU_ITEM_HELP;
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.help_top == 0);
 }
 
 static void test_a_on_free_starts_free(void) {
@@ -116,6 +143,8 @@ static void test_multiple_buttons_one_frame(void) {
 int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
+    T_RUN(test_help_opens_scrolls_and_returns);
+    T_RUN(test_short_help_does_not_scroll);
     T_RUN(test_a_on_free_starts_free);
     T_RUN(test_racing_opens_track_list);
     T_RUN(test_track_pick_starts_race);

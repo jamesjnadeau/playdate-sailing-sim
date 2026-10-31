@@ -41,6 +41,10 @@ The simulation core in `src/sim/` has no Playdate dependencies and is tested on 
 make -C tests
 ```
 
+## Contributing a boat
+
+A boat is one JSON file in `boats/`; see [docs/boat-schema.md](docs/boat-schema.md) for the fields and naming rules. Open the pull request with the [boat template](https://github.com/jamesjnadeau/playdate-sailing-sim/compare?template=boat.md). The PR check runs the tests, validates the file and renders a sail-and-pan clip you can download as the `boat-clips` artifact. Code changes get the same check, rendering the J/24.
+
 ## Layout
 
 | Path | Contents |

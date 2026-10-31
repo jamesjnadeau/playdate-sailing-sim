@@ -39,6 +39,20 @@ static float level_for(const SoundParams *p, int16_t *l, int16_t *r) {
     return rms_of(l, 4096);
 }
 
+/* Settles, then the rms over about 2.2 s, long enough for the flutter gating to average out. */
+static float level_long(const SoundParams *p) {
+    seasound_init(&ss);
+    ss.p = *p;
+    for (int i = 0; i < 20; i++) seasound_render(&ss, L, R, 4096);
+    double s = 0;
+    for (int i = 0; i < 24; i++) {
+        seasound_render(&ss, L, R, 4096);
+        float r = rms_of(L, 4096);
+        s += (double)r * r;
+    }
+    return (float)sqrt(s / 24);
+}
+
 static void test_silent_when_params_zero(void) {
     seasound_init(&ss);
     for (int i = 0; i < 4; i++) seasound_render(&ss, L, R, 4096);
@@ -57,6 +71,32 @@ static void test_each_voice_is_audible_but_not_clipping(void) {
         T_ASSERT(r > 0.01f && r < 0.35f);
         T_ASSERT(peak_of(L, 4096) < 30000);
     }
+}
+
+/* Each voice's level as tuned before the synth was made cheaper: guards the sound. */
+static void test_voice_levels_match_reference(void) {
+    static const float ref[5] = { 0.0505f, 0.0461f, 0.0304f, 0.0301f, 0.0562f };   /* wash, swell, gurgle, wind, flutter */
+    SoundParams p;
+    float *fields[] = { &p.wash, &p.swell, &p.gurgle, &p.wind, &p.flutter };
+    for (int v = 0; v < 5; v++) {
+        memset(&p, 0, sizeof p);
+        p.bright = 0.6f; p.whistle_hz = 700.0f; p.pan = 0.0f;
+        *fields[v] = 1.0f;
+        float r = level_long(&p);
+        printf("voice %d long rms %.4f (ref %.4f)\n", v, r, ref[v]);
+        T_ASSERT(fabsf(r - ref[v]) <= 0.15f * ref[v]);
+    }
+}
+
+static void test_slap_level_matches_reference(void) {
+    const float ref = 0.0697f;
+    seasound_init(&ss);
+    seasound_render(&ss, L, R, 4096);
+    ss.slap_ev = 1.0f;
+    seasound_render(&ss, L, R, 4096);
+    float r = rms_of(L, 4096);
+    printf("slap rms %.4f (ref %.4f)\n", r, ref);
+    T_ASSERT(fabsf(r - ref) <= 0.15f * ref);
 }
 
 static void test_wash_gets_brighter_with_bright(void) {
@@ -224,6 +264,8 @@ static void test_no_slaps_when_stopped_or_flat(void) {
 int main(void) {
     T_RUN(test_silent_when_params_zero);
     T_RUN(test_each_voice_is_audible_but_not_clipping);
+    T_RUN(test_voice_levels_match_reference);
+    T_RUN(test_slap_level_matches_reference);
     T_RUN(test_wash_gets_brighter_with_bright);
     T_RUN(test_gurgle_sits_on_the_heeled_side);
     T_RUN(test_slap_is_a_decaying_burst);

@@ -138,14 +138,16 @@ static void test_split_calls_match_one_call(void) {
 /* After a fade to silence, sound comes back on the master ramp, not from a stale sample. */
 static void test_resume_after_silence_has_no_click(void) {
     seasound_init(&ss);
-    ss.p.wash = 1.0f;
-    for (int i = 0; i < 20; i++) seasound_render(&ss, L, R, 4096);
-    seasound_set_active(&ss, 0);
-    for (int i = 0; i < 200 && seasound_render(&ss, L, R, 4096); i++) {}
+    ss.p.wash = 1.0f; ss.p.swell = 1.0f;
+    for (int i = 0; i < 20; i++) seasound_render(&ss, L, R, 4095);   /* odd, so it stops mid-pair */
+    T_ASSERT(peak_of(L, 4095) > 2000);
+    /* cut off abruptly, so the last internal samples are still loud when it goes silent */
+    ss.master_target = 0.0f; ss.master = 0.0f;
     T_ASSERT(seasound_render(&ss, L, R, 4096) == 0);
     seasound_set_active(&ss, 1);
     T_ASSERT(seasound_render(&ss, L, R, 4096) == 1);
-    T_ASSERT(abs(L[0]) < 200 && abs(L[1]) < 200);
+    /* the level ramps up from zero, so the first samples must be near silent, not a stale sample */
+    for (int i = 0; i < 4; i++) T_ASSERT(abs(L[i]) < 200 && abs(R[i]) < 200);
 }
 
 /* The whistle at the top of its range stays stable at the internal rate. */

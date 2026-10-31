@@ -89,7 +89,7 @@ static void test_a_on_free_starts_free(void) {
 static void test_racing_opens_track_list(void) {
     Menu m;
     menu_init(&m, 1, 3);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
     T_ASSERT(m.screen == MENU_TRACKS);
     T_ASSERT(m.sel == 0);
@@ -98,7 +98,7 @@ static void test_racing_opens_track_list(void) {
 static void test_track_pick_starts_race(void) {
     Menu m;
     menu_init(&m, 3, 3);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     menu_update(&m, BTN_DOWN);
     menu_update(&m, BTN_DOWN);
@@ -113,7 +113,7 @@ static void test_boat_pick_starts_race(void) {
     Menu m;
     menu_init(&m, 3, 4);
     m.boat = 1;
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     menu_update(&m, BTN_DOWN);
     menu_update(&m, BTN_A);                          /* track 1 */
@@ -130,7 +130,7 @@ static void test_boat_pick_starts_race(void) {
 static void test_b_on_boats_returns_to_track_list(void) {
     Menu m;
     menu_init(&m, 3, 4);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     menu_update(&m, BTN_DOWN);
     menu_update(&m, BTN_DOWN);
@@ -148,7 +148,7 @@ static void test_weather_follows_boat(void) {
     Menu m;
     menu_init(&m, 2, 4);
     menu_set_weather(&m, 6, 5);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);                          /* Racing */
     menu_update(&m, BTN_A);                          /* track 0 */
     menu_update(&m, BTN_A);                          /* preview confirmed */
@@ -167,7 +167,7 @@ static void test_weather_follows_boat(void) {
 static void test_no_boats_starts_race_after_track(void) {
     Menu m;
     menu_init(&m, 2, 0);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);   /* the preview */
     T_ASSERT(menu_update(&m, BTN_A) == MENU_START_RACE);
@@ -176,7 +176,7 @@ static void test_no_boats_starts_race_after_track(void) {
 static void test_preview_animation_ticks_and_restarts(void) {
     Menu m;
     menu_init(&m, 2, 3);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     menu_update(&m, BTN_A);                          /* tracks -> preview */
     T_ASSERT(m.screen == MENU_PREVIEW && m.tick == 0);
@@ -191,7 +191,7 @@ static void test_preview_animation_ticks_and_restarts(void) {
 static void test_b_goes_back_to_racing_row(void) {
     Menu m;
     menu_init(&m, 2, 3);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     T_ASSERT(menu_update(&m, BTN_B) == MENU_NONE);
     T_ASSERT(m.screen == MENU_MAIN);
@@ -203,7 +203,7 @@ static void test_b_goes_back_to_racing_row(void) {
 static void test_no_tracks_racing_stays(void) {
     Menu m;
     menu_init(&m, 0, 3);
-    menu_update(&m, BTN_DOWN);
+    m.sel = MENU_ITEM_RACE;
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
     T_ASSERT(m.screen == MENU_MAIN);
 }
@@ -212,6 +212,7 @@ static void test_no_tracks_racing_stays(void) {
 static void test_multiple_buttons_one_frame(void) {
     Menu m;
     menu_init(&m, 2, 3);
+    m.sel = MENU_ITEM_JOURNEY;
     T_ASSERT(menu_update(&m, BTN_DOWN | BTN_A) == MENU_NONE);
     T_ASSERT(m.screen == MENU_TRACKS);
     T_ASSERT(m.sel == 0);
@@ -219,7 +220,7 @@ static void test_multiple_buttons_one_frame(void) {
 
 /* Free range, Racing, then the track: the boat screen opens after the track's preview. */
 static void enter_boats(Menu *m) {
-    menu_update(m, BTN_DOWN);
+    m->sel = MENU_ITEM_RACE;
     menu_update(m, BTN_A);
     menu_update(m, BTN_A);
     menu_update(m, BTN_A);
@@ -303,7 +304,7 @@ static void test_null_raceable_selects_every_boat(void) {
 static void test_long_list_scrolls_with_selection(void) {
     Menu m;
     menu_init(&m, 8, 3);
-    menu_update(&m, BTN_DOWN);   /* main: Racing */
+    m.sel = MENU_ITEM_RACE;
     menu_update(&m, BTN_A);
     T_ASSERT(m.screen == MENU_TRACKS);
     T_ASSERT(m.top == 0);

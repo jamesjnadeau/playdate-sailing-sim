@@ -2,8 +2,6 @@
 wait 2
 press down
 wait 1
-press down
-wait 1
 press A
 wait 1
 press A

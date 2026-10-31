@@ -5,13 +5,13 @@
 
 typedef enum { MENU_MAIN, MENU_TRACKS, MENU_PREVIEW, MENU_BOATS, MENU_WEATHER, MENU_HELP } MenuScreen;
 typedef enum { MENU_NONE, MENU_START_FREE, MENU_START_RACE, MENU_START_JOURNEY } MenuAction;
-enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_JOURNEY, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
+enum { MENU_ITEM_FREE, MENU_ITEM_JOURNEY, MENU_ITEM_RACE, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
 #define MENU_SOUND_LEVELS 4
 extern const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS];   /* "Off", "Low", "Med", "High" */
 #define MENU_LIST_VIS 5    /* list rows that fit on screen; longer lists scroll */
 #define MENU_HELP_VIS 10   /* help rows that fit on screen */
 #define MENU_HELP_CRANK_DEG 30.0f   /* crank degrees per help row scrolled */
-extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Journey", "Controls", "Sound" */
+extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Journey", "Racing", "Controls", "Sound" */
 
 typedef struct {
     MenuScreen screen;

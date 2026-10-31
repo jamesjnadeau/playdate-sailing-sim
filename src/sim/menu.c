@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "controls.h"
 
-const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing", "Journey", "Controls", "Sound" };
+const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Journey", "Racing", "Controls", "Sound" };
 const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS] = { "Off", "Low", "Med", "High" };
 
 void menu_init(Menu *m, int ntracks, int nboats) {

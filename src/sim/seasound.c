@@ -169,29 +169,43 @@ int seasound_render(SeaSound *s, int16_t *left, int16_t *right, int n) {
         const float flut_d = expf(-1.0f / (RATE * 0.16f));   /* per sample */
         const float flut_hz = 2.5f + 2.0f * c->flutter;   /* slow, uneven flaps: cloth, not a rattle */
 
-        for (int i = 0; i < len; i++) {
-            const float n0 = rnd(s), n1 = rnd(s), n2 = rnd(s);
-            const float wl = lp2(s->wash_s[0], a_wash, n0) * g_wash * c->wash * 0.22f * BED;
-            const float wr = lp2(s->wash_s[1], a_wash, n1) * g_wash * c->wash * 0.22f * BED;
-            const float sw = lp2(s->swell_s, a_swell, n2) * g_swell * c->swell * 0.2f * BED;
+        /* rigging whistle: a narrow band of noise whose pitch wanders with the gusts, retuned once per chunk */
+        const float fc = c->whistle_hz * (1.0f + 0.06f * clampf(s->wobble * g_wob, -1.5f, 1.5f));
+        const float f = 2.0f * sinf(3.14159265f * clampf(fc, 100.0f, 4000.0f) / RATE);
+        const float g_wi = 0.5f / sqrtf(f * 6.0f) * 0.577f * 2.0f;
 
-            const float sl = lp2(s->slap_s, a_slap, n0) * g_slap * s->slap_env * 0.35f;
-            const float th = lp2(s->thump_s, a_thump, n1) * g_thump * s->thump_env * 0.6f;
+        /* voices at zero are skipped for the chunk; their filters hold state and they wake on a ramp */
+        const int on_wash = c->wash >= 1e-4f, on_swell = c->swell >= 1e-4f;
+        const int on_slap = s->slap_env >= 1e-4f, on_thump = s->thump_env >= 1e-4f;
+        const int on_gur = c->gurgle >= 1e-4f, on_wind = c->wind >= 1e-4f, on_flut = c->flutter >= 1e-4f;
+
+        for (int i = 0; i < len; i++) {
+            const float n0 = rnd(s), n1 = rnd(s), n2 = rnd(s);   /* always drawn, so each voice hears the same noise */
+            float wl = 0.0f, wr = 0.0f, mono = 0.0f, gu = 0.0f;
+            if (on_wash) {
+                wl = lp2(s->wash_s[0], a_wash, n0) * g_wash * c->wash * 0.22f * BED;
+                wr = lp2(s->wash_s[1], a_wash, n1) * g_wash * c->wash * 0.22f * BED;
+            }
+            if (on_swell) mono += lp2(s->swell_s, a_swell, n2) * g_swell * c->swell * 0.2f * BED;
+            if (on_slap) mono += lp2(s->slap_s, a_slap, n0) * g_slap * s->slap_env * 0.35f;
+            if (on_thump) mono += lp2(s->thump_s, a_thump, n1) * g_thump * s->thump_env * 0.6f;
 
             s->burble += a_burble * (n2 - s->burble);
-            const float bu = clampf(0.5f + 0.5f * s->burble * g_burble, 0.0f, 1.0f);
-            const float gu = lp2(s->gur_s, a_gur, n0) * g_gur * bu * bu * c->gurgle * 0.25f * BED;
+            if (on_gur) {
+                const float bu = clampf(0.5f + 0.5f * s->burble * g_burble, 0.0f, 1.0f);
+                gu = lp2(s->gur_s, a_gur, n0) * g_gur * bu * bu * c->gurgle * 0.25f * BED;
+            }
 
-            /* rigging whistle: a narrow band of noise whose pitch wanders with the gusts */
             s->wobble += a_wob * (n1 - s->wobble);
-            const float fc = c->whistle_hz * (1.0f + 0.06f * clampf(s->wobble * g_wob, -1.5f, 1.5f));
-            const float f = 2.0f * sinf(3.14159265f * clampf(fc, 100.0f, 4000.0f) / RATE);
-            s->svf_low += f * s->svf_band;
-            const float high = n2 - s->svf_low - s->svf_band * (1.0f / 6.0f);
-            s->svf_band += f * high;
-            const float wi = s->svf_band * (0.5f / sqrtf(f * 6.0f) * 0.577f * 2.0f) * c->wind * 0.55f * BED;
+            if (on_wind) {
+                s->svf_low += f * s->svf_band;
+                const float high = n2 - s->svf_low - s->svf_band * (1.0f / 6.0f);
+                s->svf_band += f * high;
+                mono += s->svf_band * g_wi * c->wind * 0.55f * BED;
+            }
 
-            /* luffing sail: each flap is a snap of low-passed noise that dies away like cloth going slack */
+            /* luffing sail: each flap is a snap of low-passed noise that dies away like cloth going slack.
+               The phase and gate run even while silent, so flaps don't bunch up when it resumes. */
             s->flut_phase += flut_hz * s->flut_len / RATE;
             if (s->flut_phase >= 1.0f) {
                 s->flut_phase -= 1.0f;
@@ -199,12 +213,13 @@ int seasound_render(SeaSound *s, int16_t *left, int16_t *right, int n) {
                 s->flut_len = 0.7f + 0.6f * (0.5f + 0.5f * n1);
             }
             s->flut_gate *= flut_d;
-            s->flut_amp += 0.0007f * (s->flut_gate - s->flut_amp);   /* ~30 ms swell into each flap: a flop, not a click */
-            s->flut_lp += 0.022f * (n0 - s->flut_lp);               /* ~150 Hz billow of cloth */
-            s->flut_body += 0.012f * (n1 - s->flut_body);           /* ~80 Hz thud of the sail filling and dropping */
-            const float fl = (s->flut_lp * 6.0f + s->flut_body * 14.0f) * s->flut_amp * c->flutter * 0.85f * BED;
+            if (on_flut) {
+                s->flut_amp += 0.0007f * (s->flut_gate - s->flut_amp);   /* ~30 ms swell into each flap: a flop, not a click */
+                s->flut_lp += 0.022f * (n0 - s->flut_lp);               /* ~150 Hz billow of cloth */
+                s->flut_body += 0.012f * (n1 - s->flut_body);           /* ~80 Hz thud of the sail filling and dropping */
+                mono += (s->flut_lp * 6.0f + s->flut_body * 14.0f) * s->flut_amp * c->flutter * 0.85f * BED;
+            }
 
-            const float mono = sw + sl + th + wi + fl;
             float l = mono + wl + gu * gl * 2.0f;
             float r = mono + wr + gu * gr * 2.0f;
             l *= s->master; r *= s->master;

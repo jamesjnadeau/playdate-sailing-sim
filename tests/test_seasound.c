@@ -99,6 +99,19 @@ static void test_slap_level_matches_reference(void) {
     T_ASSERT(fabsf(r - ref) <= 0.15f * ref);
 }
 
+/* A voice that was skipped while silent comes back without a burst from stale filter state. */
+static void test_voice_waking_from_zero_is_bounded(void) {
+    seasound_init(&ss);
+    memset(&ss.p, 0, sizeof ss.p);
+    ss.p.wash = 1.0f;
+    for (int i = 0; i < 20; i++) seasound_render(&ss, L, R, 4096);
+    ss.p.wind = 1.0f; ss.p.whistle_hz = 900.0f; ss.p.flutter = 1.0f;
+    for (int k = 0; k < 4; k++) {
+        seasound_render(&ss, L, R, 4096);
+        T_ASSERT(peak_of(L, 4096) < 30000);
+    }
+}
+
 static void test_wash_gets_brighter_with_bright(void) {
     SoundParams p;
     memset(&p, 0, sizeof p);
@@ -266,6 +279,7 @@ int main(void) {
     T_RUN(test_each_voice_is_audible_but_not_clipping);
     T_RUN(test_voice_levels_match_reference);
     T_RUN(test_slap_level_matches_reference);
+    T_RUN(test_voice_waking_from_zero_is_bounded);
     T_RUN(test_wash_gets_brighter_with_bright);
     T_RUN(test_gurgle_sits_on_the_heeled_side);
     T_RUN(test_slap_is_a_decaying_burst);

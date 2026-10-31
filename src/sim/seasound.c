@@ -7,6 +7,7 @@
 #define SLAP_ON 0.15f          /* rad/s of bow-down pitch rate that arms a slap */
 #define SLAP_REF 0.6f          /* rad/s that gives a full-strength slap */
 #define SLAP_COOL_S 0.35f
+#define BED 0.4f   /* scales the constant background voices; slaps and thumps stay at full weight */
 #define RATE ((float)SEASOUND_RATE)
 #define TWO_PI 6.28318530718f
 
@@ -66,10 +67,10 @@ void seasound_update(SeaSound *s, const Game *g, float dt) {
     s->hv += (hv - s->hv) * k;
     s->pr += (pr - s->pr) * k;
 
-    p->wash = alive * powf(clampf(sp, 0.0f, 1.0f), 1.3f);
     p->bright = 0.15f + 0.85f * clampf(sp, 0.0f, 1.0f);
     const float phase = 0.5f + 0.5f * clampf(s->hv / wave_hr, -1.0f, 1.0f);   /* once per wave: water pushes up, then drains away */
-    p->swell = (0.1f + 0.9f * clampf(amp / 1.5f, 0.0f, 1.0f)) * (0.3f + 0.7f * phase) * (0.5f + 0.5f * alive);
+    p->swell = (0.1f + 0.9f * clampf(amp / 1.5f, 0.0f, 1.0f)) * (0.1f + 0.9f * phase) * (0.5f + 0.5f * alive);
+    p->wash = alive * powf(clampf(sp, 0.0f, 1.0f), 1.3f) * (0.4f + 0.6f * phase);   /* the wash breathes with each wave */
 
     /* the bow falls into a trough and meets the next face: fire when the fall eases off */
     s->cool -= dt;
@@ -168,16 +169,16 @@ int seasound_render(SeaSound *s, int16_t *left, int16_t *right, int n) {
 
         for (int i = 0; i < len; i++) {
             const float n0 = rnd(s), n1 = rnd(s), n2 = rnd(s);
-            const float wl = lp2(s->wash_s[0], a_wash, n0) * g_wash * c->wash * 0.22f;
-            const float wr = lp2(s->wash_s[1], a_wash, n1) * g_wash * c->wash * 0.22f;
-            const float sw = lp2(s->swell_s, a_swell, n2) * g_swell * c->swell * 0.2f;
+            const float wl = lp2(s->wash_s[0], a_wash, n0) * g_wash * c->wash * 0.22f * BED;
+            const float wr = lp2(s->wash_s[1], a_wash, n1) * g_wash * c->wash * 0.22f * BED;
+            const float sw = lp2(s->swell_s, a_swell, n2) * g_swell * c->swell * 0.2f * BED;
 
             const float sl = lp2(s->slap_s, a_slap, n0) * g_slap * s->slap_env * 0.35f;
             const float th = lp2(s->thump_s, a_thump, n1) * g_thump * s->thump_env * 0.6f;
 
             s->burble += a_burble * (n2 - s->burble);
             const float bu = clampf(0.5f + 0.5f * s->burble * g_burble, 0.0f, 1.0f);
-            const float gu = lp2(s->gur_s, a_gur, n0) * g_gur * bu * bu * c->gurgle * 0.25f;
+            const float gu = lp2(s->gur_s, a_gur, n0) * g_gur * bu * bu * c->gurgle * 0.25f * BED;
 
             /* rigging whistle: a narrow band of noise whose pitch wanders with the gusts */
             s->wobble += a_wob * (n1 - s->wobble);
@@ -186,13 +187,13 @@ int seasound_render(SeaSound *s, int16_t *left, int16_t *right, int n) {
             s->svf_low += f * s->svf_band;
             const float high = n2 - s->svf_low - s->svf_band * (1.0f / 6.0f);
             s->svf_band += f * high;
-            const float wi = s->svf_band * (0.5f / sqrtf(f * 6.0f) * 0.577f * 2.0f) * c->wind * 0.55f;
+            const float wi = s->svf_band * (0.5f / sqrtf(f * 6.0f) * 0.577f * 2.0f) * c->wind * 0.55f * BED;
 
             /* luffing sail: crackle gated at the flutter rate */
             s->flut_phase += flut_hz / RATE;
             if (s->flut_phase >= 1.0f) s->flut_phase -= 1.0f;
             s->flut_gate += 0.004f * ((s->flut_phase < 0.35f ? 1.0f : 0.0f) - s->flut_gate);
-            const float fl = (n0 - n1) * 0.5f * s->flut_gate * c->flutter * 0.85f;
+            const float fl = (n0 - n1) * 0.5f * s->flut_gate * c->flutter * 0.85f * BED;
 
             const float mono = sw + sl + th + wi + fl;
             float l = mono + wl + gu * gl * 2.0f;

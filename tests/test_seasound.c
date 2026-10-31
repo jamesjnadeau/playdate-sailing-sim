@@ -148,7 +148,7 @@ static void test_speed_drives_wash_and_swell_follows_sea(void) {
     g.b.u = g.boat.hull.hull_speed;
     seasound_update(&ss, &g, 1.0f / 30);
     T_ASSERT(still < 0.01f);
-    T_ASSERT(ss.p.wash > 0.9f);
+    T_ASSERT(ss.p.wash > 0.3f);   /* breathes with the wave phase, never below 0.4 of full */
 
     fresh(WEATHER_SUNNY, 3);
     for (int i = 0; i < 4; i++) { game_update(&g, 0, 0, 0, 1.0f / 30); seasound_update(&ss, &g, 1.0f / 30); }

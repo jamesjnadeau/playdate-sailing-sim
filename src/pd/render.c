@@ -126,7 +126,7 @@ static bool dominant_wave(const Sea *sea, float *nx, float *ny, float *wl) {
     return true;
 }
 
-static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
+__attribute__((unused)) static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                             float half, float vis) {
     const Sea *sea = &g->sea;
     float wnx, wny, wl;
@@ -463,7 +463,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     strip(pd, fy0, fy1, CAM_H + 40, CAM_H + 40, 10);
     if (crest && dist[last] > CREST_NEAR + 0.5f)
         draw_crest_bands(pd, g, c, t, dist[last], half, sgain, vis, wnx, wny, wlen);
-    draw_sea_flecks(pd, g, c, t, half, vis);
+    /* draw_sea_flecks(pd, g, c, t, half, vis); */
 }
 
 static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

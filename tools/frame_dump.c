@@ -72,6 +72,10 @@ static void s_fillPolygon(int n, int *p, LCDColor c, LCDPolygonFillRule r) {
             for (int x = (int)ceilf(xs[a] - 0.5f); x <= (int)floorf(xs[a + 1] - 0.5f); x++) plot(x, y, c);
     }
 }
+static void s_fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, LCDColor c) {
+    int p[6] = { x1, y1, x2, y2, x3, y3 };
+    s_fillPolygon(3, p, c, kPolygonFillNonZero);
+}
 static int s_drawText(const void *t, size_t l, PDStringEncoding e, int x, int y) { (void)t; (void)e; (void)x; (void)y; return (int)l; }
 static LCDBitmapDrawMode s_setDrawMode(LCDBitmapDrawMode m) { return m; }
 
@@ -157,10 +161,33 @@ static void forced_heel(const char *tag, float deg, float yaw) {
     shoot(tag);
 }
 
+/* The longship (square sail) steered by the autopilot at a fixed true-wind angle (deg, + = wind on
+ * starboard), with its sail trimmed to trim_deg and hoisted; shot after secs of sailing. */
+static void longship_scene(const char *tag, float twa_deg, float trim_deg, float secs) {
+    BoatCfg bc; WeatherCfg wc; WorldCfg wo;
+    boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
+    FILE *jf = fopen("boats/longship.json", "rb");
+    if (jf) { static char buf[16384]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
+              char w[128]; boatcfg_load(&bc, buf, n, w, sizeof w); }
+    game_init(&g, &bc, &wc, &wo, WEATHER_SUNNY, 1);
+    memset(&cp, 0, sizeof cp); cp.trail = true;
+    float wind_from = wrap_pi(g.wind.dir + (float)M_PI);
+    g.ap.on = true;
+    g.ap.target = wrap_pi(wind_from - twa_deg * 0.0174533f);
+    int n = (int)(secs * 30);
+    for (int i = 0; i < n; i++) {
+        for (int s = 0; s < bc.sail_count; s++) { g.in.trim_target[s] = trim_deg * 0.0174533f; g.in.hoist_target[s] = 1.0f; }
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        camera_update(&cp, &g, &g.boat, 1.0f / 30);
+    }
+    shoot(tag);
+}
+
 int main(void) {
     memset(&gfx, 0, sizeof gfx);
     gfx.clear = s_clear; gfx.drawLine = s_drawLine; gfx.drawRect = s_drawRect; gfx.fillRect = s_fillRect;
     gfx.drawEllipse = s_drawEllipse; gfx.fillEllipse = s_fillEllipse; gfx.fillPolygon = s_fillPolygon;
+    gfx.fillTriangle = s_fillTriangle;
     gfx.drawText = s_drawText; gfx.setDrawMode = s_setDrawMode;
     memset(&api, 0, sizeof api);
     api.graphics = &gfx;
@@ -173,5 +200,7 @@ int main(void) {
     forced_heel("heel55_port", -55, 0);
     forced_heel("heel55_quarter", 55, 0.7854f);
     forced_heel("heel55_side", 55, 1.5708f);
+    longship_scene("longship_reach", 90, 60, 60);
+    longship_scene("longship_run", 180, 90, 60);
     return 0;
 }

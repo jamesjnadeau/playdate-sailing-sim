@@ -735,6 +735,13 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
                 x += bx;
                 y = ey * v + by + flut;
             }
+            if (s->shape == 3) {                          /* a square sail: a yard swung about the mast, full foot width */
+                float off = (v - 0.5f) * s->foot;
+                float sq_bulge = s->camber * s->foot * 4.0f * v * (1.0f - v) * sinf(3.14159265f * u) * (1.0f - lufft);
+                float sq_flut = lufft > 0.1f ? sinf((float)k->g->t * s->flutter_hz * 6.2832f + u * 3.0f + v * 5.0f) * 0.1f * lufft * s->foot * v : 0.0f;
+                x = cfg->look.mast_x + off * cosf(tr) * side + sq_bulge;
+                y = off * sinf(tr) + sq_flut;
+            }
             float z = lz + (ez - lz) * v;
             float l, up;
             heel_xf(b, y, z, &l, &up);
@@ -776,7 +783,8 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
                 if (!rel_pt(k, p0->f + (p1->f - p0->f) * t, p0->l + (p1->l - p0->l) * t, p0->z + (p1->z - p0->z) * t, &cx2, &cy2)) continue;
                 if (d0 < 0.0f) { x0 = cx2; y0 = cy2; } else { x1 = cx2; y1 = cy2; }
             }
-            pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 1, kColorBlack);
+            int seam_w = (s->shape == 3 && a == mh) ? 3 : 1;   /* a square sail's head is its heavy yard */
+            pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, seam_w, kColorBlack);
         }
     for (int p = 0; p < on; p++) {
         int n2 = (p + 1) % on;

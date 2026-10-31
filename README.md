@@ -119,3 +119,4 @@ A boat is one JSON file in `boats/`; see [docs/boat-schema.md](docs/boat-schema.
 ## License
 
 [GNU AGPL v3](LICENSE).
+

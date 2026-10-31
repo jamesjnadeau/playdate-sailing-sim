@@ -132,7 +132,7 @@ for name in "${NAMES[@]}"; do
     mkdir -p "$DATA"
     cp "tests/scenarios/$name.txt" "$PDX/scenario.txt"
     : >"$LOG"
-    env -u WAYLAND_DISPLAY DISPLAY="$SIM_DISPLAY" GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 "$SIM" "$PDX" >"$LOG" 2>&1 &
+    env -u WAYLAND_DISPLAY DISPLAY="$SIM_DISPLAY" GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 SDL_AUDIODRIVER=dummy "$SIM" "$PDX" >"$LOG" 2>&1 &
     SIM_PID=$!
     waited=0
     while [ ! -e "$DATA/done.marker" ]; do

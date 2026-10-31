@@ -1,0 +1,7 @@
+wait 2
+snap menu_home
+press A
+wait 60
+snap sailing
+state
+end

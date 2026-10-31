@@ -17,7 +17,8 @@ summary=$out/summary.md
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-mapfile -t boats < <(git diff --name-only --diff-filter=AM "$base"...HEAD -- 'boats/*.json')
+# Added, modified or renamed (new path); -z keeps odd file names intact.
+mapfile -d '' -t boats < <(git diff -z --name-only --diff-filter=AMR "$base"...HEAD -- 'boats/*.json')
 smoke=0
 if [ ${#boats[@]} -eq 0 ] && [ -n "$(git diff --name-only "$base"...HEAD -- src tools config)" ]; then
     boats=(boats/j24.json)
@@ -36,8 +37,13 @@ cell() { tr '\n' ' ' | sed 's/|/\\|/g; s/ *$//'; }
 
 status=0
 declare -A verdict
+# The game lists only boats/<name>.json with this name; anything else would pass here and never show up.
+namerule='^boats/[a-z0-9_-]{1,23}\.json$'
 for f in "${boats[@]}"; do
-    if msg=$("$work/boat_check" "$f" 2>&1); then
+    if ! [[ $f =~ $namerule ]]; then
+        verdict[$f]="name not accepted by the game (need boats/<a-z0-9_->.json, at most 23 characters)"
+        status=1
+    elif msg=$("$work/boat_check" "$f" 2>&1); then
         verdict[$f]=ok
     else
         verdict[$f]=$(printf '%s' "${msg#"$f": }" | cell)
@@ -64,7 +70,7 @@ for f in "${boats[@]}"; do
         fi
         echo "| $f | ok | $clip |" >> "$summary"
     else
-        echo "| $f | ${verdict[$f]} | not rendered |" >> "$summary"
+        echo "| $(printf '%s' "$f" | cell) | ${verdict[$f]} | not rendered |" >> "$summary"
     fi
 done
 

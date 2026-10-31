@@ -60,13 +60,13 @@ update-golden: run-all
 	cp -r $(BUILD)/out/* $(GOLDEN)/
 
 check-regression: run-all
-	@OUT_DIR=$(BUILD)/out bash check.sh regression
+	@OUT_DIR=$(BUILD)/out bash $(CURDIR)/check.sh regression
 
 check-fidelity: run-all
-	@OUT_DIR=$(BUILD)/out bash check.sh fidelity
+	@OUT_DIR=$(BUILD)/out bash $(CURDIR)/check.sh fidelity
 
 check: run-all
-	@OUT_DIR=$(BUILD)/out bash check.sh all
+	@OUT_DIR=$(BUILD)/out bash $(CURDIR)/check.sh all
 
 clean:
 	rm -rf $(BUILD)

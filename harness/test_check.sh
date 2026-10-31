@@ -65,10 +65,13 @@ mk t11; fb "$T/real/s/a.fb" ff; printf '# c\n\na 0 0 400 100\n' > "$T/scen/s.mas
 [ $RC != 0 ]; expect "partial mask leaves failure" $?
 
 mk t12; mkdir -p "$T/real/s"; head -c 100 /dev/zero > "$T/real/s/a.fb"; run fidelity
-[ $RC != 0 ]; expect "bad-size real golden fails" $?
+[ $RC != 0 ] && echo "$OUTPUT" | grep -q "bad input"; expect "bad-size real golden fails as bad input" $?
 
 mk t13; fb "$T/real/s/a.fb" 00; fb "$T/real/s/extra.fb" 00; run fidelity
 [ $RC != 0 ]; expect "real golden without a snapshot fails" $?
+
+mk t15; rm -rf "$T/out" "$T/host"; run regression
+[ $RC != 0 ] && echo "$OUTPUT" | grep -q "checked 0 snapshots"; expect "empty out and golden fails regression" $?
 
 mk t14; fb "$T/real/s/a.fb" ff; run all
 [ $RC != 0 ]; expect "all runs fidelity too" $?

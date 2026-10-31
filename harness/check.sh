@@ -30,7 +30,7 @@ diff_png() { # diff_png scenario snap expected actual
 }
 
 regression() {
-  local s snap ext
+  local s snap ext start=$checked
   local all
   all="$( { scenarios_in "$OUT_DIR"; scenarios_in "$HOST_GOLDEN"; } | sort -u)"
   for s in $all; do
@@ -50,6 +50,7 @@ regression() {
       done
     done
   done
+  [ "$checked" -gt "$start" ] || fail "regression checked 0 snapshots (empty or missing $OUT_DIR / $HOST_GOLDEN)"
 }
 
 fidelity() {

@@ -1,7 +1,8 @@
 #include "menu.h"
 #include "controls.h"
 
-const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing", "Controls" };
+const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing", "Controls", "Sound" };
+const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS] = { "Off", "Low", "Med", "High" };
 
 void menu_init(Menu *m, int ntracks, int nboats) {
     m->screen = MENU_MAIN;
@@ -17,6 +18,11 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->help_top = 0;
     m->help_crank = 0;
     m->raceable = NULL;
+    m->sound = 2;
+}
+
+void menu_set_sound(Menu *m, int level) {
+    m->sound = level >= 0 && level < MENU_SOUND_LEVELS ? level : 2;
 }
 
 void menu_set_boat_racing(Menu *m, const bool *raceable) {
@@ -136,6 +142,10 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
             m->screen = MENU_HELP;
             m->help_top = 0;
             m->help_crank = 0;
+            return MENU_NONE;
+        }
+        if (m->sel == MENU_ITEM_SOUND) {
+            m->sound = (m->sound + 1) % MENU_SOUND_LEVELS;
             return MENU_NONE;
         }
         if (m->ntracks < 1) return MENU_NONE;

@@ -30,7 +30,7 @@ endif
 
 BUILD  := build
 SRC    := $(ROOT)/src/pd/main.c $(ROOT)/src/pd/assets.c $(ROOT)/src/pd/render.c $(ROOT)/src/pd/hud.c \
-          $(ROOT)/src/pd/tracks.c $(ROOT)/src/pd/menu_draw.c $(ROOT)/src/pd/scenario.c \
+          $(ROOT)/src/pd/tracks.c $(ROOT)/src/pd/menu_draw.c $(ROOT)/src/pd/audio.c $(ROOT)/src/pd/scenario.c \
           $(ROOT)/src/pd/scenario_io.c $(wildcard $(ROOT)/src/sim/*.c) pdstub.c host_main.c
 # -ffp-contract=off keeps float results identical across compilers and CPUs
 CFLAGS := -std=gnu99 -O1 -Wall -Wextra -DSCENARIO -DTARGET_SIMULATOR=1 -DTARGET_EXTENSION=1 -ffp-contract=off \

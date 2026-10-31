@@ -152,8 +152,15 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         text(pd, "UP/DOWN/crank scroll  B back", 8, 224);
     } else if (m->screen == MENU_MAIN) {
         text(pd, "SAILING SIM", 150, 30);
-        for (int i = 0; i < MENU_MAIN_ITEMS; i++)
-            row(pd, MENU_MAIN_NAMES[i], 100 + ROW_H * i, i == m->sel);
+        for (int i = 0; i < MENU_MAIN_ITEMS; i++) {
+            char buf[24];
+            const char *s = MENU_MAIN_NAMES[i];
+            if (i == MENU_ITEM_SOUND) {
+                snprintf(buf, sizeof buf, "%s: %s", s, MENU_SOUND_NAMES[m->sound]);
+                s = buf;
+            }
+            row(pd, s, 100 + ROW_H * i, i == m->sel);
+        }
         text(pd, "A select", 8, 220);
     } else if (m->screen == MENU_PREVIEW) {
         const Track *t = &tracks[m->track];

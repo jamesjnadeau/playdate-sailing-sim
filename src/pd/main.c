@@ -2,6 +2,7 @@
 #include <string.h>
 #include "pd_api.h"
 #include "assets.h"
+#include "audio.h"
 #include "camera.h"
 #include "game.h"
 #include "helptext.h"
@@ -25,6 +26,7 @@ static BoatCfg boat_cfg;
 static WeatherCfg weather_cfg;
 static WorldCfg world_cfg;
 static int boat_index, preset_index = WEATHER_CHOPPY;
+static int sound_level = 2;   /* kept here because the menu is rebuilt on every visit */
 static uint32_t restart_count;
 static char warn[ASSETS_WARN_LEN];
 static char track_warn[ASSETS_WARN_LEN];
@@ -72,6 +74,9 @@ static void show_menu(void) {
     menu_init(&menu, ntracks, assets_boat_count());
     menu_set_boat_racing(&menu, boat_raceable);
     menu.boat = boat_index;   /* the boat screen opens on the current boat */
+    menu_set_sound(&menu, sound_level);
+    audio_update(NULL, 0);
+    audio_set_active(true);
     menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
     menu_set_help(&menu, nhelp);
 }
@@ -161,6 +166,10 @@ static int update(void *ud) {
 
     if (app == APP_MENU) {
         MenuAction act = menu_update(&menu, (uint32_t)pushed);
+        if (menu.sound != sound_level) {
+            sound_level = menu.sound;
+            audio_set_level(sound_level);
+        }
         menu_crank(&menu, crank);
         if (act == MENU_START_FREE) {
             game_set_track(&game, NULL);
@@ -202,6 +211,7 @@ static int update(void *ud) {
     }
     game_update(&game, (uint32_t)pushed, (uint32_t)cur, crank, dt);
     camera_update(&cam, &game, &game.boat, dt);
+    audio_update(&game, dt);
 
     render_frame(pd, &game, &cam);
     if (warn_left > 0.0f) {
@@ -223,7 +233,9 @@ __declspec(dllexport)
 #endif
 int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     (void)arg;
+    if (event == kEventResume) audio_set_active(app == APP_PLAY);
     if (event == kEventPause) {
+        audio_set_active(false);
         /* the menu shows this bitmap beside its items */
         LCDBitmap *img = pd->graphics->newBitmap(CAM_W, 240, kColorWhite);
         pd->graphics->pushContext(img);
@@ -240,6 +252,8 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         assets_boat_raceable(pd, boat_raceable);
         sys_menu_build(false);
         pd->display->setRefreshRate(30.0f);
+        audio_init(pd);
+        audio_set_level(sound_level);
         help_load();
         begin(true);
         if (track_warn[0]) {

@@ -14,18 +14,19 @@ static void test_down_up_wrap(void) {
     menu_init(&m, 1, 3);
     menu_update(&m, BTN_DOWN);
     T_ASSERT(m.sel == 1);
-    menu_update(&m, BTN_DOWN);
+    for (int i = 2; i < MENU_MAIN_ITEMS; i++) menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == MENU_MAIN_ITEMS - 1);
     menu_update(&m, BTN_DOWN);
     T_ASSERT(m.sel == 0);
     menu_update(&m, BTN_UP);
-    T_ASSERT(m.sel == MENU_ITEM_HELP);
+    T_ASSERT(m.sel == MENU_MAIN_ITEMS - 1);
 }
 
 static void test_help_opens_scrolls_and_returns(void) {
     Menu m;
     menu_init(&m, 1, 3);
     menu_set_help(&m, MENU_HELP_VIS + 2);
-    menu_update(&m, BTN_UP);                          /* wraps to the last row: controls */
+    m.sel = MENU_ITEM_HELP;
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
     T_ASSERT(m.screen == MENU_HELP);
     for (int i = 0; i < 5; i++) menu_update(&m, BTN_DOWN);
@@ -37,13 +38,29 @@ static void test_help_opens_scrolls_and_returns(void) {
     T_ASSERT(m.sel == MENU_ITEM_HELP);
 }
 
+static void test_sound_row_cycles_levels(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    T_ASSERT(m.sound == 2);
+    m.sel = MENU_ITEM_SOUND;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_MAIN);
+    T_ASSERT(m.sound == 3);
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.sound == 0);                           /* wraps round to Off */
+    menu_set_sound(&m, 1);
+    T_ASSERT(m.sound == 1);
+    menu_set_sound(&m, 9);
+    T_ASSERT(m.sound == 2);                           /* out of range -> default */
+}
+
 static void test_help_scrolls_with_crank(void) {
     Menu m;
     menu_init(&m, 3, 2);
     menu_set_help(&m, MENU_HELP_VIS + 3);
     menu_crank(&m, 90);
     T_ASSERT(m.help_top == 0);                        /* only on the help screen */
-    menu_update(&m, BTN_UP);
+    m.sel = MENU_ITEM_HELP;
     menu_update(&m, BTN_A);
     menu_crank(&m, MENU_HELP_CRANK_DEG * 2);
     T_ASSERT(m.help_top == 2);
@@ -286,6 +303,7 @@ int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
     T_RUN(test_help_opens_scrolls_and_returns);
+    T_RUN(test_sound_row_cycles_levels);
     T_RUN(test_help_scrolls_with_crank);
     T_RUN(test_short_help_does_not_scroll);
     T_RUN(test_a_on_free_starts_free);

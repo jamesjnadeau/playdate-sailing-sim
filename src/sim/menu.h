@@ -5,10 +5,12 @@
 
 typedef enum { MENU_MAIN, MENU_TRACKS, MENU_PREVIEW, MENU_BOATS, MENU_WEATHER, MENU_HELP } MenuScreen;
 typedef enum { MENU_NONE, MENU_START_FREE, MENU_START_RACE } MenuAction;
-enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_HELP, MENU_MAIN_ITEMS };
+enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
+#define MENU_SOUND_LEVELS 4
+extern const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS];   /* "Off", "Low", "Med", "High" */
 #define MENU_HELP_VIS 10   /* help rows that fit on screen */
 #define MENU_HELP_CRANK_DEG 30.0f   /* crank degrees per help row scrolled */
-extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Controls" */
+extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Controls", "Sound" */
 
 typedef struct {
     MenuScreen screen;
@@ -22,6 +24,7 @@ typedef struct {
     int nweather;   /* rows on the weather screen, shown after the boat; 0 skips the screen */
     int weather;    /* the weather row to start on; the chosen one once MENU_START_RACE is returned */
     int tick;       /* frames spent on the preview screen; drives its animation */
+    int sound;      /* sea sound level 0..MENU_SOUND_LEVELS-1; A on the Sound row steps it round */
     int boat;       /* the boat row to start on; the chosen boat once MENU_START_RACE is returned */
     const bool *raceable;   /* per boat row: false rows (cruisers) are skipped; NULL means every row is raceable */
 } Menu;
@@ -31,6 +34,8 @@ typedef struct {
 void menu_init(Menu *m, int ntracks, int nboats);
 /* Sets how many weather rows follow the boat screen (0 skips it); weather < 0 or >= n -> 0. */
 void menu_set_weather(Menu *m, int n, int current);
+/* Sets the sea sound level shown on the main screen; out of range -> the default (2). */
+void menu_set_sound(Menu *m, int level);
 /* Sets how many rows the help screen scrolls through. */
 void menu_set_help(Menu *m, int rows);
 /* Marks which boat rows may race (nboats entries). The array is not copied and must outlive the menu.

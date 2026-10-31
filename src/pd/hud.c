@@ -197,11 +197,12 @@ static void map_dashed(PlaydateAPI *pd, int x0, int y0, int x1, int y1) {
 }
 
 /* A 270 degree arc round (cx, cy) with an arrowhead, clockwise on the map for starboard roundings
-   and anticlockwise for port: the way the boat has to go round the mark. */
-static void map_round_arrow(PlaydateAPI *pd, int cx, int cy, int rounding) {
+   and anticlockwise for port: the way the boat has to go round the mark. `gap` is the map bearing
+   (rad, 0 up, clockwise) the 90 degree gap is centred on: where the boat comes in from. */
+static void map_round_arrow(PlaydateAPI *pd, int cx, int cy, int rounding, float gap) {
     const float R = 11.0f, sweep = 4.712389f;   /* 270 deg */
     const float dir = rounding == ROUND_STARBOARD ? 1.0f : -1.0f;
-    const float a0 = 3.14159265f - dir * sweep / 2;   /* gap at the bottom of the mark */
+    const float a0 = gap - dir * sweep / 2;
     int px = 0, py = 0;
     float a = a0;
     for (int i = 0; i <= 12; i++) {
@@ -216,6 +217,19 @@ static void map_round_arrow(PlaydateAPI *pd, int cx, int cy, int rounding) {
     pd->graphics->fillTriangle(px + (int)lroundf(6 * tx), py + (int)lroundf(6 * ty),
                                px - (int)lroundf(4 * ty), py + (int)lroundf(4 * tx),
                                px + (int)lroundf(4 * ty), py - (int)lroundf(4 * tx), kColorBlack);
+}
+
+/* Wind arrow in the map's corner, `wd` the map bearing the wind blows towards. */
+static void map_wind_arrow(PlaydateAPI *pd, float wd) {
+    const struct playdate_graphics *gr = pd->graphics;
+    const int ax = MAP_L + 18, ay = MAP_T + 22;
+    const int tx = ax + (int)lroundf(12 * sinf(wd)), ty = ay - (int)lroundf(12 * cosf(wd));
+    gr->drawLine(ax - (int)lroundf(12 * sinf(wd)), ay + (int)lroundf(12 * cosf(wd)), tx, ty, 2, kColorBlack);
+    gr->fillTriangle(tx, ty,
+                     tx - (int)lroundf(5 * sinf(wd) + 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) - 3 * sinf(wd)),
+                     tx - (int)lroundf(5 * sinf(wd) - 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) + 3 * sinf(wd)),
+                     kColorBlack);
+    text(pd, "WIND", MAP_L + 4, MAP_T + MAP_H - 18);
 }
 
 static void draw_course_map(PlaydateAPI *pd, const Game *g) {
@@ -259,7 +273,7 @@ static void draw_course_map(PlaydateAPI *pd, const Game *g) {
             gr->fillEllipse(mx - 4, my - 4, 9, 9, 0, 0, next ? kColorBlack : kColorWhite);
             gr->drawEllipse(mx - 4, my - 4, 9, 9, 2, 0, 0, kColorBlack);
         }
-        if (next) map_round_arrow(pd, mx, my, k->rounding);
+        if (next) map_round_arrow(pd, mx, my, k->rounding, 3.14159265f);   /* gap at the bottom of the mark */
         char lab[10];
         snprintf(lab, sizeof lab, "%s", k->name);
         text(pd, lab, mx + 8, my - 18);
@@ -277,16 +291,49 @@ static void draw_course_map(PlaydateAPI *pd, const Game *g) {
                      ox - (int)lroundf(5 * fx + 4 * fy), oy - (int)lroundf(5 * fy - 4 * fx),
                      ox - (int)lroundf(5 * fx - 4 * fy), oy - (int)lroundf(5 * fy + 4 * fx), kColorBlack);
 
-    /* wind arrow, pointing the way the wind blows */
-    const float wd = tr->wind_from + 3.14159265f;
-    const int ax = MAP_L + 18, ay = MAP_T + 22;
-    const int tx = ax + (int)lroundf(12 * sinf(wd)), ty = ay - (int)lroundf(12 * cosf(wd));
-    gr->drawLine(ax - (int)lroundf(12 * sinf(wd)), ay + (int)lroundf(12 * cosf(wd)), tx, ty, 2, kColorBlack);
-    gr->fillTriangle(tx, ty,
-                     tx - (int)lroundf(5 * sinf(wd) + 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) - 3 * sinf(wd)),
-                     tx - (int)lroundf(5 * sinf(wd) - 3 * cosf(wd)), ty + (int)lroundf(5 * cosf(wd) + 3 * sinf(wd)),
-                     kColorBlack);
-    text(pd, "WIND", MAP_L + 4, MAP_T + MAP_H - 18);
+    map_wind_arrow(pd, tr->wind_from + 3.14159265f);
+}
+
+/* Journey map: the boat, the next buoy with the way to round it, and the buoy after, north-up. */
+static void draw_journey_map(PlaydateAPI *pd, const Game *g) {
+    const Journey *j = &g->journey;
+    const JourneyBuoy *b = journey_next(j);
+    const struct playdate_graphics *gr = pd->graphics;
+    gr->drawRect(MAP_L, MAP_T, MAP_W, MAP_H, kColorBlack);
+    if (!b) return;
+    const JourneyBuoy *c = j->next + 1 < j->n ? &j->buoy[j->next + 1] : NULL;
+    const float bx = (float)g->b.x, by = (float)g->b.y;
+    float lo_x = fminf(bx, (float)b->x), hi_x = fmaxf(bx, (float)b->x);
+    float lo_y = fminf(by, (float)b->y), hi_y = fmaxf(by, (float)b->y);
+    if (c) {
+        lo_x = fminf(lo_x, (float)c->x); hi_x = fmaxf(hi_x, (float)c->x);
+        lo_y = fminf(lo_y, (float)c->y); hi_y = fmaxf(hi_y, (float)c->y);
+    }
+    float sx = hi_y - lo_y, sy = hi_x - lo_x;
+    if (sx < 60) sx = 60;
+    if (sy < 60) sy = 60;
+    const int pad = 22;
+    MapView v = { MAP_L + MAP_W / 2.0f, MAP_T + MAP_H / 2.0f,
+                  fminf((MAP_W - 2 * pad) / sx, (MAP_H - 2 * pad) / sy), (hi_x + lo_x) / 2, (hi_y + lo_y) / 2 };
+    const int mx = map_sx(&v, (float)b->y), my = map_sy(&v, (float)b->x);
+    if (c) {
+        const int qx = map_sx(&v, (float)c->y), qy = map_sy(&v, (float)c->x);
+        map_dashed(pd, mx, my, qx, qy);
+        gr->fillEllipse(qx - 3, qy - 3, 7, 7, 0, 0, kColorWhite);
+        gr->drawEllipse(qx - 3, qy - 3, 7, 7, 2, 0, 0, kColorBlack);
+    }
+    gr->fillEllipse(mx - 4, my - 4, 9, 9, 0, 0, kColorBlack);
+    gr->drawEllipse(mx - 4, my - 4, 9, 9, 2, 0, 0, kColorBlack);
+    map_round_arrow(pd, mx, my, b->rounding, b->gate + 3.14159265f);   /* open towards where the boat arrives from */
+    gr->drawLine(map_sx(&v, by), map_sy(&v, bx), mx, my, 1, kColorBlack);
+
+    const float h = g->b.heading, fx = sinf(h), fy = -cosf(h);
+    const int ox = map_sx(&v, by), oy = map_sy(&v, bx);
+    gr->fillEllipse(ox - 6, oy - 6, 13, 13, 0, 0, kColorWhite);
+    gr->fillTriangle(ox + (int)lroundf(8 * fx), oy + (int)lroundf(8 * fy),
+                     ox - (int)lroundf(5 * fx + 4 * fy), oy - (int)lroundf(5 * fy - 4 * fx),
+                     ox - (int)lroundf(5 * fx - 4 * fy), oy - (int)lroundf(5 * fy + 4 * fx), kColorBlack);
+    map_wind_arrow(pd, g->wind.dir);
 }
 
 /* System pause-menu panel: the left ~200px of a 400x240 bitmap show beside the menu. */
@@ -303,14 +350,13 @@ void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
         const JourneyBuoy *b = journey_next(j);
 #define ROW(...) do { snprintf(line, sizeof line, __VA_ARGS__); text(pd, line, 4, y); y += 18; } while (0)
         hud_fmt_time(j->t, time, sizeof time);
-        ROW("JOURNEY");
-        ROW("Time %s", time);
-        ROW("Buoys passed %d", j->passed);
+        ROW("Time %s  Passed %d", time, j->passed);
         if (b) {
             ROW("Next buoy %.0fm", hypot(b->x - g->b.x, b->y - g->b.y));
             ROW("Round to %s", b->rounding == ROUND_STARBOARD ? "starboard" : "port");
         }
 #undef ROW
+        draw_journey_map(pd, g);
         return;
     }
     if (g->mode != GAME_RACE) return;

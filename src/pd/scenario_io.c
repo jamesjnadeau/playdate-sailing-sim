@@ -85,7 +85,12 @@ static int state_text(const Game *g, const char *app_name, char *st, size_t n) {
 }
 
 static void write_snapshot(PlaydateAPI *pd, const Game *g, const char *app_name, const char *name) {
-    const uint8_t *src = pd->graphics->getDisplayFrame();
+    /* getFrame, not getDisplayFrame. Measured on the SDK 3.1.2 simulator (Task 7): called at the
+     * end of update(), getDisplayFrame returns the previously presented frame (a snap taken the
+     * frame after a menu->play transition was still the menu, identical to the snap before it),
+     * while getFrame returns the frame just drawn and matches the host stub's capture apart from
+     * text (~0.9% of pixels, the stub draws none). */
+    const uint8_t *src = pd->graphics->getFrame();
     char path[SC_NAME_MAX + 8], st[512];
     if (src) {
         for (int y = 0; y < FB_ROWS; y++) memcpy(fb_out + y * FB_ROW_BYTES, src + y * LCD_ROWSIZE, FB_ROW_BYTES);

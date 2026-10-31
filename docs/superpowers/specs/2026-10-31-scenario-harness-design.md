@@ -99,7 +99,7 @@ as it stays text and one-command-per-line.
 ### Output
 
 - `snap NAME` writes `NAME.fb`: the 12000-byte (`LCD_ROWSIZE` 52 x 240, trimmed to
-  400 bits per row) 1-bit buffer returned by `pd->graphics->getDisplayFrame()`.
+  400 bits per row) 1-bit buffer returned by `pd->graphics->getFrame()`.
   `NAME.state` holds the text from `state`.
 - Host: written to the output dir given on the command line.
 - Simulator: written via `pd->file` into the game's Data directory. `golden_refresh.sh`
@@ -233,6 +233,11 @@ tolerance, since both run the same C simulation.
   machine only (Xvfb, software GL, X11 forced), never in a container.
 - Stub drift is only caught when goldens are refreshed; staleness is bounded by how
   often someone runs `golden_refresh.sh`.
-- `getDisplayFrame()` returns the frame the system last displayed, which may lag one
-  frame behind in the simulator; the first scenario run must settle which of
-  `getFrame()` / `getDisplayFrame()` matches what the host captures.
+- `getDisplayFrame()` returns the frame the system last displayed, which lags one
+  frame behind in the simulator. Settled (Task 7, SDK 3.1.2 simulator): a snap taken
+  one frame after a menu->play transition was byte-identical to the preceding menu
+  snap with `getDisplayFrame()`, but showed the new frame with `getFrame()`. `getFrame()`
+  also matched the host capture to within text (0.9% of pixels differ on menu and
+  sailing frames; the stub draws no text) while `getDisplayFrame()` differed by 3-30%
+  on frames after a change. The harness uses `getFrame()`. One caveat: both calls
+  agreed on frames in a static menu, so this was only measurable right after a change.

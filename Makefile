@@ -21,6 +21,16 @@ SRC = src/pd/main.c src/pd/assets.c src/pd/render.c src/pd/hud.c \
 UINCDIR = src/sim src/pd
 UASRC =
 UDEFS =
+
+# make SCENARIO=1 builds SailingSimScenario.pdx with the scripted-input harness
+# (-DSCENARIO); the default build is unchanged.
+VARIANT = normal
+ifeq ($(SCENARIO),1)
+PRODUCT = SailingSimScenario.pdx
+UDEFS += -DSCENARIO
+SRC += src/pd/scenario.c src/pd/scenario_io.c
+VARIANT = scenario
+endif
 UADEFS =
 ULIBDIR =
 ULIBS = --specs=nosys.specs
@@ -30,3 +40,11 @@ ULIBS = --specs=nosys.specs
 STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks && cp -r boats config tracks Source/)
 
 include $(SDK)/C_API/buildsupport/common.mk
+
+# Both variants share build/ and Source/pdex.*, and the simulator dylib rule only
+# tracks source timestamps, so rebuild whenever the variant changes.
+VARIANT_STAMP := $(shell mkdir -p $(OBJDIR) && { echo $(VARIANT) | cmp -s - $(OBJDIR)/.variant || echo $(VARIANT) > $(OBJDIR)/.variant; } )
+$(OBJDIR)/pdex.${DYLIB_EXT} $(OBJS): $(OBJDIR)/.variant
+
+# common.mk applies UDEFS to the device objects only; the simulator dylib is one gcc call.
+DYLIB_FLAGS += $(UDEFS)

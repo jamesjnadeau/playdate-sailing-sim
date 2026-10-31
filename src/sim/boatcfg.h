@@ -87,6 +87,9 @@ typedef struct {
     float yaw_range_deg, return_rate;
 } CameraCfg;
 
+/* Boat class: racers can enter a race; cruisers are free range only. */
+enum { BOAT_CLASS_RACER = 0, BOAT_CLASS_CRUISER = 1 };
+
 typedef struct {
     HullCfg hull;
     FoilCfg foils;
@@ -96,6 +99,7 @@ typedef struct {
     LookCfg look;
     CameraCfg camera;
     float world_units_per_metre;
+    int boat_class;                       /* BOAT_CLASS_RACER or BOAT_CLASS_CRUISER */
 } BoatCfg;
 
 void boatcfg_default(BoatCfg *out);       /* the built-in dinghy */

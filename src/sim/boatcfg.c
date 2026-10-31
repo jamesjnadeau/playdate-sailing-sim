@@ -150,6 +150,7 @@ static const Field CAMERA_F[] = {
 
 static const Field TOP_F[] = {
     FF(BoatCfg, world_units_per_metre, 10, 0.1f, 1000),
+    FI(BoatCfg, boat_class, 0, 0, 1),
 };
 
 typedef struct {

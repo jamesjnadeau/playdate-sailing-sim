@@ -12,7 +12,7 @@ ignored (default kept) with a warning.
 
 | Group | Fields |
 |---|---|
-| top level | `world_units_per_metre` |
+| top level | `world_units_per_metre`, `boat_class` (0 racer, 1 cruiser: free range only, not offered for racing; missing means racer) |
 | `hull` | `length beam mass crew_mass hiking_arm hull_speed resistance(speed→N) heel_drag yaw_inertia yaw_damping heel_inertia heel_damping righting(heel°→N·m) capsize_deg` |
 | `foils` | `board_*` (area, lift_slope, stall_deg, cd0, x), `rudder_*` (area, max_deg, lift_slope, stall_deg, x) |
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |

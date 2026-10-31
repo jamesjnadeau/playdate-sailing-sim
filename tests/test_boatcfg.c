@@ -176,6 +176,55 @@ static void test_square_shape_accepted(void) {
     T_ASSERT(c.sails[0].shape == 0);
 }
 
+static void test_boat_class_defaults_to_racer(void) {
+    BoatCfg d, c;
+    char warn[W];
+    boatcfg_default(&d);
+    T_ASSERT(d.boat_class == BOAT_CLASS_RACER);
+    T_ASSERT(load(&c, "{}", warn) && c.boat_class == BOAT_CLASS_RACER);
+    load_boat("../boats/dinghy.json", &c);
+    T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
+    load_boat("../boats/sunfish.json", &c);
+    T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
+    load_boat("../boats/j24.json", &c);
+    T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
+    load_boat("../boats/tp52.json", &c);
+    T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
+}
+
+static void test_boat_class_cruiser_accepted(void) {
+    BoatCfg c;
+    char warn[W];
+    T_ASSERT(load(&c, "{\"boat_class\":1}", warn));
+    T_ASSERT(warn[0] == 0);
+    T_ASSERT(c.boat_class == BOAT_CLASS_CRUISER);
+}
+
+static void test_boat_class_out_of_range_clamps(void) {
+    BoatCfg c;
+    char warn[W];
+    T_ASSERT(!load(&c, "{\"boat_class\":2}", warn));
+    T_ASSERT(strstr(warn, "boat_class") != NULL);
+    T_ASSERT(c.boat_class == BOAT_CLASS_CRUISER);
+    T_ASSERT(!load(&c, "{\"boat_class\":-1}", warn));
+    T_ASSERT(strstr(warn, "boat_class") != NULL);
+    T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
+}
+
+static void test_boat_class_round_trips(void) {
+    BoatCfg d, l;
+    char warn[W];
+    boatcfg_default(&d);
+    d.boat_class = BOAT_CLASS_CRUISER;
+    char *buf = malloc(65536);
+    size_t n = boatcfg_to_json(&d, buf, 65536);
+    T_ASSERT(n > 100 && n < 65536);
+    T_ASSERT(boatcfg_load(&l, buf, n, warn, W));
+    T_ASSERT(warn[0] == 0);
+    T_ASSERT(l.boat_class == BOAT_CLASS_CRUISER);
+    free(buf);
+}
+
 static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
     static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json" };
     for (int i = 0; i < 4; i++) {
@@ -206,6 +255,10 @@ int main(void) {
     T_RUN(test_tp52_json);
     T_RUN(test_sunfish_json);
     T_RUN(test_square_shape_accepted);
+    T_RUN(test_boat_class_defaults_to_racer);
+    T_RUN(test_boat_class_cruiser_accepted);
+    T_RUN(test_boat_class_out_of_range_clamps);
+    T_RUN(test_boat_class_round_trips);
     T_RUN(test_every_boat_has_a_cockpit_inside_the_hull);
     return T_DONE();
 }

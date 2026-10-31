@@ -38,6 +38,25 @@ jobs:
       - name: Unit tests
         run: make -C tests test
 
+      - name: Tool tests
+        run: |
+          python3 -I -m unittest discover -s tools -p test_fbtools.py
+          bash harness/test_check.sh
+
+      # Host harness: replays tests/scenarios and compares with the goldens (see README).
+      - name: Scenario harness
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/playdate-sdk"
+          make -C harness run-all check
+
+      - name: Upload scenario diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scenario-diffs
+          path: harness/build/diff/
+          if-no-files-found: ignore
+
       - name: Validate and render boats
         env:
           BASE_REF: ${{ github.base_ref }}

@@ -7,3 +7,4 @@ Source/boats/
 Source/config/
 Source/tracks/
 Source/pdex.*
+__pycache__/

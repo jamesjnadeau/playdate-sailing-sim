@@ -10,6 +10,7 @@
 # capsize/free/menu_nav sailing 0.0026-0.0044 (worst free_sail/free_cranked 0.00436); race_start 0.0040.
 # What remains: 1px differences along sail/boom/hull edges and the dashed horizon line, in line
 # caps/rounding that were not reproducible with a simple offset change.
+# Not tried: line caps, ellipse extent and dither patterns.
 # Tolerance 0.0065 = worst remaining 0.0044 + ~0.002 margin (~585 px of 90000; baseline 230-390 px),
 # so a stray solid block of roughly 19x19 px or larger fails (checked: 40x40 fails at 2.0%; 14x14 passes).
 # Host harness: the real src/pd main loop against a stub Playdate API.

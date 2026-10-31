@@ -1,0 +1,58 @@
+name: Golden refresh
+
+# NOTE: unverified in a clean container. The first run is expected to need iteration (missing
+# libraries, Xvfb/GL quirks, simulator startup timing). Run it manually from the Actions tab.
+#
+# Rebuilds SailingSimScenario.pdx, captures the real-simulator goldens headless under Xvfb and
+# uploads tests/golden/real/ as an artifact. It does not commit anything: download the artifact,
+# review the frames, and commit them yourself.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+env:
+  PLAYDATE_SDK_VERSION: "3.1.2"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Library set taken from `ldd PlaydateSimulator` (GTK3, WebKitGTK 4.1, GL/EGL, PNG/JPEG).
+      - name: Install simulator dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb gcc make python3 python3-pil \
+            libgtk-3-0 libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 libgl1 libglx-mesa0 \
+            libgl1-mesa-dri libegl1 libwayland-egl1 libpng16-16 libjpeg-turbo8 \
+            libgstreamer-gl1.0-0 libflite1 libasound2t64
+
+      - name: Cache Playdate SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/playdate-sdk
+          key: playdate-sdk-${{ env.PLAYDATE_SDK_VERSION }}
+
+      - name: Download Playdate SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/playdate-sdk
+          curl -fsSL "https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-${PLAYDATE_SDK_VERSION}.tar.gz" \
+            | tar -xz -C ~/playdate-sdk --strip-components=1
+
+      - name: Capture goldens
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/playdate-sdk"
+          tools/golden_refresh.sh
+
+      - name: Upload real goldens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-real
+          path: tests/golden/real/
+          if-no-files-found: ignore

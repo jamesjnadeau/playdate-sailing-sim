@@ -256,6 +256,26 @@ static void test_race_advances_when_boat_rounds_b(void) {
     T_ASSERT(g.race.next == 1);
 }
 
+/* Drops the boat `out` m along the first mark's gate ray and 1 m to one side of it, heading straight
+   across it, and runs a few frames. side = +1/-1 picks which side of the ray it starts on. */
+static bool crosses_first_gate(float out, int side) {
+    race_fresh();
+    const Mark *m = &g.track.marks[0];
+    double gx = cos(m->gate), gy = sin(m->gate);
+    g.b.x = m->x + gx * out - gy * side;
+    g.b.y = m->y + gy * out + gx * side;
+    g.b.heading = (float)wrap_pi(m->gate + side * -(float)M_PI / 2);
+    g.b.u = 5.0f;
+    for (int i = 0; i < 30 && g.race.next == 0; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    return g.race.next == 1;
+}
+
+static void test_gate_registers_through_game_update(void) {
+    T_ASSERT(crosses_first_gate(10.0f, 1));     /* port rounding: +y side -> -y side for gate 0 */
+    T_ASSERT(!crosses_first_gate(10.0f, -1));   /* the opposite way does not count */
+    T_ASSERT(!crosses_first_gate(-10.0f, 1));   /* nor does the back extension of the ray */
+}
+
 static void test_restart_resets_race(void) {
     race_fresh();
     g.race.next = 1;
@@ -384,6 +404,7 @@ int main(void) {
     T_RUN(test_set_track_places_boat_and_wind);
     T_RUN(test_track_wind_speed_overrides_preset);
     T_RUN(test_race_advances_when_boat_rounds_b);
+    T_RUN(test_gate_registers_through_game_update);
     T_RUN(test_restart_resets_race);
     T_RUN(test_preset_change_keeps_track_wind);
     T_RUN(test_recentre_moves_marks_with_boat);

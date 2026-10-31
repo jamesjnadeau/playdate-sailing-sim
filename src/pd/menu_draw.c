@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <string.h>
+#include "assets.h"
 #include "menu.h"
 #include "race.h"
 #include "render.h"
@@ -30,6 +31,15 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks) {
         for (int i = 0; i < MENU_MAIN_ITEMS; i++)
             row(pd, MENU_MAIN_NAMES[i], 100 + ROW_H * i, i == m->sel);
         text(pd, "A select", 8, 220);
+    } else if (m->screen == MENU_BOATS) {
+        text(pd, "CHOOSE BOAT", 130, 30);
+        int start = m->sel - (ROWS_VIS - 1);
+        if (start < 0) start = 0;
+        for (int i = 0; i < ROWS_VIS && start + i < m->nboats; i++) {
+            int k = start + i;
+            row(pd, ASSET_BOAT_NAMES[k], 100 + ROW_H * i, k == m->sel);
+        }
+        text(pd, "A race  B back", 8, 220);
     } else {
         text(pd, "RACING", 150, 30);
         int start = m->sel - (ROWS_VIS - 1);

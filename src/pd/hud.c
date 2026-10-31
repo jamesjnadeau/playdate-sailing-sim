@@ -127,6 +127,19 @@ void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 }
 
 void hud_prompt(PlaydateAPI *pd, const Game *g) {
+    if (g->mode == GAME_RACE && g->run == RUN_SAILING && g->race.finished) {
+        char time[16], line[32];
+        hud_fmt_time(g->race.t, time, sizeof time);
+        snprintf(line, sizeof line, "Time %s", time);
+        pd->graphics->fillRect(90, 74, 220, 76, kColorBlack);
+        pd->graphics->drawRect(94, 78, 212, 68, kColorWhite);
+        pd->graphics->setDrawMode(kDrawModeFillWhite);
+        text(pd, "FINISHED", 200 - 4 * 8, 84);
+        text(pd, line, 200 - 3 * (int)strlen(line), 104);
+        text(pd, "Press A to continue", 94, 124);
+        pd->graphics->setDrawMode(kDrawModeCopy);
+        return;
+    }
     if (g->run == RUN_SAILING) return;
     const char *head = g->run == RUN_CAPSIZED ? "CAPSIZED" : "WRECKED";
     pd->graphics->fillRect(90, 80, 220, 64, kColorBlack);

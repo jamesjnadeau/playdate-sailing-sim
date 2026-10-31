@@ -998,9 +998,12 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 #define BUOY_TOP_M 2.5f     /* m above the sea surface */
 #define BUOY_HALF_M 0.8f    /* m, half the base width */
-#define GATE_LEN_M 20.0f    /* m, drawn length of the gate line from the mark */
+#define GATE_LEN_M 40.0f    /* m, drawn length of the gate line from the mark */
 #define GATE_HEIGHT_M 2.0f  /* m above the sea surface */
 #define GATE_DASH_M 1.0f    /* m, dash length; the gap is the same */
+#define ARROW_SWEEP (1.0f / 3.0f)   /* fraction of a full circle the turn arrow covers */
+#define ARROW_RADIUS_M 8.0f         /* m, from the mark to the arrow's path */
+#define ARROW_HEAD_M 2.5f           /* m, length of the arrow head's barbs */
 
 typedef struct {
     float depth;
@@ -1022,7 +1025,54 @@ static void draw_buoy(PlaydateAPI *pd, const MarkDraw *m) {
     pd->graphics->drawLine(lx, by, rx, by, 1, kColorWhite);
 }
 
-/* The next mark's gate: a dashed line raised above the sea along the ray the boat has to cross. */
+/* A point `h` m above the sea at world (px, py), projected; false if behind the camera or in the mist. */
+static bool gate_pt(const Game *g, const CameraPose *c, float t, double px, double py, float h,
+                    float *sx, float *sy) {
+    float d;
+    float z = sea_height(&g->sea, (float)px, (float)py, t) + h;
+    return camera_project(c, px, py, z, sx, sy, &d) && d <= fvis(g);
+}
+
+/* One stroke of the gate markings: white under black so it reads on light and dark sea. */
+static void gate_stroke(PlaydateAPI *pd, float x0, float y0, float x1, float y1) {
+    pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 3, kColorWhite);
+    pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 1, kColorBlack);
+}
+
+/* The turn arrow: a dashed arc around the mark, ARROW_SWEEP of the way round, arriving at the gate
+   line at ARROW_RADIUS_M in the direction the boat has to go. It sits at twice the line's height and
+   eases down so the point lands on the line; the head is a vertical fan (perpendicular to the sea). */
+static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
+                            double mx, double my, const Mark *mk) {
+    const float sweep = ARROW_SWEEP * 2.0f * (float)M_PI;
+    const float arc_len = sweep * ARROW_RADIUS_M;
+    const float turn = (float)mk->rounding;           /* the heading angle grows when rounding to starboard */
+    const float a0 = mk->gate - turn * sweep;         /* where the arrow starts; it ends on the gate ray */
+    for (float s = 0.0f; s < arc_len; s += 2.0f * GATE_DASH_M) {
+        float sx[2], sy[2];
+        bool ok = true;
+        for (int e = 0; e < 2 && ok; e++) {
+            float u = fminf((s + e * GATE_DASH_M) / arc_len, 1.0f);
+            float a = a0 + turn * sweep * u;
+            float h = GATE_HEIGHT_M * (2.0f - u * u);
+            ok = gate_pt(g, c, t, mx + cos(a) * ARROW_RADIUS_M, my + sin(a) * ARROW_RADIUS_M, h, &sx[e], &sy[e]);
+        }
+        if (ok) gate_stroke(pd, sx[0], sy[0], sx[1], sy[1]);
+    }
+    /* head: back along the tangent from the tip, fanned up and down */
+    const double tipx = mx + cos(mk->gate) * ARROW_RADIUS_M, tipy = my + sin(mk->gate) * ARROW_RADIUS_M;
+    const double tx = -turn * sin(mk->gate), ty = turn * cos(mk->gate);   /* unit travel direction at the tip */
+    float tip_x, tip_y, wx[2], wy[2];
+    if (!gate_pt(g, c, t, tipx, tipy, GATE_HEIGHT_M, &tip_x, &tip_y)) return;
+    for (int k = 0; k < 2; k++) {
+        float h = GATE_HEIGHT_M + (k ? -ARROW_HEAD_M : ARROW_HEAD_M) * 0.6f;
+        if (!gate_pt(g, c, t, tipx - tx * ARROW_HEAD_M, tipy - ty * ARROW_HEAD_M, h, &wx[k], &wy[k])) return;
+        gate_stroke(pd, tip_x, tip_y, wx[k], wy[k]);
+    }
+}
+
+/* The next mark's gate: a dashed line raised above the sea along the ray the boat has to cross,
+   and the arrow showing which way round to cross it. */
 static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (g->race.finished || g->race.next >= g->track.nmarks) return;
     const Mark *mk = &g->track.marks[g->race.next];
@@ -1031,17 +1081,14 @@ static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const float t = (float)fmod(g->t, g->sea.period);
     const double dx = cos(mk->gate), dy = sin(mk->gate);
     for (float s = 0.0f; s < GATE_LEN_M; s += 2.0f * GATE_DASH_M) {
-        float sx[2], sy[2], d[2];
+        float sx[2], sy[2];
         bool ok = true;
-        for (int e = 0; e < 2 && ok; e++) {
-            double px = mx + dx * (s + e * GATE_DASH_M), py = my + dy * (s + e * GATE_DASH_M);
-            float z = sea_height(&g->sea, (float)px, (float)py, t) + GATE_HEIGHT_M;
-            ok = camera_project(c, px, py, z, &sx[e], &sy[e], &d[e]) && d[e] <= fvis(g);
-        }
-        if (!ok) continue;
-        pd->graphics->drawLine((int)sx[0], (int)sy[0], (int)sx[1], (int)sy[1], 3, kColorWhite);
-        pd->graphics->drawLine((int)sx[0], (int)sy[0], (int)sx[1], (int)sy[1], 1, kColorBlack);
+        for (int e = 0; e < 2 && ok; e++)
+            ok = gate_pt(g, c, t, mx + dx * (s + e * GATE_DASH_M), my + dy * (s + e * GATE_DASH_M),
+                         GATE_HEIGHT_M, &sx[e], &sy[e]);
+        if (ok) gate_stroke(pd, sx[0], sy[0], sx[1], sy[1]);
     }
+    draw_turn_arrow(pd, g, c, t, mx, my, mk);
 }
 
 static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {

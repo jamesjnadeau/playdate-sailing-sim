@@ -3,21 +3,28 @@
 
 const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing" };
 
-void menu_init(Menu *m, int ntracks) {
+void menu_init(Menu *m, int ntracks, int nboats) {
     m->screen = MENU_MAIN;
     m->sel = 0;
     m->ntracks = ntracks < 0 ? 0 : ntracks;
+    m->nboats = nboats < 0 ? 0 : nboats;
     m->track = 0;
+    m->boat = 0;
 }
 
 static int rows(const Menu *m) {
-    return m->screen == MENU_MAIN ? MENU_MAIN_ITEMS : m->ntracks;
+    return m->screen == MENU_MAIN ? MENU_MAIN_ITEMS : m->screen == MENU_TRACKS ? m->ntracks : m->nboats;
 }
 
 MenuAction menu_update(Menu *m, uint32_t pressed) {
-    if (m->screen == MENU_TRACKS && (pressed & BTN_B)) {
-        m->screen = MENU_MAIN;
-        m->sel = MENU_ITEM_RACE;
+    if (pressed & BTN_B) {
+        if (m->screen == MENU_BOATS) {
+            m->screen = MENU_TRACKS;
+            m->sel = m->track;
+        } else if (m->screen == MENU_TRACKS) {
+            m->screen = MENU_MAIN;
+            m->sel = MENU_ITEM_RACE;
+        }
     }
 
     int n = rows(m);
@@ -34,6 +41,13 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
         m->sel = 0;
         return MENU_NONE;
     }
-    m->track = m->sel;
+    if (m->screen == MENU_TRACKS) {
+        m->track = m->sel;
+        if (m->nboats < 1) return MENU_START_RACE;
+        m->screen = MENU_BOATS;
+        m->sel = m->boat < m->nboats ? m->boat : 0;
+        return MENU_NONE;
+    }
+    m->boat = m->sel;
     return MENU_START_RACE;
 }

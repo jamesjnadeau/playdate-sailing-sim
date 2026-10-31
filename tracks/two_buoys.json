@@ -1,6 +1,7 @@
 {
   "name": "Two Buoys 100m",
   "wind_from_deg": 45,
+  "wind_speed_kn": 15.55,
   "start": { "x": -60, "y": 30, "heading_deg": -20 },
   "marks": [
     { "name": "B", "x": 100, "y": 0, "gate_deg": 0,   "rounding": "port" },

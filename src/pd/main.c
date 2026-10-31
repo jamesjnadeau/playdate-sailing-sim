@@ -56,7 +56,8 @@ static void begin(bool reload) {
 
 static void show_menu(void) {
     app = APP_MENU;
-    menu_init(&menu, ntracks);
+    menu_init(&menu, ntracks, ASSETS_BOATS);
+    menu.boat = boat_index;   /* the boat screen opens on the current boat */
 }
 
 static void menu_boat(void *ud) {
@@ -91,11 +92,21 @@ static int update(void *ud) {
             camera_snap();
             app = APP_PLAY;
         } else if (act == MENU_START_RACE) {
+            if (menu.boat != boat_index) {
+                boat_index = menu.boat;
+                pd->system->setMenuItemValue(boat_item, boat_index);   /* keeps the system menu in step */
+                begin(true);
+            }
             game_set_track(&game, &tracks[menu.track]);
             camera_snap();
             app = APP_PLAY;
         }
         menu_draw(pd, &menu, tracks);
+        return 1;
+    }
+
+    if (game.mode == GAME_RACE && game.race.finished && game.run == RUN_SAILING && (pushed & kButtonA)) {
+        show_menu();   /* the finish panel shows the time; A goes back to the home screen */
         return 1;
     }
 

@@ -8,6 +8,9 @@
 #include "menu.h"
 #include "render.h"
 #include "tracks.h"
+#ifdef SCENARIO
+#include "scenario.h"
+#endif
 
 #define WARN_SHOW_S 3.0f
 #define HELP_ROWS_MAX 96
@@ -37,7 +40,11 @@ static PDMenuItem *boat_item, *weather_item;
 static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
 
 static uint32_t fresh_seed(void) {
+#ifdef SCENARIO
+    return scenario_seed(++restart_count);
+#else
     return pd->system->getCurrentTimeMilliseconds() * 2654435761u + (++restart_count) * 40503u;
+#endif
 }
 
 static void camera_snap(void) {
@@ -104,13 +111,43 @@ static void sys_menu_build(bool racing) {
     pd->system->addMenuItem("main menu", menu_main, NULL);
 }
 
+#ifdef SCENARIO
+/* A scripted system-menu action, applied as the simulator would on selection. */
+static void scenario_sys(const ScFrame *f) {
+    switch (f->sys) {
+    case SC_SYS_RESTART: menu_restart(NULL); break;
+    case SC_SYS_MAIN: menu_main(NULL); break;
+    case SC_SYS_BOAT:
+    case SC_SYS_WEATHER: {
+        PDMenuItem *item = f->sys == SC_SYS_BOAT ? boat_item : weather_item;
+        if (!item) {
+            pd->system->logToConsole("scenario: sysmenu item not available (racing)");
+            break;
+        }
+        pd->system->setMenuItemValue(item, f->sys_arg);
+        if (f->sys == SC_SYS_BOAT) menu_boat(NULL);
+        else menu_weather(NULL);
+        break;
+    }
+    case SC_SYS_NONE: break;
+    }
+}
+#endif
+
 static int update(void *ud) {
     (void)ud;
     PDButtons cur, pushed, released;
+#ifdef SCENARIO
+    float dt, crank;
+    ScFrame sf;
+    scenario_poll_input(&cur, &pushed, &released, &crank, &dt, &sf);
+    scenario_sys(&sf);
+#else
     pd->system->getButtonState(&cur, &pushed, &released);
     float dt = pd->system->getElapsedTime();
     pd->system->resetElapsedTime();
     float crank = pd->system->getCrankChange();
+#endif
 
     if (app == APP_MENU) {
         MenuAction act = menu_update(&menu, (uint32_t)pushed);
@@ -132,11 +169,17 @@ static int update(void *ud) {
             app = APP_PLAY;
         }
         menu_draw(pd, &menu, tracks, help);
+#ifdef SCENARIO
+        scenario_frame_done(pd, &game, "menu");
+#endif
         return 1;
     }
 
     if (game.mode == GAME_RACE && game.race.finished && game.run == RUN_SAILING && (pushed & kButtonA)) {
         show_menu();   /* the finish panel shows the time; A goes back to the home screen */
+#ifdef SCENARIO
+        scenario_frame_done(pd, &game, "menu");
+#endif
         return 1;
     }
 
@@ -159,6 +202,9 @@ static int update(void *ud) {
         pd->graphics->setDrawMode(kDrawModeCopy);
         pd->graphics->drawText(warn, len, kASCIIEncoding, 4, 39);
     }
+#ifdef SCENARIO
+    scenario_frame_done(pd, &game, "play");
+#endif
     return 1;
 }
 
@@ -201,6 +247,9 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
             pd->system->logToConsole("tracks: %s", track_warn);
         }
         show_menu();
+#ifdef SCENARIO
+        scenario_init(pd);
+#endif
         pd->system->setUpdateCallback(update, NULL);
     }
     return 0;

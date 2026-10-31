@@ -50,4 +50,20 @@ bool scenario_poll(Scenario *s, ScFrame *f);
 /* Call after each frame until NONE. name receives the snap name. */
 ScAfterKind scenario_after(Scenario *s, char name[SC_NAME_MAX]);
 
+#ifdef SCENARIO
+/* Playdate-side seam, implemented in scenario_io.c; main.c calls these only under -DSCENARIO. */
+#include "pd_api.h"
+#include "game.h"
+
+/* Reads "scenario.txt"; on a read or parse error logs it, writes done.marker and ends. */
+void scenario_init(PlaydateAPI *pd);
+/* Replaces the button/crank/dt reads; dt is fixed at 1/30. False once the scenario is finished
+ * (inputs are then all zero). */
+bool scenario_poll_input(PDButtons *cur, PDButtons *pushed, PDButtons *released, float *crank, float *dt, ScFrame *f);
+/* After the frame is drawn: drains scenario_after (snap writes NAME.fb and NAME.state, end writes done.marker). */
+void scenario_frame_done(PlaydateAPI *pd, const Game *g, const char *app_name);
+/* Deterministic stand-in for fresh_seed. */
+uint32_t scenario_seed(uint32_t counter);
+#endif
+
 #endif

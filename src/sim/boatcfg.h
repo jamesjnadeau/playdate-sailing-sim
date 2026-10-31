@@ -44,7 +44,7 @@ typedef struct {
     float luff_aoa_deg, luff_drag, flutter_hz;
     float slot_gain;                      /* CL boost this sail gives the next sail aft */
     float awa_min_deg, awa_max_deg;       /* apparent wind angle window where it works */
-    int shape, mesh_w, mesh_h;            /* render: 0 main, 1 headsail, 2 spinnaker */
+    int shape, mesh_w, mesh_h;            /* render: 0 main, 1 headsail, 2 spinnaker, 3 square (drawing only) */
     float camber, shade, tack_x, tack_z;
 } SailCfg;
 

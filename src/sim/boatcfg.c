@@ -84,7 +84,7 @@ static const Field SAIL_F[] = {
     FF(SailCfg, slot_gain, 0, 0, 1),
     FF(SailCfg, awa_min_deg, 0, 0, 180),
     FF(SailCfg, awa_max_deg, 180, 0, 180),
-    FI(SailCfg, shape, 0, 0, 2),
+    FI(SailCfg, shape, 0, 0, 3),
     FI(SailCfg, mesh_w, 6, 2, 16),
     FI(SailCfg, mesh_h, 8, 2, 16),
     FF(SailCfg, camber, 0.10f, 0, 0.3f),

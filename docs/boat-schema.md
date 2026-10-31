@@ -33,7 +33,7 @@ Final field ranges for the sail entries, with the camera and control fields most
 
 | Field | Range | Notes |
 |---|---|---|
-| `shape` | 0, 1, 2 | 0 main, 1 headsail, 2 spinnaker (drawing only) |
+| `shape` | 0, 1, 2, 3 | 0 main, 1 headsail, 2 spinnaker, 3 square sail (drawing only) |
 | `awa_min_deg`, `awa_max_deg` | 0-180 | min must not exceed max, else both reset |
 | `mesh_w`, `mesh_h` | 2-16 | drawn mesh lines; renderer caps at 12 wide, 16 high |
 | `camber` | 0-0.3 | bulge as a fraction of chord |

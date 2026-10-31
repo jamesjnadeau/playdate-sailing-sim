@@ -162,6 +162,20 @@ static void test_sunfish_json(void) {
     T_ASSERT(c.look.mast_x > d.look.mast_x);                 /* mast well forward */
 }
 
+static void test_square_shape_accepted(void) {
+    BoatCfg c;
+    char warn[W];
+    T_ASSERT(load(&c, "{\"sails\":[{\"name\":\"sq\",\"shape\":3}]}", warn));
+    T_ASSERT(warn[0] == 0);
+    T_ASSERT(c.sails[0].shape == 3);
+    T_ASSERT(!load(&c, "{\"sails\":[{\"shape\":4}]}", warn));   /* past the top of the range */
+    T_ASSERT(strstr(warn, "shape") != NULL);
+    T_ASSERT(c.sails[0].shape == 3);
+    T_ASSERT(!load(&c, "{\"sails\":[{\"shape\":-1}]}", warn));  /* below the bottom */
+    T_ASSERT(strstr(warn, "shape") != NULL);
+    T_ASSERT(c.sails[0].shape == 0);
+}
+
 static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
     static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json" };
     for (int i = 0; i < 4; i++) {
@@ -191,6 +205,7 @@ int main(void) {
     T_RUN(test_j24_json);
     T_RUN(test_tp52_json);
     T_RUN(test_sunfish_json);
+    T_RUN(test_square_shape_accepted);
     T_RUN(test_every_boat_has_a_cockpit_inside_the_hull);
     return T_DONE();
 }

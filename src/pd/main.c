@@ -62,9 +62,11 @@ static void begin(bool reload) {
         if (warn[0]) pd->system->logToConsole("config: %s", warn);
     }
     const bool racing = game.mode == GAME_RACE;
+    const bool journeying = game.mode == GAME_JOURNEY;
     const Track trk = game.track;   /* game_init clears the mode; a boat change keeps the race */
     game_init(&game, &boat_cfg, &weather_cfg, &world_cfg, preset_index, fresh_seed());
     if (racing) game_set_track(&game, &trk);
+    if (journeying) game_set_journey(&game);
     camera_snap();
     pd->system->resetElapsedTime();
 }
@@ -149,6 +151,20 @@ static void scenario_sys(const ScFrame *f) {
 }
 #endif
 
+/* Passed buoys leave the course once the oldest is out of sight: behind the camera, off either side,
+   or lost in the mist. They are neither drawn nor kept after that. */
+static void journey_cull(Game *g, const CameraPose *c) {
+    const float margin = 40.0f;   /* px, so a buoy is not dropped the instant its edge leaves the screen */
+    while (g->journey.next > 0 && g->journey.n > 0) {
+        const JourneyBuoy *b = &g->journey.buoy[0];
+        float sx, sy, d;
+        const float z = sea_height(&g->sea, (float)b->x, (float)b->y, (float)fmod(g->t, g->sea.period));
+        const bool seen = camera_project(c, b->x, b->y, z, &sx, &sy, &d) && d <= g->weather.preset[g->preset].visibility &&
+                          sx >= -margin && sx <= CAM_W + margin;
+        if (seen || !journey_drop_oldest(&g->journey)) break;
+    }
+}
+
 static int update(void *ud) {
     (void)ud;
     PDButtons cur, pushed, released;
@@ -186,6 +202,16 @@ static int update(void *ud) {
             sys_menu_build(true);
             camera_snap();
             app = APP_PLAY;
+        } else if (act == MENU_START_JOURNEY) {
+            const bool new_boat = menu.boat != boat_index;
+            boat_index = menu.boat;
+            preset_index = menu.weather;
+            if (new_boat) begin(true);
+            else game_set_preset(&game, preset_index);
+            game_set_journey(&game);
+            sys_menu_build(true);
+            camera_snap();
+            app = APP_PLAY;
         }
         menu_draw(pd, &menu, tracks, help);
 #ifdef SCENARIO
@@ -211,6 +237,7 @@ static int update(void *ud) {
     }
     game_update(&game, (uint32_t)pushed, (uint32_t)cur, crank, dt);
     camera_update(&cam, &game, &game.boat, dt);
+    if (game.mode == GAME_JOURNEY) journey_cull(&game, &cam);
     audio_update(&game, dt);
 
     render_frame(pd, &game, &cam);

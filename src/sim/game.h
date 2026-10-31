@@ -6,6 +6,7 @@
 #include "autotrim.h"
 #include "boatcfg.h"
 #include "controls.h"
+#include "journey.h"
 #include "race.h"
 #include "rocks.h"
 #include "sea.h"
@@ -22,7 +23,7 @@
 
 typedef enum { RUN_SAILING, RUN_CAPSIZED, RUN_WRECKED } RunState;
 
-typedef enum { GAME_FREE, GAME_RACE } GameMode;
+typedef enum { GAME_FREE, GAME_RACE, GAME_JOURNEY } GameMode;
 
 typedef struct {
     BoatCfg boat;           /* copies, so a restart never depends on caller storage */
@@ -46,6 +47,7 @@ typedef struct {
     HitKind last_hit;       /* worst contact seen this frame */
     int substeps;           /* substeps run by the last update */
     Race race;
+    Journey journey;        /* used when mode == GAME_JOURNEY */
     float b_gap;            /* s since the last B tap */
     bool anchor_pending;    /* a lone B tap waits GAME_TAP_GAP_S to see it is not a mash */
     float paddle_left;      /* s of paddle stroke still to run */
@@ -67,6 +69,9 @@ void game_restart(Game *g, uint32_t new_seed);
 
 /* NULL, or a track with no marks, gives the free range. Restarts the run. */
 void game_set_track(Game *g, const Track *t);
+
+/* Endless buoys from the world's journey_min_m..journey_max_m. Restarts the run. */
+void game_set_journey(Game *g);
 
 /* Out-of-range presets are clamped; the wind and sea are re-seeded from the current seed. */
 void game_set_preset(Game *g, int preset);

@@ -4,13 +4,13 @@
 #include <stdint.h>
 
 typedef enum { MENU_MAIN, MENU_TRACKS, MENU_PREVIEW, MENU_BOATS, MENU_WEATHER, MENU_HELP } MenuScreen;
-typedef enum { MENU_NONE, MENU_START_FREE, MENU_START_RACE } MenuAction;
-enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
+typedef enum { MENU_NONE, MENU_START_FREE, MENU_START_RACE, MENU_START_JOURNEY } MenuAction;
+enum { MENU_ITEM_FREE, MENU_ITEM_RACE, MENU_ITEM_JOURNEY, MENU_ITEM_HELP, MENU_ITEM_SOUND, MENU_MAIN_ITEMS };
 #define MENU_SOUND_LEVELS 4
 extern const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS];   /* "Off", "Low", "Med", "High" */
 #define MENU_HELP_VIS 10   /* help rows that fit on screen */
 #define MENU_HELP_CRANK_DEG 30.0f   /* crank degrees per help row scrolled */
-extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Controls", "Sound" */
+extern const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS];   /* "Free Range", "Racing", "Journey", "Controls", "Sound" */
 
 typedef struct {
     MenuScreen screen;
@@ -23,6 +23,7 @@ typedef struct {
     float help_crank;   /* crank degrees not yet turned into a row */
     int nweather;   /* rows on the weather screen, shown after the boat; 0 skips the screen */
     int weather;    /* the weather row to start on; the chosen one once MENU_START_RACE is returned */
+    bool journey;   /* the boats/weather screens were reached from Journey; the last A returns MENU_START_JOURNEY */
     int tick;       /* frames spent on the preview screen; drives its animation */
     int sound;      /* sea sound level 0..MENU_SOUND_LEVELS-1; A on the Sound row steps it round */
     int boat;       /* the boat row to start on; the chosen boat once MENU_START_RACE is returned */

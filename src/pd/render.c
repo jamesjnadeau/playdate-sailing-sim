@@ -1191,13 +1191,10 @@ static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c,
     }
 }
 
-/* The next mark's gate: a dashed line raised above the sea along the ray the boat has to cross,
-   and the arrow showing which way round to cross it. */
-static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    if (g->race.finished || g->race.next >= g->track.nmarks) return;
-    const Mark *mk = &g->track.marks[g->race.next];
-    double mx, my;
-    race_mark_local(&g->race, &g->track, g->race.next, &mx, &my);
+/* A mark's gate: a dashed line raised above the sea along the ray the boat has to cross,
+   and the arrow showing which way round to cross it. (mx, my) is the mark in the local frame. */
+static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c, double mx, double my,
+                      const Mark *mk) {
     const float t = (float)fmod(g->t, g->sea.period);
     const double dx = cos(mk->gate), dy = sin(mk->gate);
     for (float s = 0.0f; s < GATE_LEN_M; s += 2.0f * GATE_DASH_M) {
@@ -1211,6 +1208,30 @@ static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_turn_arrow(pd, g, c, t, mx, my, mk);
 }
 
+/* Projects the mark at local (mx, my) into dm[*n] as mark number i; skipped if it is out of view. */
+static void add_mark(const Game *g, const CameraPose *c, float t, MarkDraw *dm, int *n, int i,
+                     double mx, double my) {
+    float zb = sea_height(&g->sea, (float)mx, (float)my, t);
+    MarkDraw *m = &dm[*n];
+    float bd, td;
+    if (!camera_project(c, mx, my, zb, &m->bx, &m->by, &bd)) return;
+    if (!camera_project(c, mx, my, zb + BUOY_TOP_M, &m->tx, &m->ty, &td)) return;
+    if (bd > fvis(g)) return;   /* hidden in mist and similar */
+    m->depth = bd;
+    m->i = i;
+    m->hw = fmaxf(2.0f, BUOY_HALF_M * CAM_FOCAL / bd);
+    (*n)++;
+}
+
+/* Far to near, the next mark last so it sits on top. */
+static void draw_buoys(PlaydateAPI *pd, MarkDraw *dm, int n, int next) {
+    qsort(dm, (size_t)n, sizeof dm[0], mark_far_first);
+    for (int k = 0; k < n; k++)
+        if (dm[k].i != next) draw_buoy(pd, &dm[k]);
+    for (int k = 0; k < n; k++)
+        if (dm[k].i == next) draw_buoy(pd, &dm[k]);
+}
+
 static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     MarkDraw dm[TRACK_MAX_MARKS];
     int n = 0;
@@ -1218,24 +1239,32 @@ static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     for (int i = 0; i < g->track.nmarks && i < TRACK_MAX_MARKS; i++) {
         double mx, my;
         race_mark_local(&g->race, &g->track, i, &mx, &my);
-        float zb = sea_height(&g->sea, (float)mx, (float)my, t);
-        MarkDraw *m = &dm[n];
-        float bd, td;
-        if (!camera_project(c, mx, my, zb, &m->bx, &m->by, &bd)) continue;
-        if (!camera_project(c, mx, my, zb + BUOY_TOP_M, &m->tx, &m->ty, &td)) continue;
-        if (bd > fvis(g)) continue;   /* hidden in mist and similar */
-        m->depth = bd;
-        m->i = i;
-        m->hw = fmaxf(2.0f, BUOY_HALF_M * CAM_FOCAL / bd);
-        n++;
+        add_mark(g, c, t, dm, &n, i, mx, my);
     }
-    draw_gate(pd, g, c);
-    qsort(dm, (size_t)n, sizeof dm[0], mark_far_first);
-    /* the next mark is drawn last so it sits on top */
-    for (int k = 0; k < n; k++)
-        if (dm[k].i != g->race.next) draw_buoy(pd, &dm[k]);
-    for (int k = 0; k < n; k++)
-        if (dm[k].i == g->race.next) draw_buoy(pd, &dm[k]);
+    if (!g->race.finished && g->race.next < g->track.nmarks) {
+        double mx, my;
+        race_mark_local(&g->race, &g->track, g->race.next, &mx, &my);
+        draw_gate(pd, g, c, mx, my, &g->track.marks[g->race.next]);
+    }
+    draw_buoys(pd, dm, n, g->race.next);
+}
+
+static void draw_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    MarkDraw dm[JOURNEY_MAX];
+    int n = 0;
+    const float t = (float)fmod(g->t, g->sea.period);
+    for (int i = 0; i < g->journey.n; i++)
+        add_mark(g, c, t, dm, &n, i, g->journey.buoy[i].x, g->journey.buoy[i].y);
+    const JourneyBuoy *nb = journey_next(&g->journey);
+    if (nb) {
+        Mark mk = { 0 };
+        mk.x = (float)nb->x;
+        mk.y = (float)nb->y;
+        mk.gate = nb->gate;
+        mk.rounding = nb->rounding;
+        draw_gate(pd, g, c, nb->x, nb->y, &mk);
+    }
+    draw_buoys(pd, dm, n, g->journey.next);
 }
 
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -1245,6 +1274,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_streaks(pd, g, c);
     /* draw_rocks(pd, g, c);   rocks disabled for now */
     if (g->mode == GAME_RACE) draw_marks(pd, g, c);
+    if (g->mode == GAME_JOURNEY) draw_journey(pd, g, c);
     draw_spray(pd, g, c);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */
@@ -1255,5 +1285,6 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (!rig_behind) draw_rig(pd, g, c);
     hud_draw(pd, g);
     if (g->mode == GAME_RACE) hud_race(pd, g, c);
+    if (g->mode == GAME_JOURNEY) hud_journey(pd, g, c);
     hud_prompt(pd, g);
 }

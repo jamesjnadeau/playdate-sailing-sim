@@ -21,5 +21,8 @@ Press A to start again.
 # Racing
 Sail the course marks. The clock stops at the finish and shows your time. Press A to come back to this menu.
 
+# Journey
+Buoys keep appearing ahead, one after another. Round each one in the direction shown to count it; buoys you have passed drop away behind you. The pause menu shows how many you have passed.
+
 # System menu
 Use the Playdate menu button for boat, weather, restart and main menu.

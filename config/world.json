@@ -5,5 +5,7 @@
   "rock_r_max": 5,
   "rock_bump_speed": 1,
   "rock_wreck_speed": 2.8,
-  "start_clear_radius": 60
+  "start_clear_radius": 60,
+  "journey_min_m": 100,
+  "journey_max_m": 300
 }

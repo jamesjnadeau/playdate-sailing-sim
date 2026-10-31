@@ -159,7 +159,7 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
                 snprintf(buf, sizeof buf, "%s: %s", s, MENU_SOUND_NAMES[m->sound]);
                 s = buf;
             }
-            row(pd, s, 100 + ROW_H * i, i == m->sel);
+            row(pd, s, 66 + ROW_H * i, i == m->sel);
         }
         text(pd, "A select", 8, 220);
     } else if (m->screen == MENU_PREVIEW) {

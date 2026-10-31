@@ -24,10 +24,12 @@ static const Fld FLDS[] = {
     F(rock_bump_speed, 0.1f, 10),
     F(rock_wreck_speed, 0.2f, 20),
     F(start_clear_radius, 0, 2000),
+    F(journey_min_m, 20, 5000),
+    F(journey_max_m, 20, 5000),
 };
 #define NFLD ((int)(sizeof FLDS / sizeof FLDS[0]))
 
-static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f };
+static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f, 100.0f, 300.0f };
 
 void world_default(WorldCfg *out) { *out = DEFAULTS; }
 
@@ -60,6 +62,10 @@ static void enforce(WorldCfg *c, char *buf, size_t cap, size_t *n, bool *any) {
     if (!(c->rock_wreck_speed > c->rock_bump_speed)) {
         wadd(buf, cap, n, any, "rock_wreck_speed: not above rock_bump_speed, raised");
         c->rock_wreck_speed = c->rock_bump_speed + 0.1f;
+    }
+    if (c->journey_max_m < c->journey_min_m) {
+        wadd(buf, cap, n, any, "journey_max_m: %g below journey_min_m, raised", c->journey_max_m);
+        c->journey_max_m = c->journey_min_m;
     }
 }
 

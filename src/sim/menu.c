@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "controls.h"
 
-const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing", "Controls", "Sound" };
+const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Racing", "Journey", "Controls", "Sound" };
 const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS] = { "Off", "Low", "Med", "High" };
 
 void menu_init(Menu *m, int ntracks, int nboats) {
@@ -18,6 +18,7 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->help_top = 0;
     m->help_crank = 0;
     m->raceable = NULL;
+    m->journey = false;
     m->sound = 2;
 }
 
@@ -73,10 +74,17 @@ void menu_crank(Menu *m, float d) {
 
 /* After the boat: the weather screen, or straight into the race when there is none. */
 static MenuAction enter_weather(Menu *m) {
-    if (m->nweather < 1) return MENU_START_RACE;
+    if (m->nweather < 1) return m->journey ? MENU_START_JOURNEY : MENU_START_RACE;
     m->screen = MENU_WEATHER;
     m->sel = m->weather;
     return MENU_NONE;
+}
+
+/* B off the boat screen (or the weather screen with no boats) of a journey goes back to the main screen. */
+static void leave_journey(Menu *m) {
+    m->journey = false;
+    m->screen = MENU_MAIN;
+    m->sel = MENU_ITEM_JOURNEY;
 }
 
 static MenuAction help_update(Menu *m, uint32_t pressed) {
@@ -95,13 +103,17 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
     if (m->screen == MENU_HELP) return help_update(m, pressed);
     if (pressed & BTN_B) {
         if (m->screen == MENU_WEATHER) {
-            if (m->nboats < 1) {
+            if (m->journey && m->nboats < 1) {
+                leave_journey(m);
+            } else if (m->nboats < 1) {
                 m->screen = MENU_PREVIEW;
                 m->tick = 0;
             } else {
                 m->screen = MENU_BOATS;
                 m->sel = boat_start(m);
             }
+        } else if (m->screen == MENU_BOATS && m->journey) {
+            leave_journey(m);
         } else if (m->screen == MENU_BOATS) {
             m->screen = MENU_PREVIEW;
             m->tick = 0;
@@ -138,6 +150,13 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
     if (!(pressed & BTN_A)) return MENU_NONE;
     if (m->screen == MENU_MAIN) {
         if (m->sel == MENU_ITEM_FREE) return MENU_START_FREE;
+        if (m->sel == MENU_ITEM_JOURNEY) {
+            m->journey = true;
+            if (m->nboats < 1) return enter_weather(m);
+            m->screen = MENU_BOATS;
+            m->sel = boat_start(m);
+            return MENU_NONE;
+        }
         if (m->sel == MENU_ITEM_HELP) {
             m->screen = MENU_HELP;
             m->help_top = 0;
@@ -149,6 +168,7 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
             return MENU_NONE;
         }
         if (m->ntracks < 1) return MENU_NONE;
+        m->journey = false;
         m->screen = MENU_TRACKS;
         m->sel = 0;
         return MENU_NONE;
@@ -161,7 +181,7 @@ MenuAction menu_update(Menu *m, uint32_t pressed) {
     }
     if (m->screen == MENU_WEATHER) {
         m->weather = m->sel;
-        return MENU_START_RACE;
+        return m->journey ? MENU_START_JOURNEY : MENU_START_RACE;
     }
     m->boat = m->sel;
     return enter_weather(m);

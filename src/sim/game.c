@@ -33,6 +33,10 @@ static void reset(Game *g) {
     g->anchor_pending = false;
     g->paddle_left = g->paddle_wait = 0.0f;
     start_weather(g);
+    if (g->mode == GAME_JOURNEY)
+        journey_init(&g->journey, g->world.journey_min_m, g->world.journey_max_m, g->seed,
+                     g->b.x, g->b.y, g->b.heading, wrap_pi(g->wind.dir + (float)M_PI),
+                     g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f);
     g->t = 0.0;
     g->run = RUN_SAILING;
     g->last_hit = HIT_NONE;
@@ -61,6 +65,11 @@ void game_set_track(Game *g, const Track *t) {
     reset(g);
 }
 
+void game_set_journey(Game *g) {
+    g->mode = GAME_JOURNEY;
+    reset(g);
+}
+
 void game_restart(Game *g, uint32_t new_seed) {
     g->seed = new_seed;
     reset(g);
@@ -81,6 +90,7 @@ static void recentre(Game *g) {
     g->b.x -= dx;
     g->b.y -= dy;
     if (g->mode == GAME_RACE) race_shift(&g->race, dx, dy);   /* marks move with the boat */
+    if (g->mode == GAME_JOURNEY) journey_shift(&g->journey, dx, dy);
 }
 
 /* A lone tap of B is the anchor (a hold is the autotrim), once GAME_TAP_GAP_S passes with no
@@ -157,6 +167,8 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     }
     if (g->mode == GAME_RACE && g->run == RUN_SAILING)
         race_update(&g->race, &g->track, x0, y0, g->b.x, g->b.y, dt);
+    if (g->mode == GAME_JOURNEY && g->run == RUN_SAILING)
+        journey_update(&g->journey, x0, y0, g->b.x, g->b.y, dt, wrap_pi(g->wind.dir + (float)M_PI));
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;

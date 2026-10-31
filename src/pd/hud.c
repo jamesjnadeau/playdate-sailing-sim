@@ -117,17 +117,8 @@ static void dist_label(PlaydateAPI *pd, double dist, int x, int y, bool centred)
     text(pd, line, clampi(x, 2, CAM_W - 2 - w), clampi(y, 2, CAM_H - HUD_H - 18));
 }
 
-void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    const Track *tr = &g->track;
-    const Race *r = &g->race;
-    const bool done = r->finished || r->next >= tr->nmarks;
-    if (done) return;
-
-    double mx, my;
-    race_mark_local(r, tr, r->next, &mx, &my);
-    const double dist = hypot(mx - g->b.x, my - g->b.y);
-
-    /* indicator: above the buoy when on screen, else an arrow on the edge pointing at it */
+/* Above the buoy when on screen, else an arrow on the edge pointing at it. */
+static void mark_indicator(PlaydateAPI *pd, const CameraPose *c, double mx, double my, double dist) {
     MarkView mv;
     camera_mark_view(c, mx, my, (float)(CAM_H - HUD_H), &mv);
     pd->graphics->setDrawMode(kDrawModeCopy);
@@ -142,6 +133,23 @@ void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         dist_label(pd, dist, (int)mv.x + 10, (int)mv.y - 6, false);
     }
     pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
+void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const Track *tr = &g->track;
+    const Race *r = &g->race;
+    const bool done = r->finished || r->next >= tr->nmarks;
+    if (done) return;
+
+    double mx, my;
+    race_mark_local(r, tr, r->next, &mx, &my);
+    mark_indicator(pd, c, mx, my, hypot(mx - g->b.x, my - g->b.y));
+}
+
+void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const JourneyBuoy *b = journey_next(&g->journey);
+    if (!b) return;
+    mark_indicator(pd, c, b->x, b->y, hypot(b->x - g->b.x, b->y - g->b.y));
 }
 
 void hud_prompt(PlaydateAPI *pd, const Game *g) {
@@ -290,6 +298,21 @@ void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
     int y = 6;
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
+    if (g->mode == GAME_JOURNEY) {
+        const Journey *j = &g->journey;
+        const JourneyBuoy *b = journey_next(j);
+#define ROW(...) do { snprintf(line, sizeof line, __VA_ARGS__); text(pd, line, 4, y); y += 18; } while (0)
+        hud_fmt_time(j->t, time, sizeof time);
+        ROW("JOURNEY");
+        ROW("Time %s", time);
+        ROW("Buoys passed %d", j->passed);
+        if (b) {
+            ROW("Next buoy %.0fm", hypot(b->x - g->b.x, b->y - g->b.y));
+            ROW("Round to %s", b->rounding == ROUND_STARBOARD ? "starboard" : "port");
+        }
+#undef ROW
+        return;
+    }
     if (g->mode != GAME_RACE) return;
 #define ROW(...) do { snprintf(line, sizeof line, __VA_ARGS__); text(pd, line, 4, y); y += 18; } while (0)
     hud_fmt_time(r->t, time, sizeof time);

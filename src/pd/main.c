@@ -214,6 +214,9 @@ static int update(void *ud) {
             app = APP_PLAY;
         }
         menu_draw(pd, &menu, tracks, help);
+#ifdef SHOW_FPS
+        pd->system->drawFPS(0, 0);
+#endif
 #ifdef SCENARIO
         scenario_frame_done(pd, &game, "menu");
 #endif
@@ -249,6 +252,9 @@ static int update(void *ud) {
         pd->graphics->setDrawMode(kDrawModeCopy);
         pd->graphics->drawText(warn, len, kASCIIEncoding, 4, 39);
     }
+#ifdef SHOW_FPS
+    pd->system->drawFPS(0, 0);
+#endif
 #ifdef SCENARIO
     scenario_frame_done(pd, &game, "play");
 #endif

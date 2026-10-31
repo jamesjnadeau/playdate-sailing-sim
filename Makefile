@@ -31,6 +31,11 @@ UDEFS += -DSCENARIO
 SRC += src/pd/scenario.c src/pd/scenario_io.c
 VARIANT = scenario
 endif
+# make FPS=1 draws the SDK frame-rate readout in the top-left corner, for device profiling.
+ifeq ($(FPS),1)
+UDEFS += -DSHOW_FPS
+VARIANT := $(VARIANT)-fps
+endif
 UADEFS =
 ULIBDIR =
 ULIBS = --specs=nosys.specs

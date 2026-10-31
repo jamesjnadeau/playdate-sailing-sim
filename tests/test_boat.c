@@ -203,6 +203,94 @@ static void test_boom_eases_across_on_gybe(void) {
     T_ASSERT(steps * DT > 0.3f && steps * DT < 3.0f);
 }
 
+/* The longship: square sail, steered by the autopilot or a fixed wheel, autotrim off. */
+static void load_longship(Sim *s, float twa_deg, float wind_ms, float u0) {
+    static char buf[16384];
+    sim_init(s, twa_deg, wind_ms, u0);                      /* zeroes the rest of the Sim */
+    FILE *f = fopen("../boats/longship.json", "rb");
+    size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
+    if (f) fclose(f);
+    T_ASSERT(n > 0 && boatcfg_load(&s->cfg, buf, n, NULL, 0));
+    boat_init(&s->b, &s->cfg);
+    s->b.heading = (float)M_PI - D(twa_deg);
+    s->b.u = u0;
+    boat_inputs_init(&s->in, &s->cfg);
+    s->target = s->b.heading;
+    s->autopilot = 1; s->autotrim = 0;
+}
+
+static void test_longship_runs_downwind(void) {
+    Sim s; load_longship(&s, 180, 12 * KN, 1.0f);
+    s.autopilot = 0;
+    s.in.wheel_target = 0;
+    s.in.trim_target[0] = D(90);
+    float start = s.b.heading, maxheel = 0;
+    for (int i = 0; i < (int)(60 / DT); i++) {
+        sim_step(&s);
+        maxheel = fmaxf(maxheel, fabsf(s.b.heel));
+    }
+    T_ASSERT(s.b.u > 2.0f && s.b.u < 4.5f);
+    T_ASSERT(maxheel < D(10));
+    T_ASSERT(fabsf(wrap_pi(s.b.heading - start)) < D(25));
+    T_ASSERT(finite_state(&s.b));
+}
+
+static void test_longship_beam_reach(void) {
+    Sim s; load_longship(&s, 90, 12 * KN, 1.0f);
+    s.in.trim_target[0] = D(60);
+    float maxheel = 0;
+    for (int i = 0; i < (int)(60 / DT); i++) {
+        sim_step(&s);
+        maxheel = fmaxf(maxheel, fabsf(s.b.heel));
+    }
+    T_ASSERT(s.b.u > 2.5f && s.b.u < 5.0f);
+    T_ASSERT(maxheel < D(15));
+    T_ASSERT(finite_state(&s.b));
+}
+
+static void test_longship_cannot_point_close(void) {
+    Sim s; load_longship(&s, 30, 12 * KN, 2.0f);
+    s.in.trim_target[0] = D(40);
+    run(&s, 60);
+    T_ASSERT(s.b.u < 1.0f);
+    T_ASSERT(s.b.u > -0.5f);                                 /* stalls, does not reverse */
+    T_ASSERT(finite_state(&s.b));
+}
+
+static void test_longship_no_thrust_in_the_no_go_zone(void) {
+    Sim s; load_longship(&s, 20, 12 * KN, 0.0f);
+    s.in.trim_target[0] = D(40);
+    run(&s, 30);
+    T_ASSERT(s.b.u > -0.5f && s.b.u < 0.8f);
+    T_ASSERT(finite_state(&s.b));
+}
+
+static void test_longship_survives_a_gale(void) {
+    static const float twas[] = { 90, 90, 180, 180 };
+    static const float trims[] = { 45, 90, 45, 90 };
+    for (int i = 0; i < 4; i++) {
+        Sim s; load_longship(&s, twas[i], 35 * KN, 1.0f);
+        s.in.trim_target[0] = D(trims[i]);
+        float maxheel = 0;
+        for (int k = 0; k < (int)(30 / DT); k++) {
+            sim_step(&s);
+            maxheel = fmaxf(maxheel, fabsf(s.b.heel));
+        }
+        T_ASSERT(maxheel < D(s.cfg.hull.capsize_deg));
+        T_ASSERT(finite_state(&s.b));
+    }
+}
+
+static void test_longship_drops_its_sail(void) {
+    Sim s; load_longship(&s, 90, 12 * KN, 1.0f);
+    s.in.hoist_target[0] = 0;
+    s.in.trim_target[0] = D(90);
+    run(&s, 30);
+    T_ASSERT(s.b.hoists[0] < 0.02f);
+    T_ASSERT(finite_state(&s.b));
+    T_ASSERT(s.b.u < 1.0f);
+}
+
 static void test_anchor_stops_the_boat(void) {
     Sim s; sim_init(&s, 90, 10 * KN, 2.0f);
     s.in.anchor = true;
@@ -225,5 +313,11 @@ int main(void) {
     T_RUN(test_bad_dt_stays_finite);
     T_RUN(test_far_from_origin_still_moves);
     T_RUN(test_anchor_stops_the_boat);
+    T_RUN(test_longship_runs_downwind);
+    T_RUN(test_longship_beam_reach);
+    T_RUN(test_longship_cannot_point_close);
+    T_RUN(test_longship_no_thrust_in_the_no_go_zone);
+    T_RUN(test_longship_survives_a_gale);
+    T_RUN(test_longship_drops_its_sail);
     T_DONE();
 }

@@ -2,6 +2,7 @@
 #include "sail.h"
 #include "boatcfg.h"
 #include <math.h>
+#include <stdio.h>
 
 static BoatCfg cfg;
 static const SailCfg *main_sail(void) { boatcfg_default(&cfg); return &cfg.sails[0]; }
@@ -129,6 +130,20 @@ static void test_spinnaker_billow_collapses_when_luffing_and_mirrors(void) {
     T_NEAR(my, -oy, 1e-4f);
 }
 
+static void test_longship_gybe_is_symmetric(void) {
+    static char buf[16384];
+    FILE *f = fopen("../boats/longship.json", "rb");
+    size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
+    if (f) fclose(f);
+    T_ASSERT(n > 0 && boatcfg_load(&cfg, buf, n, NULL, 0));
+    const SailCfg *s = &cfg.sails[0];
+    SailForce a = sail_force(s, D(90), 1, D(175), 6, 0, 1);
+    SailForce b = sail_force(s, D(90), 1, -D(175), 6, 0, 1);
+    T_ASSERT(a.fx > 0);                                       /* drives on a dead run */
+    T_NEAR(a.fx, b.fx, 0.01f * fabsf(a.fx));
+    T_NEAR(a.fy, -b.fy, 0.01f * fabsf(a.fy) + 1e-3f);         /* mirror image: a gybe is a non-event */
+}
+
 int main(void) {
     T_RUN(test_beam_reach_drives);
     T_RUN(test_close_hauled_overtrim_stalls);
@@ -143,5 +158,6 @@ int main(void) {
     T_RUN(test_awa_window_cuts_out_of_range_sail);
     T_RUN(test_spinnaker_billows_ahead_of_chord_on_a_run);
     T_RUN(test_spinnaker_billow_collapses_when_luffing_and_mirrors);
+    T_RUN(test_longship_gybe_is_symmetric);
     T_DONE();
 }

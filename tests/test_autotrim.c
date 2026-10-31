@@ -115,6 +115,19 @@ static void test_bad_inputs_ignored(void) {
     T_ASSERT(isfinite(in.trim_target[0]) && isfinite(at.aws));
 }
 
+static void test_longship_squares_up_on_a_run(void) {
+    static char buf[16384];
+    FILE *f = fopen("../boats/longship.json", "rb");
+    size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
+    if (f) fclose(f);
+    T_ASSERT(n > 0 && boatcfg_load(&cfg, buf, n, NULL, 0));
+    const SailCfg *sq = &cfg.sails[0];
+    T_NEAR(autotrim_best_trim(sq, deg2rad(180), 6, 0), deg2rad(90), deg2rad(1));
+    float reach = autotrim_best_trim(sq, deg2rad(100), 6, 0);
+    T_ASSERT(reach >= 0);
+    T_ASSERT(reach <= deg2rad(90));
+}
+
 int main(void) {
     T_RUN(test_hold_toggles);
     T_RUN(test_tap_is_reported_and_does_not_toggle);
@@ -126,5 +139,6 @@ int main(void) {
     T_RUN(test_stowed_sail_stays_stowed);
     T_RUN(test_heel_reefs_then_recovers);
     T_RUN(test_bad_inputs_ignored);
+    T_RUN(test_longship_squares_up_on_a_run);
     return T_DONE();
 }

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #define W 512
 
@@ -225,9 +226,22 @@ static void test_boat_class_round_trips(void) {
     free(buf);
 }
 
+static void test_longship_json(void) {
+    BoatCfg c; load_boat("../boats/longship.json", &c);
+    T_ASSERT(c.hull.length >= 11 && c.hull.length <= 13);
+    T_ASSERT(c.sail_count == 1);                             /* one square sail */
+    T_ASSERT(c.sails[0].shape == 3);
+    T_ASSERT(c.sails[0].trim_max_deg == 90);                 /* yard can square across */
+    T_ASSERT(c.sails[0].awa_min_deg >= 40 && c.sails[0].awa_min_deg <= 70);
+    T_ASSERT(c.sails[0].awa_max_deg == 180);
+    T_ASSERT(fabsf(c.look.mast_x) < 0.5f * c.hull.length);   /* mast inside the hull */
+    T_ASSERT(c.controls.autopilot_no_go_deg >= 60);          /* A never steers into the no-go zone */
+    T_ASSERT(c.boat_class == BOAT_CLASS_CRUISER);            /* cannot sail upwind, free range only */
+}
+
 static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
-    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json" };
-    for (int i = 0; i < 4; i++) {
+    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json", "../boats/longship.json" };
+    for (int i = 0; i < 5; i++) {
         size_t n = 0;
         char *buf = slurp(files[i], &n);
         BoatCfg c;
@@ -259,6 +273,7 @@ int main(void) {
     T_RUN(test_boat_class_cruiser_accepted);
     T_RUN(test_boat_class_out_of_range_clamps);
     T_RUN(test_boat_class_round_trips);
+    T_RUN(test_longship_json);
     T_RUN(test_every_boat_has_a_cockpit_inside_the_hull);
     return T_DONE();
 }

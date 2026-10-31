@@ -47,5 +47,5 @@ The table in `src/sim/boatcfg.c` stays authoritative if this page and the code e
 Drop `boats/<name>.json` in the repository and it appears in the boat menu; no code changes are needed.
 The name is 1-23 characters of lowercase letters, digits, `_` and `-`, and the file must stay under
 16 KB. The menu lists `sunfish` first, then the rest alphabetically, up to 16 boats. Set
-`"boat_class": "cruiser"` for a boat that is free range only. A pull request template for boats lives
+`"boat_class": 1` for a cruiser, which is free range only. A pull request template for boats lives
 at `.github/PULL_REQUEST_TEMPLATE/boat.md`.

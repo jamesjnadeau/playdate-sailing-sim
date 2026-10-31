@@ -58,7 +58,7 @@ static void draw_preview(PlaydateAPI *pd, const Menu *m, const Track *t) {
     float scale = fminf((PV_W - 2 * pad) / sx, (PV_H - 2 * pad) / sy);
     PvView v = { PV_L + PV_W / 2.0f, PV_T + PV_H / 2.0f, scale, (hi_x + lo_x) / 2, (hi_y + lo_y) / 2 };
 
-    PlaydateGraphics *g = pd->graphics;
+    const struct playdate_graphics *g = pd->graphics;
     g->drawRect(PV_L, PV_T, PV_W, PV_H, kColorBlack);
 
     float len = track_route_len(t);
@@ -150,7 +150,7 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         text(pd, m->help_top + MENU_HELP_VIS < m->help_rows ? "v" : " ", 388, 208);
         text(pd, "UP/DOWN/crank scroll  B back", 8, 224);
     } else if (m->screen == MENU_MAIN) {
-        text(pd, "SAILING", 150, 30);
+        text(pd, "SAILING SIM", 150, 30);
         for (int i = 0; i < MENU_MAIN_ITEMS; i++)
             row(pd, MENU_MAIN_NAMES[i], 100 + ROW_H * i, i == m->sel);
         text(pd, "A select", 8, 220);

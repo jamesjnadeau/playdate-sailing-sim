@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
+const char *const WEATHER_NAMES[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
+
 #define PI_F 3.14159265358979f
 
 typedef struct { const char *key; size_t off; float mn, mx; } Fld;

@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "helptext.h"
 #include "menu.h"
+#include "weather.h"
 #include "race.h"
 #include "render.h"
 
@@ -167,6 +168,15 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         for (int i = 0; i < ROWS_VIS && start + i < m->nboats; i++) {
             int k = start + i;
             row(pd, ASSET_BOAT_NAMES[k], 100 + ROW_H * i, k == m->sel);
+        }
+        text(pd, m->nweather > 0 ? "A select  B back" : "A race  B back", 8, 220);
+    } else if (m->screen == MENU_WEATHER) {
+        text(pd, "CHOOSE WEATHER", 120, 30);
+        int start = m->sel - (ROWS_VIS - 1);
+        if (start < 0) start = 0;
+        for (int i = 0; i < ROWS_VIS && start + i < m->nweather; i++) {
+            int k = start + i;
+            row(pd, WEATHER_NAMES[k], 100 + ROW_H * i, k == m->sel);
         }
         text(pd, "A race  B back", 8, 220);
     } else {

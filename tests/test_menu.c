@@ -127,6 +127,26 @@ static void test_b_on_boats_returns_to_track_list(void) {
     T_ASSERT(m.sel == 2);
 }
 
+static void test_weather_follows_boat(void) {
+    Menu m;
+    menu_init(&m, 2, 4);
+    menu_set_weather(&m, 6, 5);
+    menu_update(&m, BTN_DOWN);
+    menu_update(&m, BTN_A);                          /* Racing */
+    menu_update(&m, BTN_A);                          /* track 0 */
+    menu_update(&m, BTN_A);                          /* preview confirmed */
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);   /* boat 0 picked; weather next */
+    T_ASSERT(m.screen == MENU_WEATHER);
+    T_ASSERT(m.sel == 5);                            /* opens on the current weather */
+    menu_update(&m, BTN_UP);
+    T_ASSERT(menu_update(&m, BTN_B) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_BOATS);
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_RACE);
+    T_ASSERT(m.weather == 4);
+}
+
 static void test_no_boats_starts_race_after_track(void) {
     Menu m;
     menu_init(&m, 2, 0);
@@ -191,6 +211,7 @@ int main(void) {
     T_RUN(test_track_pick_starts_race);
     T_RUN(test_boat_pick_starts_race);
     T_RUN(test_b_on_boats_returns_to_track_list);
+    T_RUN(test_weather_follows_boat);
     T_RUN(test_no_boats_starts_race_after_track);
     T_RUN(test_preview_animation_ticks_and_restarts);
     T_RUN(test_b_goes_back_to_racing_row);

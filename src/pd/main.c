@@ -63,6 +63,7 @@ static void show_menu(void) {
     app = APP_MENU;
     menu_init(&menu, ntracks, ASSETS_BOATS);
     menu.boat = boat_index;   /* the boat screen opens on the current boat */
+    menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
     menu_set_help(&menu, nhelp);
 }
 
@@ -87,6 +88,21 @@ static void menu_weather(void *ud) {
 static void menu_restart(void *ud) { (void)ud; game_restart(&game, fresh_seed()); }
 static void menu_main(void *ud) { (void)ud; show_menu(); }
 
+/* A race is set up from the main menu, so the system menu only offers boat and weather in free range. */
+static void sys_menu_build(bool racing) {
+    static const char *boat_names[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52" };
+    pd->system->removeAllMenuItems();
+    boat_item = weather_item = NULL;
+    if (!racing) {
+        boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
+        weather_item = pd->system->addOptionsMenuItem("weather", WEATHER_NAMES, WEATHER_PRESETS, menu_weather, NULL);
+        pd->system->setMenuItemValue(boat_item, boat_index);
+        pd->system->setMenuItemValue(weather_item, preset_index);
+    }
+    pd->system->addMenuItem("restart", menu_restart, NULL);
+    pd->system->addMenuItem("main menu", menu_main, NULL);
+}
+
 static int update(void *ud) {
     (void)ud;
     PDButtons cur, pushed, released;
@@ -100,15 +116,17 @@ static int update(void *ud) {
         menu_crank(&menu, crank);
         if (act == MENU_START_FREE) {
             game_set_track(&game, NULL);
+            sys_menu_build(false);
             camera_snap();
             app = APP_PLAY;
         } else if (act == MENU_START_RACE) {
-            if (menu.boat != boat_index) {
-                boat_index = menu.boat;
-                pd->system->setMenuItemValue(boat_item, boat_index);   /* keeps the system menu in step */
-                begin(true);
-            }
+            const bool new_boat = menu.boat != boat_index;
+            boat_index = menu.boat;
+            preset_index = menu.weather;
+            if (new_boat) begin(true);
+            else game_set_preset(&game, preset_index);
             game_set_track(&game, &tracks[menu.track]);
+            sys_menu_build(true);
             camera_snap();
             app = APP_PLAY;
         }
@@ -160,14 +178,8 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     }
     if (event == kEventInit) {
         pd = playdate;
-        static const char *boat_names[ASSETS_BOATS] = { "sunfish", "dinghy", "j24", "tp52" };
-        static const char *weather_names[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
-        boat_item = pd->system->addOptionsMenuItem("boat", boat_names, ASSETS_BOATS, menu_boat, NULL);
-        weather_item = pd->system->addOptionsMenuItem("weather", weather_names, WEATHER_PRESETS, menu_weather, NULL);
-        pd->system->setMenuItemValue(weather_item, preset_index);
-        pd->system->addMenuItem("restart", menu_restart, NULL);
-        pd->system->addMenuItem("main menu", menu_main, NULL);
+        sys_menu_build(false);
         pd->display->setRefreshRate(30.0f);
         help_load();
         begin(true);

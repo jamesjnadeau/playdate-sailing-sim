@@ -7,6 +7,8 @@
 
 enum { WEATHER_SUNNY, WEATHER_CLOUDY, WEATHER_MIST, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_CHOPPY, WEATHER_PRESETS };
 
+extern const char *const WEATHER_NAMES[WEATHER_PRESETS];
+
 typedef struct {
     char name[16];
     float wind_base;        /* m/s mean */

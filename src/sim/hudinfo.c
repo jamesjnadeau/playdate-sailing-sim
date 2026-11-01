@@ -42,3 +42,8 @@ const char *hud_assist_text(float rudder_assist, float wheel) {
     if (!isfinite(rudder_assist) || !isfinite(wheel)) return NULL;
     return rudder_assist > 0.5f && fabsf(wheel) > 0.1f ? "RUDDER ASSIST: LOW SPEED" : NULL;
 }
+
+float hud_dial_angle(float angle_from_bow, float look_yaw) {
+    if (!isfinite(look_yaw)) look_yaw = 0.0f;
+    return wrap_pi(angle_from_bow - look_yaw);
+}

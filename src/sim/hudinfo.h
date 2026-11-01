@@ -31,4 +31,9 @@ void hud_fmt_mark(const char *name, int index, int total, double dist_m, char *o
  * the helm is centred, or an input is non-finite. */
 const char *hud_assist_text(float rudder_assist, float wheel);
 
+/* Screen angle on the HUD wind dial (rad, clockwise from the top, wrapped to (-pi, pi]) of something at
+ * `angle_from_bow` (rad, + = starboard of the bow) while the view faces `look_yaw` (rad, + = toward
+ * starboard). Non-finite look_yaw counts as 0; non-finite angle_from_bow -> 0. */
+float hud_dial_angle(float angle_from_bow, float look_yaw);
+
 #endif

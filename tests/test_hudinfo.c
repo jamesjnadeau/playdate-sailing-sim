@@ -93,6 +93,31 @@ static void test_assist_text_only_when_flow_floor_helps_and_wheel_turned(void) {
     T_ASSERT(hud_assist_text(0.9f, NAN) == NULL);
 }
 
+static void test_dial_angle_unchanged_when_looking_ahead(void) {
+    T_NEAR(hud_dial_angle(0.7f, 0.0f), 0.7, 1e-6);
+    T_NEAR(hud_dial_angle(0.0f, 0.0f), 0.0, 1e-6);
+}
+
+static void test_dial_angle_rotates_against_the_look(void) {
+    const float h = 3.14159265f / 2.0f;
+    T_NEAR(hud_dial_angle(0.0f, h), -h, 1e-5);
+    T_NEAR(hud_dial_angle(0.0f, -h), h, 1e-5);
+    T_NEAR(hud_dial_angle(h, h), 0.0, 1e-5);
+}
+
+static void test_dial_angle_behind_and_wraps(void) {
+    T_NEAR(fabsf(hud_dial_angle(0.0f, 3.14159265f)), 3.14159265, 1e-5);
+    float r = hud_dial_angle(3.0f, -3.0f);
+    T_ASSERT(r > -3.14159265f && r <= 3.14159265f);
+    T_NEAR(r, 6.0 - 2.0 * 3.14159265, 1e-5);
+}
+
+static void test_dial_angle_non_finite(void) {
+    T_NEAR(hud_dial_angle(0.7f, NAN), 0.7, 1e-6);
+    T_NEAR(hud_dial_angle(NAN, 0.3f), 0.0, 1e-6);
+    T_NEAR(hud_dial_angle(0.7f, INFINITY), 0.7, 1e-6);
+}
+
 int main(void) {
     T_RUN(test_shows_nav_for_wheel_and_look);
     T_RUN(test_heading_wraps_and_rounds);
@@ -104,5 +129,9 @@ int main(void) {
     T_RUN(test_fmt_time_truncates);
     T_RUN(test_fmt_mark);
     T_RUN(test_assist_text_only_when_flow_floor_helps_and_wheel_turned);
+    T_RUN(test_dial_angle_unchanged_when_looking_ahead);
+    T_RUN(test_dial_angle_rotates_against_the_look);
+    T_RUN(test_dial_angle_behind_and_wraps);
+    T_RUN(test_dial_angle_non_finite);
     return T_DONE();
 }

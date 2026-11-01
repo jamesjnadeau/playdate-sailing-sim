@@ -93,12 +93,17 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         text(pd, line, 308, ty);
     }
 
-    /* apparent wind dial: the needle points where the wind is going (downwind), relative to the bow (up) */
+    /* apparent wind dial, relative to the view: up is where the camera looks, the notch marks the bow and
+       the needle points where the wind is going (downwind) */
     const int cx = CAM_W - 12, cy = top + HUD_H / 2, R = 8;
+    const float look = g->ctl.camera_yaw;
     pd->graphics->drawEllipse(cx - R, cy - R, 2 * R, 2 * R, 1, 0, 0, kColorWhite);
-    float a = b->awa + 3.14159265f;
+    float a = hud_dial_angle(b->awa + 3.14159265f, look);
     pd->graphics->drawLine(cx, cy, (int)(cx + R * sinf(a)), (int)(cy - R * cosf(a)), 2, kColorWhite);
-    pd->graphics->drawLine(cx, cy - R - 2, cx, cy - R + 2, 1, kColorWhite);
+    float bow = hud_dial_angle(0.0f, look);
+    pd->graphics->drawLine((int)lroundf(cx + (R - 2) * sinf(bow)), (int)lroundf(cy - (R - 2) * cosf(bow)),
+                           (int)lroundf(cx + (R + 2) * sinf(bow)), (int)lroundf(cy - (R + 2) * cosf(bow)),
+                           1, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
 
     /* the rudder flow floor is helping a slow boat steer: say so, above the status bar */

@@ -7,7 +7,7 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 - Boats configured as JSON (`boats/`), with a physical model of hull, sails, keel and rudder; see [docs/boat-schema.md](docs/boat-schema.md) and [docs/boat-model-analysis.md](docs/boat-model-analysis.md)
 - Weather and world settings in `config/`
 - Racing courses in `tracks/`: triangles, windward-leeward, trapezoids and a two-buoy sprint, with an animated course preview
-- Journey mode: an endless run of buoys 100 to 300 m apart (`journey_min_m` and `journey_max_m` in `config/world.json`), each leg turning a little but always heading away from the buoys already passed; the pause menu counts buoys passed
+- Journey mode: an endless run of buoys 60 to 150 m apart (`journey_min_m` and `journey_max_m` in `config/world.json`), each leg turning a little but always heading away from the buoys already passed; the pause menu counts buoys passed
 - Autopilot, auto trim, anchor and paddling
 - In-game controls screen, written in `config/help.md`
 

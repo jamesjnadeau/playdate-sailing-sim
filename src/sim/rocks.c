@@ -29,7 +29,7 @@ static const Fld FLDS[] = {
 };
 #define NFLD ((int)(sizeof FLDS / sizeof FLDS[0]))
 
-static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f, 100.0f, 300.0f };
+static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f, 60.0f, 150.0f };
 
 void world_default(WorldCfg *out) { *out = DEFAULTS; }
 

@@ -167,7 +167,7 @@ static void test_game_mode_wiring(void) {
     boatcfg_default(&bc);
     weather_default(&wc);
     world_default(&wo);
-    T_ASSERT(wo.journey_min_m == 100.0f && wo.journey_max_m == 300.0f);
+    T_ASSERT(wo.journey_min_m == 60.0f && wo.journey_max_m == 150.0f);
     Game g;
     game_init(&g, &bc, &wc, &wo, 1, 1);
     T_ASSERT(g.mode == GAME_FREE);

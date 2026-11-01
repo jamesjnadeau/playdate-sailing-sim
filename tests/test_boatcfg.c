@@ -181,6 +181,13 @@ static void test_tp52_json(void) {
     T_NEAR(d.camera.horizon_y, 0.0, 1e-6);
 }
 
+static void test_wake_fade_default_and_clamp(void) {
+    BoatCfg d, c; boatcfg_default(&d);
+    T_NEAR(d.look.wake_fade_m, 4.0, 1e-6);
+    load_boat("../boats/tp52.json", &c);              /* omits the key */
+    T_NEAR(c.look.wake_fade_m, 4.0, 1e-6);
+}
+
 static void test_sunfish_json(void) {
     BoatCfg c, d; load_boat("../boats/sunfish.json", &c);
     boatcfg_default(&d);
@@ -294,6 +301,7 @@ int main(void) {
     T_RUN(test_garbage_buffer_gives_default);
     T_RUN(test_j24_json);
     T_RUN(test_tp52_json);
+    T_RUN(test_wake_fade_default_and_clamp);
     T_RUN(test_sunfish_json);
     T_RUN(test_square_shape_accepted);
     T_RUN(test_boat_class_defaults_to_racer);

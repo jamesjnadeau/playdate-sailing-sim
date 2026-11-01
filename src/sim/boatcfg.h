@@ -77,6 +77,7 @@ typedef struct {
     float cockpit_x0, cockpit_x1;         /* aft and forward ends */
     float cockpit_w0, cockpit_w1;         /* half-width at the aft / forward end */
     float cockpit_depth;
+    float wake_fade_m;                    /* m astern of the transom, at full speed, where wake lines start to split */
 } LookCfg;
 
 typedef struct {

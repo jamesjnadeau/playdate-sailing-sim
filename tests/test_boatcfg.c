@@ -67,6 +67,26 @@ static void test_out_of_range_clamps_and_warns(void) {
     T_NEAR(c.hull.length, d.hull.length, 0);
 }
 
+static void test_clr_depth_defaults_loads_and_clamps(void) {
+    BoatCfg d, c, r, back;
+    char warn[W];
+    boatcfg_default(&d);
+    T_NEAR(d.hull.clr_depth, 0.4f, 1e-6);
+    T_ASSERT(load(&c, "{\"hull\":{\"clr_depth\":1.8}}", warn));
+    T_NEAR(c.hull.clr_depth, 1.8f, 1e-6);
+    T_ASSERT(!load(&c, "{\"hull\":{\"clr_depth\":99}}", warn));
+    T_ASSERT(strstr(warn, "hull.clr_depth") != NULL);
+    T_NEAR(c.hull.clr_depth, 6.0f, 1e-6);
+    /* round trip keeps a non-default value */
+    T_ASSERT(load(&r, "{\"hull\":{\"clr_depth\":1.8}}", warn));
+    char *buf = malloc(65536);
+    size_t n = boatcfg_to_json(&r, buf, 65536);
+    T_ASSERT(n > 100 && n < 65536);
+    T_ASSERT(boatcfg_load(&back, buf, n, warn, W));
+    T_NEAR(back.hull.clr_depth, 1.8f, 1e-6);
+    free(buf);
+}
+
 static void test_wrong_type_and_missing_group(void) {
     BoatCfg c, d;
     char warn[W];
@@ -260,6 +280,7 @@ int main(void) {
     T_RUN(test_default_is_sane);
     T_RUN(test_dinghy_json_reproduces_default);
     T_RUN(test_to_json_round_trips);
+    T_RUN(test_clr_depth_defaults_loads_and_clamps);
     T_RUN(test_out_of_range_clamps_and_warns);
     T_RUN(test_wrong_type_and_missing_group);
     T_RUN(test_sail_counts);

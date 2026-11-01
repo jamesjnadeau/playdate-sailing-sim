@@ -306,6 +306,17 @@ static void test_anchor_stops_the_boat(void) {
     T_ASSERT(hypotf(s.b.u, s.b.v) < 0.3f);
 }
 
+static void test_deeper_clr_heels_more(void) {
+    Sim shallow, deep;
+    sim_init(&shallow, 60, 10 * KN, 1.0f);
+    sim_init(&deep, 60, 10 * KN, 1.0f);
+    shallow.cfg.hull.clr_depth = 0.1f;
+    deep.cfg.hull.clr_depth = 2.0f;
+    run(&shallow, 30);
+    run(&deep, 30);
+    T_ASSERT(fabsf(deep.b.heel) > fabsf(shallow.b.heel) + D(0.5f));
+}
+
 int main(void) {
     T_RUN(test_upwind_angle);
     T_RUN(test_boom_eases_across_on_gybe);
@@ -321,6 +332,7 @@ int main(void) {
     T_RUN(test_bad_dt_stays_finite);
     T_RUN(test_far_from_origin_still_moves);
     T_RUN(test_anchor_stops_the_boat);
+    T_RUN(test_deeper_clr_heels_more);
     T_RUN(test_longship_runs_downwind);
     T_RUN(test_longship_beam_reach);
     T_RUN(test_longship_cannot_point_close);

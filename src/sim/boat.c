@@ -4,7 +4,6 @@
 
 #define RHO_W 1000.0f
 #define G 9.81f
-#define HYDRO_ARM 0.4f      /* depth of the lateral hydro centre below the waterline, m */
 #define ADDED_X 1.1f        /* added-mass factors */
 #define ADDED_Y 1.8f
 #define ANCHOR_K 6000.0f    /* N per m/s while holding */
@@ -152,7 +151,7 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     float fy = sfy + fy_hull + fy_board + fy_rudder;
     float mz = syaw + fy_board * f->board_x + fy_rudder * f->rudder_x
              - h->yaw_damping * r + wf->yaw;
-    float mx = sheel + (fy_hull + fy_board + fy_rudder) * -HYDRO_ARM;
+    float mx = sheel + (fy_hull + fy_board + fy_rudder) * -h->clr_depth;
 
     /* --- heel --- */
     float heel_deg = fabsf(b->heel) * (180.0f / (float)M_PI);

@@ -43,6 +43,7 @@ static const Field HULL_F[] = {
     FF(HullCfg, hull_speed, 3.2f, 0.5f, 15),
     FT(HullCfg, resistance, RESISTANCE),
     FF(HullCfg, heel_drag, 0.5f, 0, 10),
+    FF(HullCfg, clr_depth, 0.4f, 0, 6),
     FF(HullCfg, yaw_inertia, 90, 1, 1e5f),
     FF(HullCfg, yaw_damping, 120, 0, 1e5f),
     FF(HullCfg, heel_inertia, 140, 1, 1e5f),

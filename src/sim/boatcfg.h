@@ -22,6 +22,7 @@ typedef struct {
     float hull_speed;        /* m/s, resistance wall */
     Table resistance;        /* speed m/s -> drag N */
     float heel_drag;         /* extra drag fraction per rad^2 of heel */
+    float clr_depth;         /* m below the waterline of the combined hull/board/rudder lateral force */
     float yaw_inertia, yaw_damping;
     float heel_inertia, heel_damping;
     Table righting;          /* heel deg -> righting moment N.m */

@@ -680,9 +680,17 @@ static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) 
     Ctx hk = { pd, g, c };
     float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
     int hidden = far_side(g, c);                             /* its ring is behind the hull */
+    static float bury_sm[2];
+    static double last_t = -1e9;
     for (int side = -1; side <= 1; side += 2) {
-        if (side == hidden) continue;
-        float bury = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+        if (side == hidden) {
+            bury_sm[side > 0] = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+            continue;
+        }
+        float target = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+        float *sm = &bury_sm[side > 0];                       /* low-passed so the dither density doesn't flash with every wave */
+        *sm = (g->t < last_t || g->t - last_t > 1.0) ? target : *sm + (target - *sm) * clampf(6.0f * (float)(g->t - last_t), 0.0f, 1.0f);
+        float bury = *sm;
         int level = 1 + (int)((1.0f - bury) * 3.0f);
         float outer = 1.08f + 0.2f * bury + 0.1f * k;
         bool have = false;
@@ -699,6 +707,7 @@ static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) 
             ix = nix; iy = niy; ox = nox; oy = noy; have = true;
         }
     }
+    last_t = g->t;
     float x0, y0, z0, x1, y1, z1, ax, ay, bx, by, cx, cy, dx, dy;   /* foam across the transom, spilling aft */
     if (hidden == 0 && side_wl(g, -1, 1.0f, 1.0f, &x0, &y0, &z0) && side_wl(g, 1, 1.0f, 1.0f, &x1, &y1, &z1) &&
         boat_pt(&hk, x0, y0, z0, &ax, &ay) && boat_pt(&hk, x1, y1, z1, &bx, &by) &&

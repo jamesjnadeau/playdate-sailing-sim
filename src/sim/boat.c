@@ -38,6 +38,12 @@ static float foil_cl(float slope, float stall, float a) {
     return a < 0 ? -cl : cl;
 }
 
+/* Rudder: lift holds its stall peak, so more wheel never means less turning force. */
+static float foil_cl_hold(float slope, float stall, float a) {
+    float m = fabsf(a), cl = slope * (m < stall ? m : stall);
+    return a < 0 ? -cl : cl;
+}
+
 static float foil_cd(float cd0, float cl, float ar) { return cd0 + cl * cl / ((float)M_PI * ar); }
 
 void boat_init(BoatState *b, const BoatCfg *c) {
@@ -141,7 +147,7 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     float sr = sqrtf(u * u + vr * vr);
     float delta = b->wheel * deg2rad(f->rudder_max_deg);
     float alpha_r = delta + atan2f(vr, speed_u + 1e-3f);
-    float cl_r = foil_cl(f->rudder_lift_slope, deg2rad(f->rudder_stall_deg), alpha_r);
+    float cl_r = foil_cl_hold(f->rudder_lift_slope, deg2rad(f->rudder_stall_deg), alpha_r);
     float qa_r = 0.5f * RHO_W * (u * u + vr * vr) * f->rudder_area;
     float fy_rudder = -qa_r * cl_r;
     float fx_rudder = sr > 1e-4f ? -qa_r * foil_cd(0.01f, cl_r, 3.0f) * u / sr : 0.0f;

@@ -267,6 +267,19 @@ static void test_trailing_pitch_down_keeps_eye_above_water(void) {
     T_ASSERT(cp.height >= 0.5f);
 }
 
+static void test_trailing_pitch_down_clears_the_wave_under_the_eye(void) {
+    fresh();
+    game_init(&g, &bc, &wcfg, &wc, WEATHER_STORM, 1);
+    cp.trail = true;
+    g.ctl.camera_pitch = -deg2rad(bc.camera.pitch_range_deg);
+    g.b.heave = -3.0f;
+    for (int i = 0; i < 600; i++) {
+        g.t = i / 30.0f;
+        camera_update(&cp, &g, &bc, 1.0f / 30);
+        T_ASSERT(cp.height >= sea_height(&g.sea, (float)cp.x, (float)cp.y, g.t) + 0.5f - 1e-3f);
+    }
+}
+
 static void test_near_pitch_looks_up_and_down(void) {
     fresh(); cp.trail = false;
     settle();
@@ -291,6 +304,7 @@ int main(void) {
     T_RUN(test_roll_clamped_deck_roll_full);
     T_RUN(test_trailing_pitch_keeps_distance_and_boat_screen_position);
     T_RUN(test_trailing_pitch_down_keeps_eye_above_water);
+    T_RUN(test_trailing_pitch_down_clears_the_wave_under_the_eye);
     T_RUN(test_near_pitch_looks_up_and_down);
     T_RUN(test_small_heel_passes_through);
     T_RUN(test_trailing_view_frames_mast_and_hull_with_margin);

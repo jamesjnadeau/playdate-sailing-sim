@@ -6,6 +6,13 @@
 #define MIN_EYE 0.5f          /* m, lowest the trailing eye may be lowered above the sea */
 #define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
+/* Reachable orbit angles about the framed one: lo <= 0 keeps the eye MIN_EYE above sea level,
+ * hi >= 0 stops short of straight overhead. Zero look always frames as configured. */
+static void orbit_limits(float r, float phi0, float *lo, float *hi) {
+    *lo = fminf(asinf(fminf(MIN_EYE / r, 1.0f)) - phi0, 0.0f);
+    *hi = fmaxf(deg2rad(85.0f) - phi0, 0.0f);
+}
+
 /* Trailing view framing. With the eye at far_height, find the distance behind the
  * boat and the pitch that put the masthead ribbon frame_margin px below the top of
  * the screen and the stern waterline frame_margin px above the status panel.
@@ -44,6 +51,13 @@ static float approach(float cur, float target, float smooth, float dt) {
     return cur + (target - cur) * (1.0f - expf(-dt / smooth));
 }
 
+void camera_look_limits(const BoatCfg *cfg, float *lo, float *hi) {
+    float xo, pitch;
+    trail_framing(cfg, &xo, &pitch);
+    float r = hypotf(xo, cfg->camera.far_height), phi0 = atan2f(cfg->camera.far_height, xo);
+    orbit_limits(r, phi0, lo, hi);
+}
+
 void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     if (!isfinite(dt)) dt = 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
@@ -56,22 +70,29 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
     float xo = k->x_offset, trail_pitch = 0.0f, eye = k->height, look = g->ctl.camera_pitch;
+    bool look_tipped_down = false;
     if (c->trail) {
         trail_framing(cfg, &xo, &trail_pitch);
         /* vertical look pivots the eye about the boat centre at sea level at a fixed radius and
          * tips the view by the same angle, so the boat keeps its screen position */
         float r = hypotf(xo, k->far_height), phi0 = atan2f(k->far_height, xo);
-        float phi = clampf(phi0 + look, fminf(phi0, asinf(fminf(MIN_EYE / r, 1.0f))),
-                           fmaxf(phi0, deg2rad(85.0f)));   /* zero look always frames as configured */
+        float lo, hi;
+        orbit_limits(r, phi0, &lo, &hi);
+        float phi = clampf(phi0 + look, phi0 + lo, phi0 + hi);
         xo = -r * cosf(phi);
         eye = r * sinf(phi);
         trail_pitch -= phi - phi0;
+        look_tipped_down = phi < phi0;
         look = 0.0f;
     }
     if (c->trail) side = 0.0f;
     c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
     c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
     c->height = eye + k->heave_gain * b->heave;
+    if (c->trail && look_tipped_down) {   /* a lowered eye must clear the wave under it, not just mean sea level */
+        float sea = sea_height(&g->sea, (float)c->x, (float)c->y, g->t);
+        c->height = fmaxf(c->height, sea + MIN_EYE);
+    }
 
     c->yaw = wrap_pi(b->heading + g->ctl.camera_yaw);
 

@@ -1,6 +1,7 @@
 #include "t.h"
 #include <string.h>
 #include "controls.h"
+#include "camera.h"
 
 typedef struct { BoatCfg cfg; Controls c; BoatInputs in; } Rig;
 
@@ -164,6 +165,32 @@ static void test_crank_cancels_hold_recentre(void) {
     T_NEAR(r.c.camera_yaw, y, 1e-6);
 }
 
+static void test_crank_after_cancel_moves_one_step_from_the_live_view(void) {
+    Rig r; rig_init(&r);
+    tap_down(&r);
+    for (int i = 0; i < 60; i++) tick(&r, 0, 30);
+    for (int i = 0; i < 30; i++) tick_h(&r, i ? 0 : BTN_DOWN, BTN_DOWN, 0);   /* hold fires */
+    for (int i = 0; i < 5; i++) tick_h(&r, 0, 0, 0);                          /* eases part-way */
+    float live = r.c.camera_yaw;
+    T_ASSERT(live != 0 && r.c.camera_target_yaw != live);
+    tick_h(&r, 0, 0, 10);
+    float step = deg2rad(10.0f * r.cfg.controls.crank_gain_camera);
+    T_NEAR(wrap_pi(r.c.camera_yaw - live), step, 1e-4);
+}
+
+static void test_vertical_crank_has_no_dead_travel_past_the_floor(void) {
+    Rig r; rig_init(&r);
+    tick(&r, BTN_DOWN, 0);
+    tap_down(&r);                                   /* vertical */
+    for (int i = 0; i < 400; i++) tick(&r, 0, -10);
+    float lo, hi;
+    camera_look_limits(&r.cfg, &lo, &hi);
+    T_NEAR(r.c.camera_pitch, lo, 1e-5);
+    float before = r.c.camera_pitch;
+    tick(&r, 0, 10);
+    T_NEAR(r.c.camera_pitch - before, deg2rad(10.0f * r.cfg.controls.crank_gain_camera), 1e-4);
+}
+
 static void test_yaw_crosses_behind_without_clamp_or_jump(void) {
     Rig r; rig_init(&r);
     tick(&r, BTN_DOWN, 0);
@@ -253,6 +280,8 @@ int main(void) {
     T_RUN(test_hold_recentres_both_axes_and_does_not_toggle);
     T_RUN(test_hold_shorter_than_threshold_toggles_not_recentres);
     T_RUN(test_crank_cancels_hold_recentre);
+    T_RUN(test_crank_after_cancel_moves_one_step_from_the_live_view);
+    T_RUN(test_vertical_crank_has_no_dead_travel_past_the_floor);
     T_RUN(test_yaw_crosses_behind_without_clamp_or_jump);
     T_RUN(test_recentre_from_near_pi_goes_short_way);
     T_RUN(test_camera_hold_default_is_0_75);

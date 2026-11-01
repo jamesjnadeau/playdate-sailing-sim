@@ -23,6 +23,9 @@ typedef struct {
 /* Smooths toward the boat; dt is clamped like the game's, non-finite counts as 1/30. */
 void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt);
 
+/* Vertical look angles (rad, lo <= 0 <= hi) the trailing camera can reach; the crank clamps to these. */
+void camera_look_limits(const BoatCfg *cfg, float *lo, float *hi);
+
 #define MARK_IND_Z 4.0f      /* m above the sea where the on-screen marker anchors */
 #define MARK_EDGE_PAD 12.0f  /* px kept between an edge arrow and the screen edge */
 

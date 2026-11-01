@@ -1,6 +1,7 @@
 #include "controls.h"
 #include <math.h>
 #include "mathx.h"
+#include "camera.h"
 
 void controls_init(Controls *c) {
     c->mode = MODE_WHEEL;
@@ -84,11 +85,16 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
                 + crank_delta_deg * k->crank_gain_hoist, 0, 1);
         break;
     case MODE_CAMERA: {
-        if (crank_delta_deg != 0) c->camera_recentre = false;     /* turning the crank takes over again */
+        if (crank_delta_deg != 0 && c->camera_recentre) {   /* turning the crank takes over from where the view is */
+            c->camera_recentre = false;
+            c->camera_target_yaw = c->camera_yaw;
+            c->camera_target_pitch = c->camera_pitch;
+        }
         float d = deg2rad(crank_delta_deg * k->crank_gain_camera);
         if (c->camera_vertical) {
-            float lim = deg2rad(cfg->camera.pitch_range_deg);
-            c->camera_target_pitch = clampf(c->camera_target_pitch + d, -lim, lim);
+            float lim = deg2rad(cfg->camera.pitch_range_deg), lo, hi;
+            camera_look_limits(cfg, &lo, &hi);   /* no crank travel past what the camera can show */
+            c->camera_target_pitch = clampf(c->camera_target_pitch + d, fmaxf(-lim, lo), fminf(lim, hi));
         } else {
             c->camera_target_yaw = wrap_pi(c->camera_target_yaw + d);
         }

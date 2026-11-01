@@ -150,7 +150,31 @@ static void test_dead_run_has_little_side_force(void) {
     T_ASSERT(fabsf(f.fy) < 0.1f * f.fx);
 }
 
+static void test_heel_adds_weather_helm(void) {
+    const SailCfg *s = main_sail();
+    SailForce f = sail_force(s, D(60), 1, D(-90), 8, D(20), 1);
+    float expected = f.fy * s->ce_x - 0.5f * f.fx * s->ce_z * sinf(D(20));
+    T_NEAR(f.yaw_moment, expected, 0.001f * fabsf(expected) + 1e-3f);
+    T_ASSERT(f.yaw_moment < f.fy * s->ce_x);
+}
+
+static void test_heel_helm_mirrors_on_port_tack(void) {
+    const SailCfg *s = main_sail();
+    SailForce stbd = sail_force(s, D(60), 1, D(-90), 8, D(20), 1);
+    SailForce port = sail_force(s, D(60), 1, D(90), 8, D(-20), 1);
+    T_NEAR(port.yaw_moment, -stbd.yaw_moment, 0.001f * fabsf(stbd.yaw_moment) + 1e-3f);
+}
+
+static void test_upright_has_no_heel_helm(void) {
+    const SailCfg *s = main_sail();
+    SailForce f = sail_force(s, D(60), 1, D(-90), 8, 0, 1);
+    T_NEAR(f.yaw_moment, f.fy * s->ce_x, 1e-3f);
+}
+
 int main(void) {
+    T_RUN(test_heel_adds_weather_helm);
+    T_RUN(test_heel_helm_mirrors_on_port_tack);
+    T_RUN(test_upright_has_no_heel_helm);
     T_RUN(test_beam_reach_drives);
     T_RUN(test_close_hauled_overtrim_stalls);
     T_RUN(test_eased_past_wind_line_luffs);

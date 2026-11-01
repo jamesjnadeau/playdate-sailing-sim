@@ -5,6 +5,8 @@
 #define PI_F 3.14159265358979f
 #define AWS_MAX 100.0f
 #define WINDOW_RAMP_DEG 5.0f
+/* CLR also shifts to leeward when heeled, so only half the CE shift is felt as weather helm */
+#define HEEL_HELM_K 0.5f
 
 SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_rad,
                      float aws, float heel_rad, float slot_cl_mult) {
@@ -44,7 +46,8 @@ SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_ra
     z.fx = qa * (cl * lxd + cd * fxd);
     z.fy = qa * (cl * lyd + cd * fyd);
     z.heel_moment = z.fy * s->ce_z;
-    z.yaw_moment = z.fy * s->ce_x;
+    /* heel > 0 moves the CE to lateral +y by ce_z * sin(heel); a forward force there turns the bow to port */
+    z.yaw_moment = z.fy * s->ce_x - HEEL_HELM_K * z.fx * s->ce_z * sinf(heel_rad);
     z.luff = luff;
     z.aoa = aoa;
     return z;

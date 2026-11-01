@@ -57,6 +57,11 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->fillRect(0, top, HUD_MODE_W, HUD_H, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeFillBlack);
     text(pd, mode_word(mode), HUD_PAD, ty);
+    if (mode == MODE_CAMERA && g->ctl.camera_vertical) {   /* harpoon: the crank raises and lowers the view */
+        const int hx = HUD_MODE_W - 8;
+        pd->graphics->drawLine(hx, top + 4, hx, top + 15, 1, kColorBlack);
+        pd->graphics->drawLine(hx, top + 4, hx + 3, top + 8, 1, kColorBlack);
+    }
 
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     if (hud_shows_nav(mode)) {

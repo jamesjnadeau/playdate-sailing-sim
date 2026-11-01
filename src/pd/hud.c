@@ -181,7 +181,7 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 void hud_praise(PlaydateAPI *pd, const Game *g) {
     if (g->praise_left <= 0.0f) return;
     const char *s = praise_text(g->praise);
-    const int w = 6 * (int)strlen(s);   /* about 6 px a character in the system font */
+    const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
     const int x = (CAM_W - w) / 2, y = 26;
     pd->graphics->setDrawMode(kDrawModeCopy);
     text(pd, s, x + 1, y + 1);          /* shadow */

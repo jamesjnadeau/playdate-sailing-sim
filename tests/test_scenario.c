@@ -126,6 +126,20 @@ static bool fails(const char *text, const char *want) {
     return want == NULL || strstr(err, want) != NULL;
 }
 
+static void test_praise_frame(void) {
+    ScFrame f;
+    P("wait 1\npraise 3\nwait 1\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(!f.praise_now);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.praise_now && f.praise == 2);   /* the script counts from 1 */
+    T_ASSERT(!scenario_poll(&S, &f));          /* end of script */
+    T_ASSERT(fails("praise 0", "line 1"));
+    T_ASSERT(fails("praise -1", "line 1"));
+    T_ASSERT(fails("praise 21", "line 1"));
+    T_ASSERT(fails("praise", "line 1"));
+}
+
 static void test_errors_have_line_numbers(void) {
     static char big[600 * 8 + 1];
     int i;
@@ -169,6 +183,7 @@ int main(void) {
     T_RUN(test_sysmenu);
     T_RUN(test_snap_behind_sysmenu);
     T_RUN(test_snap_after_press_and_hold);
+    T_RUN(test_praise_frame);
     T_RUN(test_errors_have_line_numbers);
     T_RUN(test_eof_ends);
     T_RUN(test_comments_and_blank_lines);

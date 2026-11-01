@@ -1,4 +1,5 @@
 #include "scenario.h"
+#include "praise.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,6 +127,10 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
             c->sys = tok[1][0] == 'b' ? SC_SYS_BOAT : SC_SYS_WEATHER;
             c->n = (int)v;
         } else return "unknown sysmenu action";
+    } else if (!strcmp(tok[0], "praise")) {
+        c->kind = SC_C_PRAISE;
+        if (nt != 2 || !parse_int(tok[1], &c->n) || c->n < 1 || c->n > PRAISE_COUNT) return "usage: praise N (N in 1..PRAISE_COUNT)";
+        c->n--;   /* the script counts from 1, like the message list in praise.c */
     } else if (!strcmp(tok[0], "end")) {
         c->kind = SC_C_END;
         if (nt != 1) return "usage: end";
@@ -178,6 +183,7 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
         c = &s->cmds[s->pc];
         if (c->kind == SC_C_END) { s->pc = s->ncmds; break; }
         if (c->kind == SC_C_SYS) { s->pend_sys = c->sys; s->pend_arg = c->n; strcpy(s->pend_name, c->name); }
+        if (c->kind == SC_C_PRAISE) { s->pend_praise = true; s->pend_praise_idx = c->n; }
         s->pc++;
     }
     if (s->pc >= s->ncmds) return false;
@@ -194,6 +200,9 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
     s->pend_sys = SC_SYS_NONE;
     s->pend_arg = 0;
     s->pend_name[0] = 0;
+    f->praise_now = s->pend_praise;
+    f->praise = s->pend_praise_idx;
+    s->pend_praise = false;
     s->prev = cur;
     if (++s->k >= c->n) { s->pc++; s->k = 0; }
     return true;

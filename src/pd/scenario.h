@@ -16,11 +16,12 @@ typedef struct {
     float crank;                      /* degrees this frame */
     ScSys sys; int sys_arg;           /* system-menu action to apply BEFORE this frame's update */
     char sys_name[SC_NAME_MAX];       /* `sysmenu boat NAME`: boat by name (sys_arg is then -1) */
+    bool praise_now; int praise;      /* `praise N`: show message N on this frame */
 } ScFrame;
 
 typedef enum {
     SC_C_WAIT, SC_C_PRESS, SC_C_HOLD, SC_C_CRANK,
-    SC_C_SNAP, SC_C_STATE, SC_C_SYS, SC_C_END
+    SC_C_SNAP, SC_C_STATE, SC_C_SYS, SC_C_PRAISE, SC_C_END
 } ScCmdKind;
 
 typedef struct {
@@ -40,6 +41,7 @@ struct Scenario {
     uint32_t prev;                    /* buttons held on the previous frame */
     ScSys pend_sys; int pend_arg;     /* sysmenu waiting for the next frame */
     char pend_name[SC_NAME_MAX];
+    bool pend_praise; int pend_praise_idx;   /* praise waiting for the next frame */
 };
 typedef struct Scenario Scenario;
 

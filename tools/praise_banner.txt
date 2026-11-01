@@ -1,0 +1,18 @@
+# Praise banner shots for the look check, run by tools/praise_preview.sh.
+# Gets into a journey (Journey > first boat > weather), then shows a short and the longest message.
+wait 2
+press down
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 5
+praise 1
+wait 1
+snap praise_short
+praise 8
+wait 1
+snap praise_long
+end

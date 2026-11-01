@@ -7,6 +7,7 @@
 #include "game.h"
 #include "helptext.h"
 #include "menu.h"
+#include "praise.h"
 #include "render.h"
 #include "tracks.h"
 #ifdef SCENARIO
@@ -173,6 +174,7 @@ static int update(void *ud) {
     ScFrame sf;
     scenario_poll_input(&cur, &pushed, &released, &crank, &dt, &sf);
     scenario_sys(&sf);
+    if (sf.praise_now) { game.praise = sf.praise; game.praise_left = PRAISE_SECONDS; }
 #else
     pd->system->getButtonState(&cur, &pushed, &released);
     float dt = pd->system->getElapsedTime();

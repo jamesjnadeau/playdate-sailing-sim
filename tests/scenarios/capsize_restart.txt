@@ -3,7 +3,7 @@ wait 2
 press A
 wait 5
 snap sailing_before
-sysmenu weather 4
+sysmenu weather 5
 crank 90 for 20
 snap hurricane_crank
 wait 250

@@ -6,7 +6,7 @@
 #define R2D 57.29578f
 
 bool hud_shows_nav(Mode m) {
-    return m == MODE_WHEEL;
+    return m == MODE_WHEEL || m == MODE_CAMERA;
 }
 
 int hud_heading_deg(float rad) {

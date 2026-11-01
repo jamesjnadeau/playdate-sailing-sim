@@ -4,11 +4,11 @@
 #include "hudinfo.h"
 #include "mathx.h"
 
-static void test_shows_nav_only_for_wheel(void) {
+static void test_shows_nav_for_wheel_and_look(void) {
     T_ASSERT(hud_shows_nav(MODE_WHEEL));
     T_ASSERT(!hud_shows_nav(MODE_TRIM));
     T_ASSERT(!hud_shows_nav(MODE_HOIST));
-    T_ASSERT(!hud_shows_nav(MODE_CAMERA));
+    T_ASSERT(hud_shows_nav(MODE_CAMERA));
 }
 
 static void test_heading_wraps_and_rounds(void) {
@@ -79,7 +79,7 @@ static void test_fmt_mark(void) {
 }
 
 int main(void) {
-    T_RUN(test_shows_nav_only_for_wheel);
+    T_RUN(test_shows_nav_for_wheel_and_look);
     T_RUN(test_heading_wraps_and_rounds);
     T_RUN(test_heading_non_finite_is_zero);
     T_RUN(test_sail_fraction_trim);

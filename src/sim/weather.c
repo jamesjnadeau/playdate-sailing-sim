@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const WEATHER_NAMES[WEATHER_PRESETS] = { "sunny", "cloudy", "mist", "storm", "hurricane", "choppy" };
+const char *const WEATHER_NAMES[WEATHER_PRESETS] = { "mist", "sunny", "cloudy", "choppy", "storm", "hurricane" };
 
 #define PI_F 3.14159265358979f
 
@@ -29,12 +29,12 @@ static const Fld FLDS[] = {
    Wave heights are the WMO probable height for that force, periods for a fetch-limited sea. */
 static const WeatherPreset DEFAULTS[WEATHER_PRESETS] = {
     /* name        base var   shift gust  ivl  wh    wp    steep  vis */
+    { "mist",      2,   0.5f, 0.5f, 0.8f, 30, 0.2f, 3,    0.07f, 150 },   /* F2, fog needs light air, ~4 kt */
     { "sunny",     5,   1,    0.5f, 2,    25, 0.6f, 4,    0.05f, 2000 },  /* F3 sea breeze, ~10 kt */
     { "cloudy",    7,   1.5f, 1,    3,    20, 1.0f, 5,    0.1f,  1200 },  /* F4, ~14 kt */
-    { "mist",      2,   0.5f, 0.5f, 0.8f, 30, 0.2f, 3,    0.07f, 150 },   /* F2, fog needs light air, ~4 kt */
+    { "choppy",    10,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000 },  /* F5, ~19 kt, short steep sea */
     { "storm",     20,  3,    2,    10,   10, 5.5f, 9,    0.25f, 400 },   /* F8 gale, ~39 kt, squalls to ~58 kt */
     { "hurricane", 36,  5,    2,    12,   10, 9,    12,   0.45f, 400 },   /* Cat 1, ~70 kt, gusts to ~93 kt */
-    { "choppy",    10,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000 },  /* F5, ~19 kt, short steep sea */
 };
 
 void weather_default(WeatherCfg *out) {

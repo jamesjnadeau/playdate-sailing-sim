@@ -1,4 +1,4 @@
-# Free range: system-menu boat dinghy, weather 2, restart, then main menu (state shows the run reset and app change)
+# Free range: system-menu boat dinghy, weather 0 (mist), restart, then main menu (state shows the run reset and app change)
 wait 2
 press A
 wait 60
@@ -7,7 +7,7 @@ sysmenu boat dinghy
 wait 30
 snap boat_changed
 state
-sysmenu weather 2
+sysmenu weather 0
 wait 60
 snap weather_changed
 state

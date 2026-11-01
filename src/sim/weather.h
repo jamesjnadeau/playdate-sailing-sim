@@ -5,7 +5,8 @@
 #include <stdint.h>
 #include "mathx.h"
 
-enum { WEATHER_SUNNY, WEATHER_CLOUDY, WEATHER_MIST, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_CHOPPY, WEATHER_PRESETS };
+/* Lightest wind first, so the menus read in order of wind speed. */
+enum { WEATHER_MIST, WEATHER_SUNNY, WEATHER_CLOUDY, WEATHER_CHOPPY, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_PRESETS };
 
 extern const char *const WEATHER_NAMES[WEATHER_PRESETS];
 

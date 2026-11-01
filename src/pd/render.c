@@ -58,7 +58,7 @@ static float fvis(const Game *g) { return g->weather.preset[g->preset].visibilit
 /* ---- sky ---- */
 
 static void draw_clouds(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    static const int shade[WEATHER_PRESETS] = { 2, 5, 8, 11, 13, 6 };
+    static const int shade[WEATHER_PRESETS] = { 8, 2, 5, 6, 11, 13 };
     LCDColor col = render_pattern(shade[g->preset]);
     for (int i = 0; i < CLOUDS; i++) {
         double az = frand(i, 1) * 2.0 * PI_D + g->t * (0.002 + 0.004 * frand(i, 2));

@@ -7,7 +7,7 @@
 
 /* Presentation-free HUD decisions, so the headless tests can cover them. */
 
-/* true only for MODE_WHEEL: speed/heading/heel/AWS cells are shown. */
+/* true for MODE_WHEEL and MODE_CAMERA: speed/heading/heel/AWS cells are shown. */
 bool hud_shows_nav(Mode m);
 
 /* Radians to whole degrees 0..359: rounded, wrapped, non-finite -> 0. */

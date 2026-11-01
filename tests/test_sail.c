@@ -144,6 +144,12 @@ static void test_longship_gybe_is_symmetric(void) {
     T_NEAR(a.fy, -b.fy, 0.01f * fabsf(a.fy) + 1e-3f);         /* mirror image: a gybe is a non-event */
 }
 
+static void test_dead_run_has_little_side_force(void) {
+    SailForce f = sail_force(main_sail(), D(90), 1, D(180), 8, 0, 1);
+    T_ASSERT(f.fx > 50);
+    T_ASSERT(fabsf(f.fy) < 0.1f * f.fx);
+}
+
 int main(void) {
     T_RUN(test_beam_reach_drives);
     T_RUN(test_close_hauled_overtrim_stalls);
@@ -159,5 +165,6 @@ int main(void) {
     T_RUN(test_spinnaker_billows_ahead_of_chord_on_a_run);
     T_RUN(test_spinnaker_billow_collapses_when_luffing_and_mirrors);
     T_RUN(test_longship_gybe_is_symmetric);
+    T_RUN(test_dead_run_has_little_side_force);
     T_DONE();
 }

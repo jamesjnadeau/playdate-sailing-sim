@@ -1251,9 +1251,9 @@ static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c,
     /* head at the gate end: along the tangent of travel at the tip */
     const double tipx = mx + cos(mk->gate) * ARROW_RADIUS_M, tipy = my + sin(mk->gate) * ARROW_RADIUS_M;
     turn_arrow_head(pd, g, c, t, tipx, tipy, -turn * sin(mk->gate), turn * cos(mk->gate), GATE_HEIGHT_M);
-    /* head at the start: the arc runs away from it, so it points the other way to the travel direction */
+    /* head at the start: along the travel direction there too, so both heads point the same way round */
     const double sx0 = mx + cos(a0) * ARROW_RADIUS_M, sy0 = my + sin(a0) * ARROW_RADIUS_M;
-    turn_arrow_head(pd, g, c, t, sx0, sy0, turn * sin(a0), -turn * cos(a0), GATE_HEIGHT_M * 2.0f);
+    turn_arrow_head(pd, g, c, t, sx0, sy0, -turn * sin(a0), turn * cos(a0), GATE_HEIGHT_M * 2.0f);
 }
 
 /* A mark's gate: a dashed line raised above the sea along the ray the boat has to cross,

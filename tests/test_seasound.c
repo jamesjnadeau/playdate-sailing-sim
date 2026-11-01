@@ -89,7 +89,7 @@ static void test_voice_levels_match_reference(void) {
 }
 
 static void test_slap_level_matches_reference(void) {
-    const float ref = 0.0697f;
+    const float ref = 0.0515f;   /* softened: lower cutoff, 15 ms attack */
     seasound_init(&ss);
     seasound_render(&ss, L, R, 4096);
     ss.slap_ev = 1.0f;
@@ -197,7 +197,7 @@ static void test_slap_is_a_decaying_burst(void) {
     ss.slap_ev = 1.0f;
     seasound_render(&ss, L, R, 4096);
     float first = rms_of(L, 2048);
-    for (int i = 0; i < 10; i++) seasound_render(&ss, L, R, 4096);
+    for (int i = 0; i < 14; i++) seasound_render(&ss, L, R, 4096);
     float later = rms_of(L, 4096);
     T_ASSERT(first > 0.03f);
     T_ASSERT(later < 0.1f * first);

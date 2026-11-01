@@ -155,12 +155,12 @@ static void chunk_begin(SeaSound *s) {
     __typeof__(s->k) *k = &s->k;
     k->a_wash = lp_a(300.0f + 4500.0f * c->bright * c->bright); k->g_wash = lp2_norm(k->a_wash);
     k->a_swell = lp_a(150.0f + 1200.0f * c->swell); k->g_swell = lp2_norm(k->a_swell);
-    k->a_slap = lp_a(400.0f + 2800.0f * s->slap_env); k->g_slap = lp2_norm(k->a_slap);
+    k->a_slap = lp_a(250.0f + 1100.0f * s->slap_env); k->g_slap = lp2_norm(k->a_slap);
     k->a_thump = lp_a(130.0f); k->g_thump = lp2_norm(k->a_thump);
     k->a_gur = lp_a(350.0f); k->g_gur = lp2_norm(k->a_gur);
     k->a_burble = lp_a(7.0f); k->g_burble = 1.0f / (0.577f * sqrtf(k->a_burble / (2.0f - k->a_burble)));
     k->a_wob = lp_a(1.5f); k->g_wob = 1.0f / (0.577f * sqrtf(k->a_wob / (2.0f - k->a_wob)));
-    k->slap_d = expf(-(float)CHUNK / (RATE * 0.22f));
+    k->slap_d = expf(-(float)CHUNK / (RATE * 0.3f));
     k->thump_d = expf(-(float)CHUNK / (RATE * 0.4f));
     k->gl = 0.5f * (1.0f - c->pan); k->gr = 0.5f * (1.0f + c->pan);
     k->flut_d = expf(-1.0f / (RATE * 0.16f));   /* per sample */
@@ -173,13 +173,16 @@ static void chunk_begin(SeaSound *s) {
 
     /* voices at zero are skipped for the chunk; their filters hold state and they wake on a ramp */
     k->on_wash = c->wash >= 1e-4f; k->on_swell = c->swell >= 1e-4f;
-    k->on_slap = s->slap_env >= 1e-4f; k->on_thump = s->thump_env >= 1e-4f;
+    k->on_slap = s->slap_env >= 1e-4f || s->slap_amp >= 1e-4f;
+    k->on_thump = s->thump_env >= 1e-4f || s->thump_amp >= 1e-4f;
     k->on_gur = c->gurgle >= 1e-4f; k->on_wind = c->wind >= 1e-4f; k->on_flut = c->flutter >= 1e-4f;
 }
 
 static void chunk_end(SeaSound *s) {
     s->slap_env *= s->k.slap_d;
     s->thump_env *= s->k.thump_d;
+    s->slap_amp += 0.05f * (s->slap_env - s->slap_amp);     /* ~15 ms attack */
+    s->thump_amp += 0.03f * (s->thump_env - s->thump_amp);  /* ~25 ms attack */
     if (s->slap_env < 1e-4f) s->slap_env = 0.0f;
     if (s->thump_env < 1e-4f) s->thump_env = 0.0f;
 }
@@ -195,8 +198,8 @@ static void synth_one(SeaSound *s, float *out_l, float *out_r) {
         wr = lp2(s->wash_s[1], k->a_wash, n1) * k->g_wash * c->wash * 0.22f * BED;
     }
     if (k->on_swell) mono += lp2(s->swell_s, k->a_swell, n2) * k->g_swell * c->swell * 0.2f * BED;
-    if (k->on_slap) mono += lp2(s->slap_s, k->a_slap, n0) * k->g_slap * s->slap_env * 0.35f;
-    if (k->on_thump) mono += lp2(s->thump_s, k->a_thump, n1) * k->g_thump * s->thump_env * 0.6f;
+    if (k->on_slap) mono += lp2(s->slap_s, k->a_slap, n0) * k->g_slap * s->slap_amp * 0.3f;
+    if (k->on_thump) mono += lp2(s->thump_s, k->a_thump, n1) * k->g_thump * s->thump_amp * 0.5f;
 
     s->burble += k->a_burble * (n2 - s->burble);
     if (k->on_gur) {

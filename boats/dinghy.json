@@ -21,7 +21,7 @@
     "board_lift_slope": 4.5,
     "board_stall_deg": 14,
     "board_cd0": 0.015,
-    "board_x": 0,
+    "board_x": 0.2,
     "rudder_area": 0.06,
     "rudder_max_deg": 35,
     "rudder_lift_slope": 4,

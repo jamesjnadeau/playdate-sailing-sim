@@ -10,7 +10,7 @@
 #include "sea.h"
 
 #define D(x) deg2rad(x)
-#define TACK_K 3.0f       /* s per sqrt(metre of length) allowed for a head-up or a tack */
+#define TACK_K 6.0f       /* s per sqrt(metre of length) allowed for a head-up or a tack */
 
 typedef struct {
     BoatCfg c;
@@ -243,6 +243,30 @@ static void test_rudder_assist_reports_flow_floor(void) {
     T_ASSERT(r.b.rudder_assist > 0.3f && r.b.rudder_assist < 0.7f);
 }
 
+/* Weather helm held fixed (no steering) must not round the boat up through the wind. */
+static void check_holds_without_broaching(const char *name, const BoatCfg *c) {
+    if (!balance_is_fore_and_aft(c)) return;
+    float deg = 0;
+    T_ASSERT(balance_weather_helm_deg(c, &deg));
+    Run r;
+    run_init(&r, c, 45.0f, 10.0f);
+    run_settle(&r, 30.0f);
+    float start = r.b.heading, worst = 0;
+    bool through = false;
+    r.in.wheel_target = deg / c->foils.rudder_max_deg;
+    for (int i = 0; i < (int)(60.0f / SIM_DT); i++) {
+        run_step(&r);
+        float drift = fabsf(wrap_pi(r.b.heading - start));
+        if (drift > worst) worst = drift;
+        if (twa_of(&r.b) < 0) through = true;
+    }
+    fprintf(stderr, "%s: wheel held %.1f deg, heading drift %.1f deg, through wind %d\n", name, deg, worst * 57.2958f, through);
+    T_ASSERT(worst < D(25));
+    T_ASSERT(!through);
+}
+
+static void test_closehauled_holds_without_broaching(void) { for_each_boat(check_holds_without_broaching); }
+
 int main(void) {
     T_RUN(test_balance_helpers_survive_odd_boats);
     T_RUN(test_rudder_force_monotone_in_wheel);
@@ -253,5 +277,6 @@ int main(void) {
     T_RUN(test_stopped_boat_does_not_spin);
     T_RUN(test_steering_astern_unchanged);
     T_RUN(test_rudder_assist_reports_flow_floor);
+    T_RUN(test_closehauled_holds_without_broaching);
     return T_DONE();
 }

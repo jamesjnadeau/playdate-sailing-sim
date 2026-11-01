@@ -59,7 +59,7 @@ static const Field FOIL_F[] = {
     FF(FoilCfg, board_lift_slope, 4.5f, 0, 10),
     FF(FoilCfg, board_stall_deg, 14, 3, 45),
     FF(FoilCfg, board_cd0, 0.015f, 0, 1),
-    FF(FoilCfg, board_x, 0, -10, 10),
+    FF(FoilCfg, board_x, 0.2f, -10, 10),
     FF(FoilCfg, rudder_area, 0.06f, 0, 2),
     FF(FoilCfg, rudder_max_deg, 35, 1, 80),
     FF(FoilCfg, rudder_lift_slope, 4.0f, 0, 10),

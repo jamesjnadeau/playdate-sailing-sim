@@ -10,7 +10,8 @@
  * the screen and the stern waterline frame_margin px above the status panel.
  * Config values only, so the framing is constant and the sway comes from the boat.
  * With horizon_y set, the pitch instead pins the horizon to that row and only the stern
- * is framed; a tall rig then sits nearer the top of the screen, or crops. */
+ * is framed (or trail_dist fixes the distance outright); a tall rig then sits nearer the
+ * top of the screen, or crops. */
 static void trail_framing(const BoatCfg *cfg, float *dist, float *pitch) {
     const CameraCfg *k = &cfg->camera;
     float m = k->frame_margin;
@@ -21,7 +22,7 @@ static void trail_framing(const BoatCfg *cfg, float *dist, float *pitch) {
     if (k->horizon_y > 0.0f) {
         float p = atanf((k->horizon_y - CAM_HORIZON_Y) / (float)CAM_FOCAL);
         float a = fmaxf(-bot - p, 0.02f);   /* stern depression below the view axis */
-        *dist = fminf(half + h / tanf(a), 200.0f);
+        *dist = k->trail_dist > 0.0f ? k->trail_dist : fminf(half + h / tanf(a), 200.0f);
         *pitch = p;
         return;
     }

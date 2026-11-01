@@ -174,7 +174,10 @@ static void test_tp52_json(void) {
     T_ASSERT(c.sails[2].shape == 2 && c.sails[2].awa_min_deg >= 80);
     T_ASSERT(strcmp(c.sails[2].name, "spinnaker") == 0);
     T_NEAR(c.camera.horizon_y, 124.0, 1e-3);
+    T_NEAR(c.camera.far_height, 6.0, 1e-3);
+    T_NEAR(c.camera.trail_dist, 38.0, 1e-3);
     BoatCfg d; boatcfg_default(&d);
+    T_NEAR(d.camera.trail_dist, 0.0, 1e-6);
     T_NEAR(d.camera.horizon_y, 0.0, 1e-6);
 }
 

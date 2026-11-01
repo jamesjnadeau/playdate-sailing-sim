@@ -33,6 +33,7 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
     if (!isfinite(crank_delta_deg)) crank_delta_deg = 0;
     if (!isfinite(dt) || dt < 0) dt = 0;
 
+    const bool up_again = (pressed & BTN_UP) && c->mode == MODE_WHEEL;   /* UP while already steering */
     if (pressed & BTN_UP) {
         c->mode = MODE_WHEEL;
     } else if (pressed & BTN_RIGHT) {
@@ -62,7 +63,8 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
             c->down_tracking = false;
         }
     }
-    if (c->mode != MODE_CAMERA) c->camera_recentre = false;
+    if (up_again) c->camera_recentre = true;
+    else if ((pressed & (BTN_UP | BTN_RIGHT | BTN_LEFT | BTN_DOWN)) && c->mode != MODE_CAMERA) c->camera_recentre = false;
     select_sail(c, n, 0);
 
     switch (c->mode) {

@@ -191,6 +191,19 @@ static void test_vertical_crank_has_no_dead_travel_past_the_floor(void) {
     T_NEAR(r.c.camera_pitch - before, deg2rad(10.0f * r.cfg.controls.crank_gain_camera), 1e-4);
 }
 
+static void test_second_up_press_recentres_camera(void) {
+    Rig r; rig_init(&r);
+    tick(&r, BTN_DOWN, 0);
+    for (int i = 0; i < 60; i++) tick(&r, 0, 30);
+    tick(&r, BTN_UP, 0);                       /* leaves look mode, keeps the look */
+    T_ASSERT(r.c.camera_yaw != 0 && !r.c.camera_recentre);
+    tick(&r, BTN_UP, 0);                       /* second UP */
+    T_ASSERT(r.c.mode == MODE_WHEEL && r.c.camera_recentre);
+    idle(&r, 600);
+    T_NEAR(r.c.camera_yaw, 0, 1e-6);
+    T_ASSERT(!r.c.camera_recentre);
+}
+
 static void test_yaw_crosses_behind_without_clamp_or_jump(void) {
     Rig r; rig_init(&r);
     tick(&r, BTN_DOWN, 0);
@@ -282,6 +295,7 @@ int main(void) {
     T_RUN(test_crank_cancels_hold_recentre);
     T_RUN(test_crank_after_cancel_moves_one_step_from_the_live_view);
     T_RUN(test_vertical_crank_has_no_dead_travel_past_the_floor);
+    T_RUN(test_second_up_press_recentres_camera);
     T_RUN(test_yaw_crosses_behind_without_clamp_or_jump);
     T_RUN(test_recentre_from_near_pi_goes_short_way);
     T_RUN(test_camera_hold_default_is_0_75);

@@ -13,7 +13,7 @@
 #define BTN_A     (1u << 5)
 
 /* The crank drives whichever mode was last latched; no button needs holding.
- *   UP    -> WHEEL
+ *   UP    -> WHEEL  (a second UP press eases the camera look back to 0)
  *   RIGHT -> TRIM  (re-press while in TRIM selects the next sail)
  *   LEFT  -> HOIST (re-press while in HOIST selects the next sail)
  *   DOWN  -> CAMERA look. Crank swings it all the way round the boat; a DOWN tap

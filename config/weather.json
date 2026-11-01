@@ -3,6 +3,7 @@
   "sunny":  { "wind_base": 5,  "wind_var": 1,   "shift_rate_deg": 0.5, "gust_speed": 2,   "gust_interval": 25, "wave_height": 0.6, "wave_period": 4,   "wave_steepness": 0.05, "visibility": 2000 },
   "cloudy": { "wind_base": 7,  "wind_var": 1.5, "shift_rate_deg": 1,   "gust_speed": 3,   "gust_interval": 20, "wave_height": 1.0, "wave_period": 5,   "wave_steepness": 0.1,  "visibility": 1200 },
   "choppy":  { "wind_base": 10,  "wind_var": 1.5,   "shift_rate_deg": 0.5, "gust_speed": 3,   "gust_interval": 25, "wave_height": 2.0, "wave_period": 5.5,   "wave_steepness": 0.45, "visibility": 2000 },
+  "rollers": { "wind_base": 14, "wind_var": 2,   "shift_rate_deg": 1,   "gust_speed": 5,    "gust_interval": 15, "wave_height": 5.5, "wave_period": 9,   "wave_steepness": 0.25, "visibility": 1200 },
   "storm":  { "wind_base": 20, "wind_var": 3,   "shift_rate_deg": 2,   "gust_speed": 10,   "gust_interval": 10, "wave_height": 5.5, "wave_period": 9,   "wave_steepness": 0.25, "visibility": 400 },
   "hurricane": { "wind_base": 36, "wind_var": 5,   "shift_rate_deg": 2,   "gust_speed": 12,   "gust_interval": 10, "wave_height": 9, "wave_period": 12,   "wave_steepness": 0.45, "visibility": 400 }
 }

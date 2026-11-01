@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *const WEATHER_NAMES[WEATHER_PRESETS] = { "mist", "sunny", "cloudy", "choppy", "storm", "hurricane" };
+const char *const WEATHER_NAMES[WEATHER_PRESETS] = { "mist", "sunny", "cloudy", "choppy", "rollers", "storm", "hurricane" };
 
 #define PI_F 3.14159265358979f
 
@@ -33,6 +33,7 @@ static const WeatherPreset DEFAULTS[WEATHER_PRESETS] = {
     { "sunny",     5,   1,    0.5f, 2,    25, 0.6f, 4,    0.05f, 2000 },  /* F3 sea breeze, ~10 kt */
     { "cloudy",    7,   1.5f, 1,    3,    20, 1.0f, 5,    0.1f,  1200 },  /* F4, ~14 kt */
     { "choppy",    10,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000 },  /* F5, ~19 kt, short steep sea */
+    { "rollers",   14,  2,    1,    5,    15, 5.5f, 9,    0.25f, 1200 },  /* F6, ~27 kt wind over a storm-sized swell */
     { "storm",     20,  3,    2,    10,   10, 5.5f, 9,    0.25f, 400 },   /* F8 gale, ~39 kt, squalls to ~58 kt */
     { "hurricane", 36,  5,    2,    12,   10, 9,    12,   0.45f, 400 },   /* Cat 1, ~70 kt, gusts to ~93 kt */
 };

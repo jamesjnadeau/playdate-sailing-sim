@@ -5,6 +5,7 @@
 
 #define MIN_LEG_M 10.0f
 #define SPREAD_RAD 1.0472f   /* a leg turns at most this far (60 deg) from the one before */
+#define HALF_PI 1.5707963f
 #define TRIES 8              /* random headings tried before heading straight away from the oldest buoy */
 
 static float rnd(Journey *j) {
@@ -47,12 +48,13 @@ static void spawn(Journey *j) {
 
     if (j->n > 0) {   /* the buoy before this one is rounded towards the side the course turns to */
         JourneyBuoy *prev = &j->buoy[j->n - 1];
-        prev->rounding = wrap_pi(h - prev->gate) >= 0.0f ? ROUND_STARBOARD : ROUND_PORT;
+        prev->rounding = wrap_pi(h - j->course) >= 0.0f ? ROUND_STARBOARD : ROUND_PORT;
+        prev->gate = wrap_pi(j->course - (float)prev->rounding * HALF_PI);   /* 90 deg to its leg, on the turn side */
     }
     JourneyBuoy *b = &j->buoy[j->n++];
     b->x = j->lx + dist * cos(h);
     b->y = j->ly + dist * sin(h);
-    b->gate = h;
+    b->gate = wrap_pi(h - HALF_PI);
     b->rounding = ROUND_STARBOARD;   /* provisional, until the next buoy decides it */
     j->lx = b->x;
     j->ly = b->y;

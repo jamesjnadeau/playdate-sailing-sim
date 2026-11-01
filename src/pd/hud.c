@@ -340,7 +340,7 @@ static void draw_journey_map(PlaydateAPI *pd, const Game *g) {
     }
     gr->fillEllipse(mx - 4, my - 4, 9, 9, 0, 0, kColorBlack);
     gr->drawEllipse(mx - 4, my - 4, 9, 9, 2, 0, 0, kColorBlack);
-    map_round_arrow(pd, mx, my, b->rounding, b->gate + 3.14159265f);   /* open towards where the boat arrives from */
+    map_round_arrow(pd, mx, my, b->rounding, b->gate + (float)b->rounding * 1.57079633f + 3.14159265f);   /* open behind the incoming leg */
     gr->drawLine(map_sx(&v, by), map_sy(&v, bx), mx, my, 1, kColorBlack);
 
     const float h = g->b.heading, fx = sinf(h), fy = -cosf(h);

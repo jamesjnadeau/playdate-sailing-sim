@@ -8,7 +8,11 @@ static double dist(double ax, double ay, double bx, double by) { return hypot(ax
 
 static float test_wind;   /* where the wind comes from, as sail_to_next reports it */
 
-/* Rounds the next buoy: crosses its gate ray ahead of the mark, buoy on the side the rounding names. */
+/* Heading the boat travels as it crosses the buoy's gate: the gate is 90 deg to the incoming leg, on the
+   inside of the turn. */
+static float incoming(const JourneyBuoy *b) { return wrap_pi(b->gate + (float)b->rounding * 1.5707963f); }
+
+/* Rounds the next buoy: crosses its gate ray, buoy on the side the rounding names. */
 static void sail_to_next(Journey *j, double *px, double *py) {
     const JourneyBuoy *b = journey_next(j);
     T_ASSERT(b != NULL);
@@ -119,6 +123,41 @@ static void test_shift_moves_everything(void) {
     T_NEAR(j.lx, k.lx - 50.0, 1e-9);
 }
 
+static void test_gate_perpendicular_to_leg(void) {
+    for (uint32_t seed = 1; seed <= 20; seed++) {
+        Journey j;
+        journey_init(&j, 100, 300, seed, 0, 0, 0.3f, 0, 0);
+        double px = 0, py = 0;
+        for (int k = 0; k < j.n; k++) {
+            const JourneyBuoy *b = &j.buoy[k];
+            const float leg = (float)atan2(b->y - py, b->x - px);
+            T_ASSERT(fabsf(wrap_pi(incoming(b) - leg)) < 1e-3f);
+            px = b->x;
+            py = b->y;
+        }
+        T_ASSERT(j.buoy[j.n - 1].rounding == ROUND_STARBOARD);
+    }
+}
+
+/* A move from 5 m before the buoy to 5 m after it, `side` m out along the gate ray (negative: the far side). */
+static bool pass_at(const Journey *src, double side) {
+    Journey j = *src;
+    const JourneyBuoy *b = journey_next(&j);
+    const double h = incoming(b), g = b->gate;
+    const double ox = cos(g) * side, oy = sin(g) * side;
+    return journey_update(&j, b->x - 5 * cos(h) + ox, b->y - 5 * sin(h) + oy,
+                          b->x + 5 * cos(h) + ox, b->y + 5 * sin(h) + oy, 1.0f, 0.0f);
+}
+
+static void test_gate_passes_only_on_gate_side(void) {
+    for (uint32_t seed = 1; seed <= 20; seed++) {
+        Journey j;
+        journey_init(&j, 100, 300, seed, 0, 0, 0.3f, 0, 0);
+        T_ASSERT(pass_at(&j, 3.0));
+        T_ASSERT(!pass_at(&j, -3.0));
+    }
+}
+
 static void test_legs_stay_out_of_the_wind(void) {
     const float no_go = 65.0f * 3.14159265f / 180.0f;
     for (uint32_t seed = 1; seed <= 30; seed++) {
@@ -129,7 +168,7 @@ static void test_legs_stay_out_of_the_wind(void) {
         double x = 0, y = 0;
         for (int i = 0; i < 40; i++) {
             for (int k = 0; k < j.n; k++)
-                T_ASSERT(fabsf(wrap_pi(j.buoy[k].gate - test_wind)) >= no_go - 1e-4f);
+                T_ASSERT(fabsf(wrap_pi(incoming(&j.buoy[k]) - test_wind)) >= no_go - 1e-4f);
             sail_to_next(&j, &x, &y);
             while (j.next > 1) journey_drop_oldest(&j);
         }
@@ -147,7 +186,7 @@ static void test_wind_shift_applies_to_new_legs(void) {
         sail_to_next(&j, &x, &y);
         while (j.next > 1) journey_drop_oldest(&j);
     }
-    T_ASSERT(fabsf(wrap_pi(j.buoy[j.n - 1].gate - 2.0f)) >= no_go - 1e-4f);
+    T_ASSERT(fabsf(wrap_pi(incoming(&j.buoy[j.n - 1]) - 2.0f)) >= no_go - 1e-4f);
     test_wind = 0;
 }
 
@@ -203,6 +242,8 @@ int main(void) {
     T_RUN(test_net_progress_not_a_loop);
     T_RUN(test_drop_only_when_passed);
     T_RUN(test_shift_moves_everything);
+    T_RUN(test_gate_perpendicular_to_leg);
+    T_RUN(test_gate_passes_only_on_gate_side);
     T_RUN(test_legs_stay_out_of_the_wind);
     T_RUN(test_wind_shift_applies_to_new_legs);
     T_RUN(test_deterministic_per_seed);

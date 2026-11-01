@@ -9,7 +9,8 @@
 
 typedef struct {
     double x, y;      /* m, local (game) frame */
-    float gate;       /* rad, heading of the ray the boat crosses to pass: the way it came in */
+    float gate;       /* rad, heading of the ray from the buoy the boat crosses to pass: 90 deg to the incoming leg,
+                         on the inside of the turn; the boat crosses it heading gate + rounding * pi/2 */
     int rounding;     /* ROUND_PORT or ROUND_STARBOARD; final once the next buoy has spawned */
 } JourneyBuoy;
 

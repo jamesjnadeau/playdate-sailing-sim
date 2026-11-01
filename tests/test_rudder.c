@@ -224,6 +224,25 @@ static void check_astern(const char *name, const BoatCfg *c) {
 
 static void test_steering_astern_unchanged(void) { for_each_boat(check_astern); }
 
+static void test_rudder_assist_reports_flow_floor(void) {
+    BoatCfg c;
+    T_ASSERT(load_boat("tp52.json", &c));
+    Run r;
+    run_init(&r, &c, 90, 0.0f);
+    r.at.on = false;
+    r.b.u = 0.0f;
+    r.in.wheel_target = 1.0f;
+    run_step(&r);
+    T_ASSERT(r.b.rudder_assist > 0.9f);                  /* dead in the water: floor does the work */
+    r.b.u = c.foils.rudder_min_flow * 2.0f;
+    run_step(&r);
+    T_ASSERT(r.b.rudder_assist == 0.0f);                 /* real flow above the floor */
+    r.b.u = c.foils.rudder_min_flow * 0.5f;
+    r.b.v = 0;
+    run_step(&r);
+    T_ASSERT(r.b.rudder_assist > 0.3f && r.b.rudder_assist < 0.7f);
+}
+
 int main(void) {
     T_RUN(test_balance_helpers_survive_odd_boats);
     T_RUN(test_rudder_force_monotone_in_wheel);
@@ -233,5 +252,6 @@ int main(void) {
     T_RUN(test_tp52_choppy);
     T_RUN(test_stopped_boat_does_not_spin);
     T_RUN(test_steering_astern_unchanged);
+    T_RUN(test_rudder_assist_reports_flow_floor);
     return T_DONE();
 }

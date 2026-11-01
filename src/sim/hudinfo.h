@@ -25,4 +25,9 @@ void hud_fmt_time(double t, char *out, size_t n);
  * dist -> 0. Truncated to n. */
 void hud_fmt_mark(const char *name, int index, int total, double dist_m, char *out, size_t n);
 
+/* Banner text while the rudder_min_flow floor is helping the player steer: `rudder_assist` is
+ * BoatState.rudder_assist (0..1) and `wheel` the helm (-1..1). NULL when the real flow is enough,
+ * the helm is centred, or an input is non-finite. */
+const char *hud_assist_text(float rudder_assist, float wheel);
+
 #endif

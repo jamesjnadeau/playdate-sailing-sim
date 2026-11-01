@@ -31,6 +31,7 @@ typedef struct {
     float swing[BOAT_MAX_SAILS], swing_v[BOAT_MAX_SAILS]; /* boom side: -1 port .. +1 starboard, eased across on a tack/gybe */
     SailForce sail[BOAT_MAX_SAILS]; /* last force from each sail, for diagnostics */
     float sail_fx, sail_fy, sail_heel, sail_yaw; /* sail totals: N, N, N.m, N.m */
+    float rudder_assist;         /* 0..1: how much of the rudder's flow is the rudder_min_flow floor, not real water speed */
     float helm_load;             /* rudder side force, N (+ pushes stern to starboard) */
     float pitch, heave;          /* copied from WaveForces */
 } BoatState;

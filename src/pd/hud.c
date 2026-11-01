@@ -95,6 +95,17 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->drawLine(cx, cy, (int)(cx + R * sinf(a)), (int)(cy - R * cosf(a)), 2, kColorWhite);
     pd->graphics->drawLine(cx, cy - R - 2, cx, cy - R + 2, 1, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
+
+    /* the rudder flow floor is helping a slow boat steer: say so, above the status bar */
+    const char *assist = hud_assist_text(b->rudder_assist, b->wheel);
+    if (assist) {
+        const int w = 188, x = (CAM_W - w) / 2, y = top - 16;
+        pd->graphics->fillRect(x, y, w, 14, kColorBlack);
+        pd->graphics->drawRect(x, y, w, 14, kColorWhite);
+        pd->graphics->setDrawMode(kDrawModeFillWhite);
+        text(pd, assist, x + 8, y + 1);
+        pd->graphics->setDrawMode(kDrawModeCopy);
+    }
 }
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }

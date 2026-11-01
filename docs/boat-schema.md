@@ -20,7 +20,7 @@ ignored (default kept) with a warning.
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth wake_fade_m` |
 | `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate` |
 
-`foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force.
+`foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force. While the floor is raising the flow (boat slower than `rudder_min_flow`) with the helm turned, the HUD shows a "RUDDER ASSIST: LOW SPEED" banner.
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws

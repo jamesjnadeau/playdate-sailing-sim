@@ -78,6 +78,16 @@ static void test_fmt_mark(void) {
     hud_fmt_mark("B1", 2, 5, NAN, b, sizeof b);     T_ASSERT(strcmp(b, "B1 2/5  0m") == 0);
 }
 
+static void test_assist_text_only_when_flow_floor_helps_and_wheel_turned(void) {
+    T_ASSERT(hud_assist_text(0.5f, 0.5f) != NULL);
+    T_ASSERT(strstr(hud_assist_text(0.5f, -0.5f), "RUDDER ASSIST") != NULL);
+    T_ASSERT(hud_assist_text(0.0f, 1.0f) == NULL);      /* real flow is enough */
+    T_ASSERT(hud_assist_text(0.05f, 1.0f) == NULL);     /* floor barely contributing */
+    T_ASSERT(hud_assist_text(0.9f, 0.0f) == NULL);      /* helm centred: nothing to assist */
+    T_ASSERT(hud_assist_text(NAN, 1.0f) == NULL);
+    T_ASSERT(hud_assist_text(0.9f, NAN) == NULL);
+}
+
 int main(void) {
     T_RUN(test_shows_nav_for_wheel_and_look);
     T_RUN(test_heading_wraps_and_rounds);
@@ -88,5 +98,6 @@ int main(void) {
     T_RUN(test_fmt_time);
     T_RUN(test_fmt_time_truncates);
     T_RUN(test_fmt_mark);
+    T_RUN(test_assist_text_only_when_flow_floor_helps_and_wheel_turned);
     return T_DONE();
 }

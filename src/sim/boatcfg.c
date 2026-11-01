@@ -139,6 +139,7 @@ static const Field CAMERA_F[] = {
     FF(CameraCfg, x_offset, -2.7f, -10, 10),
     FF(CameraCfg, heel_bias, 0.25f, -3, 3),
     FF(CameraCfg, frame_margin, 20.0f, 0, 80),
+    FF(CameraCfg, horizon_y, 0.0f, 0, 200),
     FF(CameraCfg, far_height, 2.5f, 0.2f, 20),
     FF(CameraCfg, roll_limit_deg, 10, 0, 45),
     FF(CameraCfg, roll_smooth, 0.4f, 0, 3),

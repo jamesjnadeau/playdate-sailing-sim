@@ -204,6 +204,28 @@ static void test_mark_view_nonfinite_is_safe(void) {
     T_ASSERT(isfinite(v.x) && isfinite(v.y) && isfinite(v.angle));
 }
 
+static void test_horizon_y_pins_horizon_and_stern(void) {
+    fresh();
+    bc.camera.horizon_y = 124.0f;
+    cp.trail = true;
+    g.b.heading = 0;
+    settle();
+    float sx, sy;
+    T_ASSERT(camera_project(&cp, cp.x + 5000, cp.y, cp.height, &sx, &sy, NULL));
+    T_NEAR(sy, 124.0, 1.0);
+    T_ASSERT(camera_project(&cp, g.b.x - 0.5 * bc.hull.length, g.b.y, 0.0f, &sx, &sy, NULL));
+    T_NEAR(sy, (CAM_H - HUD_H) - bc.camera.frame_margin, 3.0);
+}
+
+static void test_horizon_y_too_low_stays_finite(void) {
+    fresh();
+    bc.camera.horizon_y = 200.0f;   /* at/below the stern limit */
+    cp.trail = true;
+    settle();
+    T_ASSERT(isfinite(cp.x) && isfinite(cp.pitch));
+    T_ASSERT(cp.x < g.b.x);         /* still aft of the boat */
+}
+
 int main(void) {
     T_RUN(test_mark_ahead_is_on_screen);
     T_RUN(test_mark_far_starboard_goes_to_right_edge);
@@ -221,5 +243,7 @@ int main(void) {
     T_RUN(test_camera_yaw_turns_view_not_boat);
     T_RUN(test_trailing_view_orbits_boat_with_look_yaw);
     T_RUN(test_position_follows_boat_offset_aft);
+    T_RUN(test_horizon_y_pins_horizon_and_stern);
+    T_RUN(test_horizon_y_too_low_stays_finite);
     T_DONE();
 }

@@ -112,7 +112,6 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
             if (g->en.on) g->en.on = false;
             else autotrim_toggle(&g->at);
         }
-        engine_tick(&g->en, dt);
         autotrim_update(&g->at, &g->boat, &g->b, &g->in, dt);
     }
     g->in.engine = g->en.on && g->run == RUN_SAILING;

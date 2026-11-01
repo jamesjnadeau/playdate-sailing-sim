@@ -31,8 +31,8 @@ void hud_fmt_mark(const char *name, int index, int total, double dist_m, char *o
  * the helm is centred, or an input is non-finite. */
 const char *hud_assist_text(float rudder_assist, float wheel);
 
-/* Banner text while the engine's "engaged" notice is up (`msg_left` > 0 s); NULL otherwise. */
-const char *hud_engine_text(float msg_left);
+/* Banner text for as long as the engine is running; NULL otherwise. */
+const char *hud_engine_text(bool running);
 
 /* Screen angle on the HUD wind dial (rad, clockwise from the top, wrapped to (-pi, pi]) of something at
  * `angle_from_bow` (rad, + = starboard of the bow) while the view faces `look_yaw` (rad, + = toward

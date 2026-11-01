@@ -118,12 +118,10 @@ static void test_dial_angle_non_finite(void) {
     T_NEAR(hud_dial_angle(0.7f, INFINITY), 0.7, 1e-6);
 }
 
-static void test_engine_text_only_while_message_runs(void) {
-    T_ASSERT(hud_engine_text(1.0f) != NULL);
-    T_ASSERT(strstr(hud_engine_text(1.0f), "ENGINE ENGAGED") != NULL);
-    T_ASSERT(hud_engine_text(0.0f) == NULL);
-    T_ASSERT(hud_engine_text(-1.0f) == NULL);
-    T_ASSERT(hud_engine_text(NAN) == NULL);
+static void test_engine_text_while_running(void) {
+    T_ASSERT(hud_engine_text(true) != NULL);
+    T_ASSERT(strstr(hud_engine_text(true), "ENGINE ENGAGED") != NULL);
+    T_ASSERT(hud_engine_text(false) == NULL);
 }
 
 int main(void) {
@@ -136,7 +134,7 @@ int main(void) {
     T_RUN(test_fmt_time);
     T_RUN(test_fmt_time_truncates);
     T_RUN(test_fmt_mark);
-    T_RUN(test_engine_text_only_while_message_runs);
+    T_RUN(test_engine_text_while_running);
     T_RUN(test_assist_text_only_when_flow_floor_helps_and_wheel_turned);
     T_RUN(test_dial_angle_unchanged_when_looking_ahead);
     T_RUN(test_dial_angle_rotates_against_the_look);

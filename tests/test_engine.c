@@ -24,7 +24,6 @@ static void test_hold_starts_engine_and_banner(void) {
     fresh();
     T_ASSERT(!hold_b(15));
     T_ASSERT(e.on);
-    T_NEAR(e.msg_left, ENGINE_MSG_S, 1e-6);
 }
 static void test_default_hold_is_one_second(void) {
     fresh();
@@ -49,14 +48,6 @@ static void test_held_without_press_is_ignored(void) {
     T_ASSERT(!e.on);
     T_ASSERT(!frame(0, 0));
 }
-static void test_banner_counts_down(void) {
-    fresh();
-    hold_b(15);
-    engine_tick(&e, 1.0f);
-    T_NEAR(e.msg_left, ENGINE_MSG_S - 1.0f, 1e-5);
-    engine_tick(&e, 5.0f);
-    T_NEAR(e.msg_left, 0.0, 1e-6);
-}
 static void test_thrust_shape(void) {
     T_ASSERT(engine_thrust(1000, 0) > 0);
     T_ASSERT(engine_thrust(1000, 0.47f) < engine_thrust(1000, 0));
@@ -68,8 +59,7 @@ static void test_nonfinite_is_safe(void) {
     fresh();
     frame(BTN_B, BTN_B);
     engine_buttons(&e, &cfg.controls, 0, BTN_B, NAN);
-    engine_tick(&e, NAN);
-    T_ASSERT(isfinite(e.b_time) && isfinite(e.msg_left));
+    T_ASSERT(isfinite(e.b_time));
     T_ASSERT(isfinite(engine_thrust(NAN, 0)) && isfinite(engine_thrust(1000, NAN)));
 }
 
@@ -79,7 +69,6 @@ int main(void) {
     T_RUN(test_quick_press_is_reported_and_does_not_start);
     T_RUN(test_long_hold_fires_once_and_release_is_not_a_tap);
     T_RUN(test_held_without_press_is_ignored);
-    T_RUN(test_banner_counts_down);
     T_RUN(test_thrust_shape);
     T_RUN(test_nonfinite_is_safe);
     return T_DONE();

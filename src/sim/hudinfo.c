@@ -43,8 +43,8 @@ const char *hud_assist_text(float rudder_assist, float wheel) {
     return rudder_assist > 0.5f && fabsf(wheel) > 0.1f ? "RUDDER ASSIST: LOW SPEED" : NULL;
 }
 
-const char *hud_engine_text(float msg_left) {
-    return isfinite(msg_left) && msg_left > 0.0f ? "ENGINE ENGAGED" : NULL;
+const char *hud_engine_text(bool running) {
+    return running ? "ENGINE ENGAGED" : NULL;
 }
 
 float hud_dial_angle(float angle_from_bow, float look_yaw) {

@@ -108,7 +108,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 
     /* the rudder flow floor is helping a slow boat steer: say so, above the status bar */
-    const char *banners[2] = { hud_assist_text(b->rudder_assist, b->wheel), hud_engine_text(g->en.msg_left) };
+    const char *banners[2] = { hud_assist_text(b->rudder_assist, b->wheel), hud_engine_text(g->in.engine) };
     int row = 0;
     for (int i = 0; i < 2; i++) {
         if (!banners[i]) continue;

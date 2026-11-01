@@ -18,7 +18,6 @@ bool engine_buttons(Engine *e, const ControlsCfg *k, uint32_t pressed, uint32_t 
         if (!e->b_fired && e->b_time >= k->engine_hold_s) {
             e->b_fired = true;
             e->on = true;
-            e->msg_left = ENGINE_MSG_S;
         }
         return false;
     }
@@ -26,10 +25,6 @@ bool engine_buttons(Engine *e, const ControlsCfg *k, uint32_t pressed, uint32_t 
     e->b_tracking = false;
     e->b_time = 0;
     return tap;
-}
-
-void engine_tick(Engine *e, float dt) {
-    if (isfinite(dt) && dt > 0) e->msg_left = fmaxf(e->msg_left - dt, 0.0f);
 }
 
 float engine_thrust(float mass, float u) {

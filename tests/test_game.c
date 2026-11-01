@@ -241,7 +241,6 @@ static void test_b_hold_starts_engine_with_banner(void) {
     T_ASSERT(!g.en.on);                    /* 0.67 s: not yet */
     for (int i = 0; i < 20; i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
     T_ASSERT(g.en.on && g.in.engine);
-    T_ASSERT(g.en.msg_left > 0.0f);
     game_update(&g, 0, 0, 0, 1.0f / 30);   /* releasing after the hold is not a tap */
     T_ASSERT(g.en.on && !g.at.on);
 }
@@ -297,7 +296,6 @@ static void test_engine_cleared_by_restart(void) {
     T_ASSERT(g.en.on);
     game_restart(&g, 2);
     T_ASSERT(!g.en.on && !g.in.engine);
-    T_NEAR(g.en.msg_left, 0.0, 1e-6);
 }
 
 static Track tr;

@@ -26,6 +26,8 @@ typedef struct {
 #define FT(S, f, arr)       { #f, K_T, offsetof(S, f), 0, 0, 0, 0, arr, (int)(sizeof arr / sizeof arr[0]) }
 #define COUNT(a) ((int)(sizeof a / sizeof a[0]))
 
+#define RUDDER_FLOW_FRAC 0.15f
+
 static const Pt RESISTANCE[] = { {0, 0}, {1, 8}, {2, 35}, {3, 90}, {4, 220}, {6, 700} };
 static const Pt RIGHTING[]   = { {0, 0}, {10, 390}, {25, 780}, {45, 960}, {70, 675}, {90, 0} };
 static const Pt SAIL_CL[]    = { {0, 0}, {5, 0.5f}, {10, 1.0f}, {15, 1.35f}, {18, 1.4f}, {25, 1.1f},
@@ -63,6 +65,7 @@ static const Field FOIL_F[] = {
     FF(FoilCfg, rudder_lift_slope, 4.0f, 0, 10),
     FF(FoilCfg, rudder_stall_deg, 16, 3, 45),
     FF(FoilCfg, rudder_x, -2.0f, -15, 15),
+    FF(FoilCfg, rudder_min_flow, 0.48f, 0, 5),   /* default is rescaled from hull_speed below */
 };
 
 /* Defaults here describe the dinghy's mainsail; the jib overrides in boatcfg_default. */
@@ -203,6 +206,8 @@ void boatcfg_default(BoatCfg *o) {
     for (int g = 0; g < COUNT(GROUPS); g++)
         apply_defaults((char *)o + GROUPS[g].off, GROUPS[g].f, GROUPS[g].n);
     apply_defaults(o, TOP_F, COUNT(TOP_F));
+
+    o->foils.rudder_min_flow = RUDDER_FLOW_FRAC * o->hull.hull_speed;
 
     SailCfg *m = &o->sails[0], *j = &o->sails[1];
     apply_defaults(m, SAIL_F, COUNT(SAIL_F));
@@ -354,6 +359,10 @@ bool boatcfg_load(BoatCfg *out, const char *buf, size_t len, char *warn, size_t 
         if (!json_is_object(gn)) { wadd(&w, "%s: expected object", GROUPS[g].name); continue; }
         load_fields(gn, (char *)out + GROUPS[g].off, GROUPS[g].f, GROUPS[g].n, GROUPS[g].name, &w);
     }
+    /* an omitted rudder_min_flow follows the loaded hull speed rather than the dinghy's */
+    const JsonNode *fn = json_get(root, "foils");
+    if (!(json_is_object(fn) && json_get(fn, "rudder_min_flow")))
+        out->foils.rudder_min_flow = RUDDER_FLOW_FRAC * out->hull.hull_speed;
     const JsonNode *sn = json_get(root, "sails");
     if (sn) load_sails(sn, out, &w);
 

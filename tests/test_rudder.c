@@ -181,6 +181,49 @@ static void test_balance_helpers_survive_odd_boats(void) {
     T_ASSERT(!balance_weather_helm_deg(&c, &deg));
 }
 
+/* Peak |r| over `secs` of full lock with u pinned (v, r free). */
+static float peak_turn_rate(const BoatCfg *c, float u, float secs) {
+    Run r;
+    run_init(&r, c, 90, 0.0f);
+    r.at.on = false;
+    float peak = 0;
+    for (int i = 0; i < (int)(secs / SIM_DT); i++) {
+        r.b.u = u;
+        r.in.wheel_target = 1.0f;
+        run_step(&r);
+        if (fabsf(r.b.r) > peak) peak = fabsf(r.b.r);
+    }
+    return peak;
+}
+
+static void check_stopped(const char *name, const BoatCfg *c) {
+    float stopped = peak_turn_rate(c, 0.0f, 3.0f);
+    float cruising = peak_turn_rate(c, 0.5f * c->hull.hull_speed, 3.0f);
+    fprintf(stderr, "%s: peak r stopped %.3f cruising %.3f rad/s\n", name, stopped, cruising);
+    T_ASSERT(stopped < 0.5f * cruising);
+}
+
+static void test_stopped_boat_does_not_spin(void) { for_each_boat(check_stopped); }
+
+static void check_astern(const char *name, const BoatCfg *c) {
+    (void)name;
+    float sign[2];
+    for (int k = 0; k < 2; k++) {
+        Run r;
+        run_init(&r, c, 90, 0.0f);
+        r.at.on = false;
+        for (int i = 0; i < 120; i++) {
+            r.b.u = k ? -1.0f : 1.0f;
+            r.in.wheel_target = 1.0f;
+            run_step(&r);
+        }
+        sign[k] = r.b.r;
+    }
+    T_ASSERT(sign[0] * sign[1] > 0);
+}
+
+static void test_steering_astern_unchanged(void) { for_each_boat(check_astern); }
+
 int main(void) {
     T_RUN(test_balance_helpers_survive_odd_boats);
     T_RUN(test_rudder_force_monotone_in_wheel);
@@ -188,5 +231,7 @@ int main(void) {
     T_RUN(test_full_lock_reaches_closehauled_limit);
     T_RUN(test_full_lock_heads_up_from_beam_reach);
     T_RUN(test_tp52_choppy);
+    T_RUN(test_stopped_boat_does_not_spin);
+    T_RUN(test_steering_astern_unchanged);
     return T_DONE();
 }

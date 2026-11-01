@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
     float board_area, board_lift_slope, board_stall_deg, board_cd0, board_x;
     float rudder_area, rudder_max_deg, rudder_lift_slope, rudder_stall_deg, rudder_x;
+    float rudder_min_flow;   /* m/s floor on the rudder's water speed; default 0.15 * hull_speed */
 } FoilCfg;
 
 typedef struct {

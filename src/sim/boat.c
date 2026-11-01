@@ -148,7 +148,9 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     float delta = b->wheel * deg2rad(f->rudder_max_deg);
     float alpha_r = delta + atan2f(vr, speed_u + 1e-3f);
     float cl_r = foil_cl_hold(f->rudder_lift_slope, deg2rad(f->rudder_stall_deg), alpha_r);
-    float qa_r = 0.5f * RHO_W * (u * u + vr * vr) * f->rudder_area;
+    /* a slow or stalled boat still has some water over the rudder (prop wash, orbital motion) */
+    float flow_r = fmaxf(sr, f->rudder_min_flow);
+    float qa_r = 0.5f * RHO_W * flow_r * flow_r * f->rudder_area;
     float fy_rudder = -qa_r * cl_r;
     float fx_rudder = sr > 1e-4f ? -qa_r * foil_cd(0.01f, cl_r, 3.0f) * u / sr : 0.0f;
     b->helm_load = fy_rudder;

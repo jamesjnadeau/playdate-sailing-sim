@@ -14,11 +14,13 @@ ignored (default kept) with a warning.
 |---|---|
 | top level | `world_units_per_metre`, `boat_class` (0 racer, 1 cruiser: free range only, not offered for racing; missing means racer) |
 | `hull` | `length beam mass crew_mass hiking_arm hull_speed resistance(speed→N) heel_drag clr_depth(m below waterline, lateral force centre) yaw_inertia yaw_damping heel_inertia heel_damping righting(heel°→N·m) capsize_deg` |
-| `foils` | `board_*` (area, lift_slope, stall_deg, cd0, x), `rudder_*` (area, max_deg, lift_slope, stall_deg, x) |
+| `foils` | `board_*` (area, lift_slope, stall_deg, cd0, x), `rudder_*` (area, max_deg, lift_slope, stall_deg, x, min_flow) |
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |
 | `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time camera_hold_s autopilot_hold_s autopilot_step_deg autopilot_no_go_deg autopilot_crank_deg autopilot_kp autopilot_kd autotrim_hold_s autotrim_smooth_s autotrim_heel_deg autotrim_hoist_min` |
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth wake_fade_m` |
 | `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate` |
+
+`foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force.
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws

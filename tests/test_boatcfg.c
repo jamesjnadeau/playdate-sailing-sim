@@ -289,8 +289,23 @@ static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
     }
 }
 
+static void test_rudder_min_flow_default_and_clamp(void) {
+    BoatCfg c;
+    boatcfg_default(&c);
+    T_NEAR(c.foils.rudder_min_flow, 0.15f * c.hull.hull_speed, 1e-5f);
+    char warn[W];
+    T_ASSERT(!load(&c, "{\"foils\":{\"rudder_min_flow\":99}}", warn));
+    T_NEAR(c.foils.rudder_min_flow, 5.0f, 0);
+    T_ASSERT(strstr(warn, "rudder_min_flow") != NULL);
+    T_ASSERT(load(&c, "{\"hull\":{\"hull_speed\":8}}", warn));
+    T_NEAR(c.foils.rudder_min_flow, 1.2f, 1e-5f);
+    T_ASSERT(load(&c, "{\"hull\":{\"hull_speed\":8},\"foils\":{\"rudder_min_flow\":0.3}}", warn));
+    T_NEAR(c.foils.rudder_min_flow, 0.3f, 1e-6f);
+}
+
 int main(void) {
     T_RUN(test_default_is_sane);
+    T_RUN(test_rudder_min_flow_default_and_clamp);
     T_RUN(test_dinghy_json_reproduces_default);
     T_RUN(test_to_json_round_trips);
     T_RUN(test_clr_depth_defaults_loads_and_clamps);

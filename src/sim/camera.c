@@ -3,6 +3,7 @@
 #include "mathx.h"
 
 #define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
+#define MIN_EYE 0.5f          /* m, lowest the trailing eye may be lowered above the sea */
 #define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
 /* Trailing view framing. With the eye at far_height, find the distance behind the
@@ -54,22 +55,30 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     float fwd_x = cosf(orbit), fwd_y = sinf(orbit);
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
-    float xo = k->x_offset, trail_pitch = 0.0f;
+    float xo = k->x_offset, trail_pitch = 0.0f, eye = k->height, look = g->ctl.camera_pitch;
     if (c->trail) {
         trail_framing(cfg, &xo, &trail_pitch);
-        xo = -xo;
+        /* vertical look pivots the eye about the boat centre at sea level at a fixed radius and
+         * tips the view by the same angle, so the boat keeps its screen position */
+        float r = hypotf(xo, k->far_height), phi0 = atan2f(k->far_height, xo);
+        float phi = clampf(phi0 + look, fminf(phi0, asinf(fminf(MIN_EYE / r, 1.0f))),
+                           fmaxf(phi0, deg2rad(85.0f)));   /* zero look always frames as configured */
+        xo = -r * cosf(phi);
+        eye = r * sinf(phi);
+        trail_pitch -= phi - phi0;
+        look = 0.0f;
     }
     if (c->trail) side = 0.0f;
     c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
     c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
-    c->height = (c->trail ? k->far_height : k->height) + k->heave_gain * b->heave;
+    c->height = eye + k->heave_gain * b->heave;
 
     c->yaw = wrap_pi(b->heading + g->ctl.camera_yaw);
 
     float limit = deg2rad(k->roll_limit_deg);
     c->roll = approach(c->roll, clampf(b->heel, -limit, limit), k->roll_smooth, dt);
     /* trailing view looks down at the boat so the hull sits above the status panel */
-    c->pitch = approach(c->pitch, k->pitch_gain * b->pitch + trail_pitch, k->pitch_smooth, dt);
+    c->pitch = approach(c->pitch, k->pitch_gain * b->pitch + trail_pitch + look, k->pitch_smooth, dt);
 
     c->deck_roll = b->heel;
     c->deck_pitch = b->pitch;

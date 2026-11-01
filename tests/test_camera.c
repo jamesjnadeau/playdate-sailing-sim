@@ -239,6 +239,48 @@ static void test_trail_dist_overrides_solved_distance(void) {
     T_NEAR(sy, 124.0, 1.0);
 }
 
+static float eye_radius(void) {
+    return hypotf(hypotf((float)(cp.x - g.b.x), (float)(cp.y - g.b.y)), cp.height);
+}
+static float boat_sy(void) {
+    float sx, sy;
+    camera_project(&cp, g.b.x, g.b.y, 0, &sx, &sy, NULL);
+    return sy;
+}
+
+static void test_trailing_pitch_keeps_distance_and_boat_screen_position(void) {
+    fresh(); cp.trail = true;
+    settle();
+    float r0 = eye_radius(), sy0 = boat_sy(), h0 = cp.height, p0 = cp.pitch;
+    g.ctl.camera_pitch = 0.5f;
+    settle();
+    T_NEAR(eye_radius(), r0, 0.02);
+    T_ASSERT(cp.height > h0);
+    T_ASSERT(cp.pitch < p0);
+    T_NEAR(boat_sy(), sy0, 0.5);
+}
+
+static void test_trailing_pitch_down_keeps_eye_above_water(void) {
+    fresh(); cp.trail = true;
+    g.ctl.camera_pitch = -deg2rad(bc.camera.pitch_range_deg);
+    settle();
+    T_ASSERT(cp.height >= 0.5f);
+}
+
+static void test_near_pitch_looks_up_and_down(void) {
+    fresh(); cp.trail = false;
+    settle();
+    float p0 = cp.pitch, h0 = cp.height;
+    g.ctl.camera_pitch = 0.3f;
+    settle();
+    T_NEAR(cp.pitch - p0, 0.3, 1e-3);
+    T_NEAR(cp.height, h0, 1e-4);
+    g.ctl.camera_pitch = -0.3f;
+    settle();
+    T_NEAR(cp.pitch - p0, -0.3, 1e-3);
+    T_NEAR(cp.height, h0, 1e-4);
+}
+
 int main(void) {
     T_RUN(test_mark_ahead_is_on_screen);
     T_RUN(test_mark_far_starboard_goes_to_right_edge);
@@ -247,6 +289,9 @@ int main(void) {
     T_RUN(test_mark_view_bottom_bound);
     T_RUN(test_trailing_view_sits_far_aft_and_higher);
     T_RUN(test_roll_clamped_deck_roll_full);
+    T_RUN(test_trailing_pitch_keeps_distance_and_boat_screen_position);
+    T_RUN(test_trailing_pitch_down_keeps_eye_above_water);
+    T_RUN(test_near_pitch_looks_up_and_down);
     T_RUN(test_small_heel_passes_through);
     T_RUN(test_trailing_view_frames_mast_and_hull_with_margin);
     T_RUN(test_smoothing_is_gradual_and_finite_on_odd_dt);

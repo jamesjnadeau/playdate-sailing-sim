@@ -83,7 +83,7 @@ static const Field SAIL_F[] = {
     FT(SailCfg, cl, SAIL_CL),
     FT(SailCfg, cd, SAIL_CD),
     FF(SailCfg, luff_aoa_deg, 4, 0, 20),
-    FF(SailCfg, luff_drag, 0.15f, 0, 2),
+    FF(SailCfg, luff_drag, 0.05f, 0, 2),
     FF(SailCfg, flutter_hz, 6, 0, 30),
     FF(SailCfg, slot_gain, 0, 0, 1),
     FF(SailCfg, awa_min_deg, 0, 0, 180),

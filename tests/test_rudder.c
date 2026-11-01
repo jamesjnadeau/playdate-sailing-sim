@@ -153,9 +153,20 @@ static void check_tack(const char *name, const BoatCfg *c) {
     float limit = balance_closehauled_limit_deg(c);
     head_up_checks(name, c, limit < 30.0f ? 45.0f : limit + 15.0f, true, false, 10.0f);
 }
+/* Light and moderate air: the boat is slow, so the rudder has little flow and the sails still push. */
+static void check_tack_3(const char *name, const BoatCfg *c) {
+    float limit = balance_closehauled_limit_deg(c);
+    head_up_checks(name, c, limit < 30.0f ? 45.0f : limit + 15.0f, true, false, 3.0f);
+}
+static void check_tack_5(const char *name, const BoatCfg *c) {
+    float limit = balance_closehauled_limit_deg(c);
+    head_up_checks(name, c, limit < 30.0f ? 45.0f : limit + 15.0f, true, false, 5.0f);
+}
 static void check_beam_reach(const char *name, const BoatCfg *c) { head_up_checks(name, c, 90.0f, false, false, 10.0f); }
 
 static void test_full_lock_reaches_closehauled_limit(void) { for_each_boat(check_tack); }
+static void test_tack_in_light_air(void) { for_each_boat(check_tack_3); }
+static void test_tack_in_moderate_air(void) { for_each_boat(check_tack_5); }
 static void test_full_lock_heads_up_from_beam_reach(void) { for_each_boat(check_beam_reach); }
 
 static void test_tp52_choppy(void) {
@@ -298,6 +309,8 @@ int main(void) {
     T_RUN(test_rudder_force_monotone_in_wheel);
     T_RUN(test_weather_helm_in_band);
     T_RUN(test_full_lock_reaches_closehauled_limit);
+    T_RUN(test_tack_in_light_air);
+    T_RUN(test_tack_in_moderate_air);
     T_RUN(test_full_lock_heads_up_from_beam_reach);
     T_RUN(test_tp52_choppy);
     T_RUN(test_stopped_boat_does_not_spin);

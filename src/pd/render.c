@@ -75,10 +75,14 @@ static void foam_poly4(PlaydateAPI *pd, const int p[8], int level) {
 /* A foam stroke between two screen points: a dithered band about `w` px wide instead of a white line. */
 static void foam_stroke(PlaydateAPI *pd, int x0, int y0, int x1, int y1, float w, int level) {
     float dx = (float)(x1 - x0), dy = (float)(y1 - y0), len = sqrtf(dx * dx + dy * dy);
-    float nx = 0.0f, ny = w * 0.5f;
-    if (len > 0.5f) { nx = -dy / len * w * 0.5f; ny = dx / len * w * 0.5f; }
-    int p[8] = { (int)(x0 + nx), (int)(y0 + ny), (int)(x1 + nx), (int)(y1 + ny),
-                 (int)(x1 - nx), (int)(y1 - ny), (int)(x0 - nx), (int)(y0 - ny) };
+    float nx = 0.0f, ny = w * 0.5f, ex = 0.0f, ey = 0.0f;
+    if (len > 0.5f) {
+        nx = -dy / len * w * 0.5f; ny = dx / len * w * 0.5f;
+        ex = dx / len * w * 0.5f; ey = dy / len * w * 0.5f;     /* run past each end so neighbouring strokes overlap, not gap */
+    }
+    float ax = x0 - ex, ay = y0 - ey, bx = x1 + ex, by = y1 + ey;
+    int p[8] = { (int)lroundf(ax + nx), (int)lroundf(ay + ny), (int)lroundf(bx + nx), (int)lroundf(by + ny),
+                 (int)lroundf(bx - nx), (int)lroundf(by - ny), (int)lroundf(ax - nx), (int)lroundf(ay - ny) };
     foam_poly4(pd, p, level);
 }
 
@@ -975,7 +979,7 @@ static void draw_panel(PlaydateAPI *pd, const Ctx *k, const HgPt *in, int n, LCD
     pd->graphics->fillPolygon(v, q, fill, kPolygonFillNonZero);
     for (int i = 0; i < v; i++) {
         int j = (i + 1) % v;
-        if (foam_edge[i]) foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 3.0f, 3);
+        if (foam_edge[i]) foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 4.0f, 5);
         else pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], lw, kColorBlack);
     }
 }
@@ -1140,7 +1144,7 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         for (int i = 0; i + 1 < top; i++)   /* gunwale */
             pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, kColorBlack);
         for (int i = top; i + 1 < m; i++)   /* waterline: foam */
-            foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 3.0f, 3);
+            foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 4.0f, 5);
         pd->graphics->drawLine(q[0], q[1], q[2 * (m - 1)], q[2 * (m - 1) + 1], 1, kColorBlack);                  /* stem */
         pd->graphics->drawLine(q[2 * (top - 1)], q[2 * (top - 1) + 1], q[2 * top], q[2 * top + 1], 1, kColorBlack);   /* stern */
     }
@@ -1158,7 +1162,7 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         draw_panel(pd, &k, tr, 4, side_col, 1);
         float ax, ay, bx, by;
         if (hidden == 0 && rel_pt(&k, xs, tr[2].l, tr[2].z, &ax, &ay) && rel_pt(&k, xs, tr[3].l, tr[3].z, &bx, &by))
-            foam_stroke(pd, (int)ax, (int)ay, (int)bx, (int)by, 3.0f, 3);
+            foam_stroke(pd, (int)ax, (int)ay, (int)bx, (int)by, 4.0f, 5);
     }
     if (up) {
         draw_panel(pd, &k, deck, 2 * N, deck_col, 2);

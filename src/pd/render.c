@@ -6,6 +6,7 @@
 #include "mathx.h"
 #include "hullgeom.h"
 #include "sail.h"
+#include "wake.h"
 
 #define LEVELS 17
 #define SEA_BANDS 15
@@ -45,6 +46,30 @@ LCDColor render_pattern(int level) {
     if (level < 0) level = 0;
     if (level >= LEVELS - 1) level = LEVELS - 2;   /* level LEVELS-1 is solid black: never used as a dither shade */
     return (LCDColor)pats[level];
+}
+
+static LCDPattern foam_pats[LEVELS];
+static int foam_ready;
+
+/* The render_pattern dither with its mask set to the colour bits: only the white pixels draw, so foam
+ * stipples over the sea instead of painting black dots into it. */
+static LCDColor foam_pattern(int level) {
+    if (!foam_ready) {
+        render_pattern(0);                                   /* make sure pats[] is built */
+        for (int l = 0; l < LEVELS; l++)
+            for (int y = 0; y < 8; y++) {
+                foam_pats[l][y] = pats[l][y];
+                foam_pats[l][8 + y] = pats[l][y];
+            }
+        foam_ready = 1;
+    }
+    if (level < 0) level = 0;
+    if (level >= LEVELS - 1) level = LEVELS - 2;
+    return (LCDColor)foam_pats[level];
+}
+
+static void foam_poly4(PlaydateAPI *pd, const int p[8], int level) {
+    pd->graphics->fillPolygon(4, (int *)p, foam_pattern(level), kPolygonFillNonZero);
 }
 
 static uint32_t hash32(uint32_t x) {
@@ -632,63 +657,92 @@ static bool deck_faces_eye(const Game *g, const CameraPose *c) {
 }
 
 /* Foam where the hull meets the water, a bow wave peeling off the stem and a wake that
- * widens and fades astern. Strength follows speed; heel lifts one rail and buries the other. */
+ * widens and fades astern. Strength follows speed; heel lifts one rail and buries the other.
+ * All of it is a masked dither, so it reads as sea foam rather than a white line. */
 static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const BoatState *b = &g->b;
     float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam;
     float sp = fabsf(b->u);
     float k = clampf(sp / 4.0f, 0.0f, 1.0f);
-    float sx, sy, px, py;
     enum { N = 9 };
 
-    /* waterline ring: where the heeled hull actually meets the sea, thicker on the buried (leeward) side */
+    /* waterline ring: a band hugging the heeled hull where it meets the sea, denser on the buried (leeward) side */
     Ctx hk = { pd, g, c };
     float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
     int hidden = far_side(g, c);                             /* its ring is behind the hull */
     for (int side = -1; side <= 1; side += 2) {
         if (side == hidden) continue;
         float bury = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
-        int thick = 1 + (int)(bury * 2.0f + k * 1.0f);
+        int level = 1 + (int)((1.0f - bury) * 3.0f);
+        float outer = 1.08f + 0.2f * bury + 0.1f * k;
         bool have = false;
+        float ix = 0, iy = 0, ox = 0, oy = 0;
         for (int i = 0; i < N; i++) {
-            float x, y, z;
-            if (!side_wl(g, side, (float)i / (N - 1), 1.08f, &x, &y, &z) || !boat_pt(&hk, x, y, z, &sx, &sy)) { have = false; continue; }
-            if (have) pd->graphics->drawLine((int)px, (int)py, (int)sx, (int)sy, thick, kColorWhite);
-            px = sx; py = sy; have = true;
+            float x, y, z, x2, y2, z2, nix, niy, nox, noy;
+            float u = (float)i / (N - 1);
+            if (!side_wl(g, side, u, 1.0f, &x, &y, &z) || !boat_pt(&hk, x, y, z, &nix, &niy) ||
+                !side_wl(g, side, u, outer, &x2, &y2, &z2) || !boat_pt(&hk, x2, y2, z2, &nox, &noy)) { have = false; continue; }
+            if (have) {
+                int p[8] = { (int)ix, (int)iy, (int)ox, (int)oy, (int)nox, (int)noy, (int)nix, (int)niy };
+                foam_poly4(pd, p, level);
+            }
+            ix = nix; iy = niy; ox = nox; oy = noy; have = true;
         }
     }
-    float tx, ty, x0, y0, z0, x1, y1, z1;                    /* foam across the transom */
+    float x0, y0, z0, x1, y1, z1, ax, ay, bx, by, cx, cy, dx, dy;   /* foam across the transom, spilling aft */
     if (hidden == 0 && side_wl(g, -1, 1.0f, 1.0f, &x0, &y0, &z0) && side_wl(g, 1, 1.0f, 1.0f, &x1, &y1, &z1) &&
-        boat_pt(&hk, x0, y0, z0, &px, &py) && boat_pt(&hk, x1, y1, z1, &tx, &ty))
-        pd->graphics->drawLine((int)px, (int)py, (int)tx, (int)ty, 1, kColorWhite);
+        boat_pt(&hk, x0, y0, z0, &ax, &ay) && boat_pt(&hk, x1, y1, z1, &bx, &by) &&
+        boat_pt(&hk, x1 - 0.3f, y1, z1, &cx, &cy) && boat_pt(&hk, x0 - 0.3f, y0, z0, &dx, &dy)) {
+        int p[8] = { (int)ax, (int)ay, (int)bx, (int)by, (int)cx, (int)cy, (int)dx, (int)dy };
+        foam_poly4(pd, p, 2);
+    }
 
     if (sp < 0.5f) return;
 
-    /* bow wave: two crests sweeping back and out from the stem, with a rippling edge */
+    /* bow wave: two crests sweeping back and out from the stem, each a ribbon of foam with a rippling edge */
     float reach = 0.8f + 2.2f * k, spread = 0.25f + 0.9f * k;
     uint32_t frame = (uint32_t)(g->t * 12.0);
     for (int side = -1; side <= 1; side += 2) {
         bool have = false;
+        float px = 0, py = 0, qx = 0, qy = 0;
         for (int i = 0; i <= 6; i++) {
             float f = (float)i / 6.0f;
             float jig = (frand(frame + i + (side > 0 ? 7 : 0), 31) - 0.5f) * 0.12f * k;
-            if (!water_pt(g, c, 0.5f * L - f * reach, side * (hb * 0.3f + f * spread + jig), &sx, &sy)) { have = false; continue; }
-            if (have) pd->graphics->drawLine((int)px, (int)py, (int)sx, (int)sy, 1, kColorWhite);
-            px = sx; py = sy; have = true;
+            float lat = side * (hb * 0.3f + f * spread + jig);
+            float w = (0.10f + 0.30f * k) * (1.0f - 0.5f * f);
+            float nx, ny, mx, my;
+            if (!water_pt(g, c, 0.5f * L - f * reach, lat, &nx, &ny) ||
+                !water_pt(g, c, 0.5f * L - f * reach, lat + side * w, &mx, &my)) { have = false; continue; }
+            if (have) {
+                int p[8] = { (int)px, (int)py, (int)qx, (int)qy, (int)mx, (int)my, (int)nx, (int)ny };
+                foam_poly4(pd, p, 1 + (int)(f * 7.0f));
+            }
+            px = nx; py = ny; qx = mx; qy = my; have = true;
         }
     }
 
-    /* wake: ripples spaced astern that spread and thin out, shifting back with time */
+    /* wake: ripples spaced astern that spread and thin out, shifting back with time. Past wake_fade_m
+     * each ripple splits in the middle into two lines whose ends shrink away toward the hull. */
     int rings = 6;
     float phase = fmodf((float)g->t * (0.4f + 0.3f * k), 1.0f);
+    float fade = wake_fade_start(g->boat.look.wake_fade_m);
+    float depth = 0.25f + 0.35f * k;
     for (int i = 0; i < rings; i++) {
         float f = ((float)i + phase) / rings;                /* 0 at the transom .. 1 far astern */
-        float back = -0.5f * L - f * (3.0f + 6.0f * k);
+        float back = -0.5f * L - f * wake_length(k);
         float half = hb * (0.6f + f * (1.4f + 1.5f * k));
         if (frand(i + (uint32_t)(g->t * 3.0), 41) < f * 0.6f) continue;   /* breaks up with distance */
-        float ax, ay, bx, by;
-        if (!water_pt(g, c, back, -half, &ax, &ay) || !water_pt(g, c, back, half, &bx, &by)) continue;
-        pd->graphics->drawLine((int)ax, (int)ay, (int)bx, (int)by, 1, kColorWhite);
+        float lo, hi;
+        if (!wake_segment(f, fade, half, &lo, &hi)) continue;
+        int level = 2 + (int)(f * 10.0f);
+        if (level > 14) level = 14;
+        for (int s = -1; s <= 1; s += 2) {
+            float ex, ey, fx, fy, gx, gy, hx, hy;
+            if (!water_pt(g, c, back, s * lo, &ex, &ey) || !water_pt(g, c, back, s * hi, &fx, &fy) ||
+                !water_pt(g, c, back - depth, s * hi, &gx, &gy) || !water_pt(g, c, back - depth, s * lo, &hx, &hy)) continue;
+            int p[8] = { (int)ex, (int)ey, (int)fx, (int)fy, (int)gx, (int)gy, (int)hx, (int)hy };
+            foam_poly4(pd, p, level);
+        }
     }
 }
 

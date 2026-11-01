@@ -8,6 +8,7 @@
 #define AVERAGE_S 5.0f
 #define SETTLED_RATE 0.02f      /* rad/s */
 #define HOLD_TWA_DEG 45.0f
+#define PIN_S 12.0f             /* heading pinned while speed and heel build, so the start-up transient cannot round the boat up */
 
 float balance_closehauled_limit_deg(const BoatCfg *c) {
     float lim = 0.0f;
@@ -42,7 +43,9 @@ bool balance_weather_helm_deg(const BoatCfg *c, float *rudder_deg) {
     /* PD plus a slow integral on heading: the integral ends up holding the wheel the boat needs */
     float integ = 0.0f, wheel_sum = 0.0f, rate_sum = 0.0f;
     int n = (int)((SETTLE_S + AVERAGE_S) / SIM_DT), avg_from = (int)(SETTLE_S / SIM_DT), avg_n = 0;
+    const int pin_n = (int)(PIN_S / SIM_DT);
     for (int i = 0; i < n; i++) {
+        if (i < pin_n) { b.heading = target; b.r = 0.0f; }
         float err = wrap_pi(target - b.heading);
         integ = clampf(integ + 0.05f * err * SIM_DT, -1.0f, 1.0f);
         in.wheel_target = clampf(2.5f * err - 1.5f * b.r + integ, -1.0f, 1.0f);
@@ -51,6 +54,6 @@ bool balance_weather_helm_deg(const BoatCfg *c, float *rudder_deg) {
         if (i >= avg_from) { wheel_sum += b.wheel; rate_sum += fabsf(b.r); avg_n++; }
     }
     if (avg_n == 0 || rate_sum / avg_n > SETTLED_RATE) return false;
-    *rudder_deg = wheel_sum / avg_n * c->foils.rudder_max_deg;
+    *rudder_deg = -wheel_sum / avg_n * c->foils.rudder_max_deg;   /* positive wheel heads up, so weather helm is minus the held wheel */
     return true;
 }

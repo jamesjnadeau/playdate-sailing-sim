@@ -15,8 +15,9 @@ bool balance_is_fore_and_aft(const BoatCfg *c);
 
 /* Flat water, 10 m/s true wind, auto-trim on, heading held at 45 deg TWA with wind on the
  * starboard side. After 30 s the settled wheel angle, as rudder degrees (wheel * rudder_max_deg),
- * is averaged over 5 s. Positive means the rudder is set to windward (turns the bow toward the
- * wind). False, with *rudder_deg untouched, when the rig is not fore-and-aft or the yaw rate
+ * is averaged over 5 s. Positive means weather helm: the rudder must be held to leeward (wheel
+ * turns the bow away from the wind) to keep the heading, so a released boat rounds up. Negative
+ * is lee helm: a released boat bears away. False, with *rudder_deg untouched, when the rig is not fore-and-aft or the yaw rate
  * has not settled below 0.02 rad/s. */
 bool balance_weather_helm_deg(const BoatCfg *c, float *rudder_deg);
 

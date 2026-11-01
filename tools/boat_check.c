@@ -4,7 +4,7 @@
  *
  * Prints "<file>: ok" or "<file>: <message>" per file; exits 1 if any file is unreadable, too big
  * for the game's 16 KB read buffer, makes boatcfg_load report a warning, or (fore-and-aft rigs
- * only) holds close-hauled with lee helm or more than 8 deg of weather helm. */
+ * only) has lee helm, under 1 deg of weather helm or more than 8 deg of weather helm. */
 #include "balance.h"
 #include "boatcfg.h"
 #include <stdio.h>
@@ -51,7 +51,8 @@ int main(int argc, char **argv) {
                 continue;
             }
             if (helm < 1.0f || helm > 8.0f) {
-                printf("%s: weather helm %.1f deg is outside 1-8 (sail ce_x, board_x or rudder size)\n", argv[i], helm);
+                printf("%s: %s %.1f deg (want 1-8 deg of weather helm: sail ce_x, board_x or rudder size)\n", argv[i],
+                       helm < 0 ? "lee helm" : "weather helm", helm);
                 bad = 1;
                 continue;
             }

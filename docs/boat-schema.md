@@ -20,7 +20,7 @@ ignored (default kept) with a warning.
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth wake_fade_m` |
 | `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate` |
 
-`foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force. While the floor is raising the flow (boat slower than `rudder_min_flow`) with the helm turned, the HUD shows a "RUDDER ASSIST: LOW SPEED" banner.
+`foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force. While the floor supplies most of the flow (boat slower than half of `rudder_min_flow`) with the helm clearly turned, the HUD shows a "RUDDER ASSIST: LOW SPEED" banner.
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws
@@ -58,6 +58,7 @@ The name is 1-23 characters of lowercase letters, digits, `_` and `-`, and the f
 at `.github/PULL_REQUEST_TEMPLATE/boat.md`.
 
 `tools/boat_check.c` also checks balance for fore-and-aft rigs: it sails the boat close-hauled in flat
-water (10 m/s wind, auto-trim on) and fails if the rudder needed to hold course is not between 1 and 8
-degrees to windward. Lee helm or heavy weather helm means moving sail `ce_x`, `board_x` or the rudder
-size. Square rigs are not checked.
+water (10 m/s wind, auto-trim on) and fails unless the boat has between 1 and 8
+degrees of weather helm: the rudder must be held that far to leeward to keep the course, so a released
+boat rounds up. Lee helm (a released boat bears away) or heavy weather helm means moving sail `ce_x`,
+`board_x` or the rudder size. Square rigs are not checked.

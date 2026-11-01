@@ -46,10 +46,13 @@ static void run_step(Run *r) {
     r->t += SIM_DT;
 }
 
-/* Run settled on a heading for `settle` seconds with a PD steer, so the full-lock cases start steady. */
+/* Run settled on a heading for `settle` seconds with a PD steer, so the full-lock cases start steady.
+ * The heading is pinned for the first PIN_S seconds (as balance.c does): the boat starts upright and
+ * its heel overshoot would otherwise round it up before the steer could react. */
 static void run_settle(Run *r, float secs) {
     float target = r->b.heading;
     for (int i = 0; i < (int)(secs / SIM_DT); i++) {
+        if (i < (int)(12.0f / SIM_DT)) { r->b.heading = target; r->b.r = 0.0f; }
         r->in.wheel_target = clampf(2.5f * wrap_pi(target - r->b.heading) - 1.5f * r->b.r, -1, 1);
         run_step(r);
     }
@@ -199,8 +202,10 @@ static float peak_turn_rate(const BoatCfg *c, float u, float secs) {
 static void check_stopped(const char *name, const BoatCfg *c) {
     float stopped = peak_turn_rate(c, 0.0f, 3.0f);
     float cruising = peak_turn_rate(c, 0.5f * c->hull.hull_speed, 3.0f);
-    fprintf(stderr, "%s: peak r stopped %.3f cruising %.3f rad/s\n", name, stopped, cruising);
+    float creeping = peak_turn_rate(c, 0.1f * c->hull.hull_speed, 3.0f);
+    fprintf(stderr, "%s: peak r stopped %.3f creeping %.3f cruising %.3f rad/s\n", name, stopped, creeping, cruising);
     T_ASSERT(stopped < 0.5f * cruising);
+    T_ASSERT(creeping < 0.5f * cruising);        /* not just u == 0: a slow boat must not spin either */
 }
 
 static void test_stopped_boat_does_not_spin(void) { for_each_boat(check_stopped); }
@@ -243,7 +248,28 @@ static void test_rudder_assist_reports_flow_floor(void) {
     T_ASSERT(r.b.rudder_assist > 0.3f && r.b.rudder_assist < 0.7f);
 }
 
-/* Weather helm held fixed (no steering) must not round the boat up through the wind. */
+/* Release the wheel after settling close-hauled: a balanced boat rounds up (TWA falls), it must
+ * not bear away. This pins the sign convention of balance_weather_helm_deg: positive = weather helm. */
+static void check_release_rounds_up(const char *name, const BoatCfg *c) {
+    if (!balance_is_fore_and_aft(c)) return;
+    Run r;
+    run_init(&r, c, 45.0f, 10.0f);
+    run_settle(&r, 30.0f);
+    float start = twa_of(&r.b);
+    for (int i = 0; i < (int)(10.0f / SIM_DT); i++) {
+        r.in.wheel_target = 0.0f;
+        run_step(&r);
+    }
+    float end = twa_of(&r.b);
+    fprintf(stderr, "%s: released wheel, TWA %.1f -> %.1f deg\n", name, start * 57.2958f, end * 57.2958f);
+    T_ASSERT(end < start - D(2));
+}
+
+static void test_released_wheel_rounds_up(void) { for_each_boat(check_release_rounds_up); }
+
+/* The settled weather-helm wheel, held fixed (no steering), must hold the boat close-hauled: it
+ * neither rounds up through the wind nor bears away. Wheel positive turns the bow toward the wind,
+ * so the wheel that holds a boat with weather helm is minus the reported helm. */
 static void check_holds_without_broaching(const char *name, const BoatCfg *c) {
     if (!balance_is_fore_and_aft(c)) return;
     float deg = 0;
@@ -253,7 +279,7 @@ static void check_holds_without_broaching(const char *name, const BoatCfg *c) {
     run_settle(&r, 30.0f);
     float start = r.b.heading, worst = 0;
     bool through = false;
-    r.in.wheel_target = deg / c->foils.rudder_max_deg;
+    r.in.wheel_target = -deg / c->foils.rudder_max_deg;
     for (int i = 0; i < (int)(60.0f / SIM_DT); i++) {
         run_step(&r);
         float drift = fabsf(wrap_pi(r.b.heading - start));
@@ -277,6 +303,7 @@ int main(void) {
     T_RUN(test_stopped_boat_does_not_spin);
     T_RUN(test_steering_astern_unchanged);
     T_RUN(test_rudder_assist_reports_flow_floor);
+    T_RUN(test_released_wheel_rounds_up);
     T_RUN(test_closehauled_holds_without_broaching);
     return T_DONE();
 }

@@ -148,7 +148,7 @@ static void test_moderate_wind_does_not_capsize(void) {
 static void test_strong_wind_heel_is_limited(void) {
     Sim s; sim_init(&s, 45, 25 * KN, 1.0f);
     run(&s, 60);
-    T_ASSERT(fabsf(s.b.heel) < D(32));
+    T_ASSERT(fabsf(s.b.heel) < D(36));   /* dinghy now holds its course (weather helm) instead of bearing away, so it heels a little more */
     T_ASSERT(fabsf(s.b.heel) < D(s.cfg.hull.capsize_deg));   /* not capsized */
 }
 

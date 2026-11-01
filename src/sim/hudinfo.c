@@ -40,5 +40,5 @@ void hud_fmt_mark(const char *name, int index, int total, double dist_m, char *o
 
 const char *hud_assist_text(float rudder_assist, float wheel) {
     if (!isfinite(rudder_assist) || !isfinite(wheel)) return NULL;
-    return rudder_assist > 0.1f && fabsf(wheel) > 0.05f ? "RUDDER ASSIST: LOW SPEED" : NULL;
+    return rudder_assist > 0.5f && fabsf(wheel) > 0.1f ? "RUDDER ASSIST: LOW SPEED" : NULL;
 }

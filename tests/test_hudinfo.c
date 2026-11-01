@@ -79,11 +79,16 @@ static void test_fmt_mark(void) {
 }
 
 static void test_assist_text_only_when_flow_floor_helps_and_wheel_turned(void) {
-    T_ASSERT(hud_assist_text(0.5f, 0.5f) != NULL);
-    T_ASSERT(strstr(hud_assist_text(0.5f, -0.5f), "RUDDER ASSIST") != NULL);
+    T_ASSERT(hud_assist_text(0.8f, 0.5f) != NULL);
+    T_ASSERT(strstr(hud_assist_text(0.8f, -0.5f), "RUDDER ASSIST") != NULL);
     T_ASSERT(hud_assist_text(0.0f, 1.0f) == NULL);      /* real flow is enough */
     T_ASSERT(hud_assist_text(0.05f, 1.0f) == NULL);     /* floor barely contributing */
+    T_ASSERT(hud_assist_text(0.3f, 1.0f) == NULL);      /* floor still a minor part of the flow */
+    T_ASSERT(hud_assist_text(0.5f, 1.0f) == NULL);      /* exactly half is not "mostly the floor" */
     T_ASSERT(hud_assist_text(0.9f, 0.0f) == NULL);      /* helm centred: nothing to assist */
+    T_ASSERT(hud_assist_text(0.9f, 0.08f) == NULL);     /* wheel barely off centre */
+    T_ASSERT(hud_assist_text(0.9f, -0.08f) == NULL);
+    T_ASSERT(hud_assist_text(0.9f, 0.15f) != NULL);
     T_ASSERT(hud_assist_text(NAN, 1.0f) == NULL);
     T_ASSERT(hud_assist_text(0.9f, NAN) == NULL);
 }

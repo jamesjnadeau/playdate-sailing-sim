@@ -3,7 +3,9 @@
  *   boat_check <file.json>...
  *
  * Prints "<file>: ok" or "<file>: <message>" per file; exits 1 if any file is unreadable, too big
- * for the game's 16 KB read buffer, or makes boatcfg_load report a warning. */
+ * for the game's 16 KB read buffer, makes boatcfg_load report a warning, or (fore-and-aft rigs
+ * only) holds close-hauled with lee helm or more than 8 deg of weather helm. */
+#include "balance.h"
 #include "boatcfg.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,11 +38,25 @@ int main(int argc, char **argv) {
         char warn[512];
         warn[0] = 0;
         boatcfg_default(&cfg);
-        if (boatcfg_load(&cfg, buf, n, warn, sizeof warn)) printf("%s: ok\n", argv[i]);
-        else {
+        if (!boatcfg_load(&cfg, buf, n, warn, sizeof warn)) {
             printf("%s: %s\n", argv[i], warn[0] ? warn : "invalid");
             bad = 1;
+            continue;
         }
+        float helm = 0;
+        if (balance_is_fore_and_aft(&cfg)) {
+            if (!balance_weather_helm_deg(&cfg, &helm)) {
+                printf("%s: could not settle close-hauled\n", argv[i]);
+                bad = 1;
+                continue;
+            }
+            if (helm < 1.0f || helm > 8.0f) {
+                printf("%s: weather helm %.1f deg is outside 1-8 (sail ce_x, board_x or rudder size)\n", argv[i], helm);
+                bad = 1;
+                continue;
+            }
+        }
+        printf("%s: ok\n", argv[i]);
     }
     return bad;
 }

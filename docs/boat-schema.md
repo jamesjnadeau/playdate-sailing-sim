@@ -56,3 +56,8 @@ The name is 1-23 characters of lowercase letters, digits, `_` and `-`, and the f
 16 KB. The menu lists `sunfish` first, then the rest alphabetically, up to 16 boats. Set
 `"boat_class": 1` for a cruiser, which is free range only. A pull request template for boats lives
 at `.github/PULL_REQUEST_TEMPLATE/boat.md`.
+
+`tools/boat_check.c` also checks balance for fore-and-aft rigs: it sails the boat close-hauled in flat
+water (10 m/s wind, auto-trim on) and fails if the rudder needed to hold course is not between 1 and 8
+degrees to windward. Lee helm or heavy weather helm means moving sail `ce_x`, `board_x` or the rudder
+size. Square rigs are not checked.

@@ -28,6 +28,7 @@
 - A close-hauled boat holding a steady wheel (and the autopilot) must hold course without rounding up or broaching. Pinned in Task 4.
 - The longship (square rig, `awa_min_deg` 55) is judged against its own close-hauled limit and its tack is skipped; the check must not fail or loop on it. Pinned in Task 1.
 - Boat files with no sails, only a spinnaker, or odd rigs must not crash or hang the balance function. Pinned in Task 1.
+- The assist warning must not appear for autopilot or autotrim use, at cruising speed, or with a centred wheel. Pinned in Task 3b.
 - Gusts and chop must not stop a tack from completing (TP52 in CHOPPY with `sea_hull_forces`). Pinned in Task 1.
 
 ---
@@ -40,6 +41,7 @@
 - Modify `src/sim/boatcfg.h`, `src/sim/boatcfg.c`: `rudder_min_flow`.
 - Modify `boats/{sunfish,dinghy,j24,tp52,longship}.json`: retune.
 - Modify `tools/boat_check.c`: balance warning.
+- Modify `src/sim/boat.h`, `src/sim/hudinfo.h` and `src/pd/hud.c`: the assist warning (Task 3b).
 - Modify `docs/boat-schema.md`.
 
 ---
@@ -104,6 +106,29 @@
 - [ ] **Step 4: Document `foils.rudder_min_flow` in `docs/boat-schema.md`** (the `foils` row at line 17 plus a sentence on the default).
 - [ ] **Step 5: Run `make -C tests test`**. Expected: new tests pass; the tack and head-up tests move toward passing. If the spin test fails, lower the 15 % default until it holds.
 - [ ] **Step 6: Commit** `feat: rudder_min_flow keeps a slow boat steerable`
+
+### Task 3b: On-screen warning while the rudder flow floor is helping
+
+Requested by the user after the plan was approved: show a warning on screen when the player is being helped, saying how. Only the new rudder flow floor counts; autopilot and autotrim already show their icons and are **not** part of this warning.
+
+**Files:**
+- Modify: `src/sim/boat.h` (`BoatState`), `src/sim/boat.c`, `src/sim/hudinfo.h`, `src/sim/hudinfo.c` (create if the HUD helpers live elsewhere; follow where `hud_shows_nav` is defined), `src/pd/hud.c`, `tests/test_hudinfo.c`, `tests/test_rudder.c`, `docs/boat-schema.md`
+
+**Interfaces:**
+- Consumes: `FoilCfg.rudder_min_flow` from Task 3.
+- Produces:
+  - `BoatState.rudder_assist` (`float`, 0..1, derived each step like `helm_load`): `0` when the rudder's real flow `sqrtf(u*u + vr*vr)` is at or above `rudder_min_flow`, else `1 - flow / rudder_min_flow`.
+  - `const char *hud_assist_text(float rudder_assist, float wheel)` in `hudinfo.h`: returns `"RUDDER ASSIST: LOW SPEED"` when `rudder_assist > 0.1f` **and** `fabsf(wheel) > 0.05f` (the wheel is actually being turned, so a drifting boat with a centred wheel does not nag); otherwise `NULL`. Non-finite inputs give `NULL`.
+- In `hud_draw` (`src/pd/hud.c`): when the text is non-NULL, draw it centred in a white-on-black inverted bar directly above the status bar (`top - 16`, height 14), inside the camera area, so it does not cover the one-row HUD.
+
+- [ ] **Step 1: Write failing tests**
+  - `tests/test_hudinfo.c`: `test_assist_text_only_when_flow_floor_helps_and_wheel_turned`: `hud_assist_text(0.5f, 0.5f)` equals `"RUDDER ASSIST: LOW SPEED"`; `(0.0f, 0.5f)`, `(0.5f, 0.0f)`, `(0.05f, 0.5f)`, `(NAN, 0.5f)`, `(0.5f, NAN)` all return `NULL`.
+  - `tests/test_rudder.c`: `test_rudder_assist_reports_flow_floor`: for each boat, at `u = 0.5 * hull_speed` after one `boat_step` `rudder_assist == 0`; at `u = v = r = 0` it is `> 0.9`.
+- [ ] **Step 2: Run, confirm they fail.**
+- [ ] **Step 3: Implement the field in `boat_step`, `hud_assist_text`, and the `hud_draw` banner.**
+- [ ] **Step 4: Document `rudder_assist` under the flow-floor note in `docs/boat-schema.md`** (one sentence: the HUD warns while the floor is raising the rudder's flow).
+- [ ] **Step 5: Run `make -C tests test`**, then check the banner by hand in the simulator (use the `run` skill): a stopped boat with the wheel turned shows it, a boat at cruising speed does not, and turning autopilot or autotrim on does not show it.
+- [ ] **Step 6: Commit** `feat: warn on screen while the rudder flow floor is helping`
 
 ### Task 4: Weather-helm retune of the boat files
 

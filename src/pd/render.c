@@ -666,8 +666,8 @@ static bool deck_faces_eye(const Game *g, const CameraPose *c) {
     return hull_deck_faces_eye(b->heel, lat, c->height - b->heave);
 }
 
-/* Foam where the hull meets the water, a bow wave peeling off the stem and a wake that
- * widens and fades astern. Strength follows speed; heel lifts one rail and buries the other.
+/* Foam where the hull meets the water and a wake that widens and fades astern. The hull foam rides
+ * with the boat; the bow wave is not drawn as a separate sea-level line, which hung in place as the hull heaved. Strength follows speed; heel lifts one rail and buries the other.
  * All of it is a masked dither, so it reads as sea foam rather than a white line. */
 static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const BoatState *b = &g->b;
@@ -708,28 +708,6 @@ static void draw_waterline(PlaydateAPI *pd, const Game *g, const CameraPose *c) 
     }
 
     if (sp < 0.5f) return;
-
-    /* bow wave: two crests sweeping back and out from the stem, each a ribbon of foam with a rippling edge */
-    float reach = 0.8f + 2.2f * k, spread = 0.25f + 0.9f * k;
-    uint32_t frame = (uint32_t)(g->t * 12.0);
-    for (int side = -1; side <= 1; side += 2) {
-        bool have = false;
-        float px = 0, py = 0, qx = 0, qy = 0;
-        for (int i = 0; i <= 6; i++) {
-            float f = (float)i / 6.0f;
-            float jig = (frand(frame + i + (side > 0 ? 7 : 0), 31) - 0.5f) * 0.12f * k;
-            float lat = side * (hb * 0.3f + f * spread + jig);
-            float w = (0.10f + 0.30f * k) * (1.0f - 0.5f * f);
-            float nx, ny, mx, my;
-            if (!water_pt(g, c, 0.5f * L - f * reach, lat, &nx, &ny) ||
-                !water_pt(g, c, 0.5f * L - f * reach, lat + side * w, &mx, &my)) { have = false; continue; }
-            if (have) {
-                int p[8] = { (int)px, (int)py, (int)qx, (int)qy, (int)mx, (int)my, (int)nx, (int)ny };
-                foam_poly4(pd, p, 1 + (int)(f * 7.0f));
-            }
-            px = nx; py = ny; qx = mx; qy = my; have = true;
-        }
-    }
 
     /* wake: ripples spaced astern that spread and thin out, shifting back with time. Past wake_fade_m
      * each ripple splits in the middle into two lines whose ends shrink away toward the hull. */

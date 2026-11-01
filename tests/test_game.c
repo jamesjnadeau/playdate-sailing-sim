@@ -333,6 +333,7 @@ static void test_free_range_unchanged(void) {
 
 static void test_b_mash_paddles_without_anchoring(void) {
     fresh(1);
+    wind_set_speed(&g.wind, &g.weather.preset[WEATHER_SUNNY], 4.0f);   /* light air, so the sails barely add */
     g.b.u = -0.5f;                         /* stuck going backwards */
     tap_b(); tap_b();
     T_ASSERT(g.paddle_left > 0.0f);

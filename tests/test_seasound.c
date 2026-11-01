@@ -319,8 +319,8 @@ static void test_no_slaps_when_stopped_or_flat(void) {
     fresh(WEATHER_STORM, 11);
     int slaps = 0;
     for (int i = 0; i < 30 * 60; i++) {
-        g.b.u = 0.0f; g.b.v = 0.0f;
         game_update(&g, 0, 0, 0, 1.0f / 30);
+        g.b.u = 0.0f; g.b.v = 0.0f;   /* after the step: a gale capsizes the sunfish and drifts it */
         seasound_update(&ss, &g, 1.0f / 30);
         if (ss.slap_ev > 0.0f) { slaps++; ss.slap_ev = 0.0f; }
     }

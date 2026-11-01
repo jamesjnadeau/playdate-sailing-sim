@@ -18,21 +18,23 @@ static const Fld FLDS[] = {
     F(shift_rate_deg, 0, 30),
     F(gust_speed, 0, 30),
     F(gust_interval, 1, 600),
-    F(wave_height, 0, 6),
+    F(wave_height, 0, 10),
     F(wave_period, 1, 20),
     F(wave_steepness, 0, 1),
     F(visibility, 20, 20000),
 };
 #define NFLD ((int)(sizeof FLDS / sizeof FLDS[0]))
 
+/* Wind from the Beaufort scale; gusts give a ~1.3-1.5 open-water gust factor.
+   Wave heights are the WMO probable height for that force, periods for a fetch-limited sea. */
 static const WeatherPreset DEFAULTS[WEATHER_PRESETS] = {
-    /* name      base var  shift gust ivl  wh    wp   steep vis */
-    { "sunny",   4,   1,   0.5f, 2,   25, 0.8f, 4.5f, 0.05f, 2000 },
-    { "cloudy",  7,   1.5f, 1,   3,   20, 0.5f, 4,   0.1f,  1200 },
-    { "mist",    3,   0.8f, 0.5f, 1.5f, 30, 0.3f, 3.5f, 0.07f, 150 },
-    { "storm",   14,  3,   2,    6,   10, 1.6f, 6,   0.25f, 400 },
-    { "hurricane", 18, 4,  2,    10,  10, 2.6f, 6,   0.45f, 400 },
-    { "choppy",  8,   1,   0.5f, 2,   25, 2.6f, 6,   0.45f, 2000 },
+    /* name        base var   shift gust  ivl  wh    wp    steep  vis */
+    { "sunny",     5,   1,    0.5f, 2,    25, 0.6f, 4,    0.05f, 2000 },  /* F3 sea breeze, ~10 kt */
+    { "cloudy",    7,   1.5f, 1,    3,    20, 1.0f, 5,    0.1f,  1200 },  /* F4, ~14 kt */
+    { "mist",      2,   0.5f, 0.5f, 0.8f, 30, 0.2f, 3,    0.07f, 150 },   /* F2, fog needs light air, ~4 kt */
+    { "storm",     20,  3,    2,    10,   10, 5.5f, 9,    0.25f, 400 },   /* F8 gale, ~39 kt, squalls to ~58 kt */
+    { "hurricane", 36,  5,    2,    12,   10, 9,    12,   0.45f, 400 },   /* Cat 1, ~70 kt, gusts to ~93 kt */
+    { "choppy",    10,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000 },  /* F5, ~19 kt, short steep sea */
 };
 
 void weather_default(WeatherCfg *out) {

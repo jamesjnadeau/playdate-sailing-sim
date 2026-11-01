@@ -176,16 +176,17 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     mark_indicator(pd, c, b->x, b->y, hypot(b->x - g->b.x, b->y - g->b.y));
 }
 
-/* Praise after a buoy is rounded: a banner under the top edge, cleared once its time is up. */
+/* Praise after a buoy is rounded: white text with a 1px black shadow under the top edge, cleared once its
+   time is up. No box behind it, so it reads over sea and sky alike. */
 void hud_praise(PlaydateAPI *pd, const Game *g) {
     if (g->praise_left <= 0.0f) return;
     const char *s = praise_text(g->praise);
-    const int w = 6 * (int)strlen(s) + 24;   /* about 6 px a character in the system font */
-    const int x = (CAM_W - w) / 2;
-    pd->graphics->fillRect(x, 24, w, 26, kColorBlack);
-    pd->graphics->drawRect(x + 3, 27, w - 6, 20, kColorWhite);
+    const int w = 6 * (int)strlen(s);   /* about 6 px a character in the system font */
+    const int x = (CAM_W - w) / 2, y = 26;
+    pd->graphics->setDrawMode(kDrawModeCopy);
+    text(pd, s, x + 1, y + 1);          /* shadow */
     pd->graphics->setDrawMode(kDrawModeFillWhite);
-    text(pd, s, x + 12, 32);
+    text(pd, s, x, y);
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 

@@ -739,8 +739,9 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
                 float off = (v - 0.5f) * s->foot;
                 float sq_bulge = s->camber * s->foot * 4.0f * v * (1.0f - v) * sinf(3.14159265f * u) * (1.0f - lufft);
                 float sq_flut = lufft > 0.1f ? sinf((float)k->g->t * s->flutter_hz * 6.2832f + u * 3.0f + v * 5.0f) * 0.1f * lufft * s->foot * v : 0.0f;
-                x = cfg->look.mast_x + off * cosf(tr) * side + sq_bulge;
-                y = off * sinf(tr) + sq_flut;
+                /* braced like a boom: the leeward yardarm goes aft, the belly fills downwind */
+                x = cfg->look.mast_x - off * cosf(tr) * side + sq_bulge * sinf(tr);
+                y = off * sinf(tr) + sq_bulge * side * cosf(tr) + sq_flut;
             }
             float z = lz + (ez - lz) * v;
             float l, up;

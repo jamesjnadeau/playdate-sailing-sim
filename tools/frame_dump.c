@@ -202,5 +202,7 @@ int main(void) {
     forced_heel("heel55_side", 55, 1.5708f);
     longship_scene("longship_reach", 90, 60, 60);
     longship_scene("longship_run", 180, 90, 60);
+    longship_scene("longship_braced_stbd", 120, 40, 60);
+    longship_scene("longship_braced_port", -120, 40, 60);
     return 0;
 }

@@ -10,10 +10,11 @@
 #include "render.h"
 
 /* Layout follows the Yacht Club menu spec: a title block on the left, a rule, the list on the right
-   and a black hint bar along the bottom. Fonts are 1-bit renders of Cormorant SC and Silkscreen made
-   by tools/make_fonts.py; if any fails to load everything falls back to the system font. */
+   and a black hint bar along the bottom. Fonts are Jersey 10 at 3x, 2x and 1x and Silkscreen, made by
+   tools/make_fonts.py; if any fails to load everything falls back to the system font. Jersey's capitals
+   are 10 px tall per 1x, starting 2 px per 1x below the cell top. */
 
-typedef struct { LCDFont *title, *bold, *semi, *bold_s, *semi_s, *label, *pixel, *sys; bool tried; } Fonts;
+typedef struct { LCDFont *title, *item, *label, *pixel, *sys; bool tried; } Fonts;
 static Fonts F;
 
 static void load_fonts(PlaydateAPI *pd) {
@@ -21,16 +22,14 @@ static void load_fonts(PlaydateAPI *pd) {
     F.tried = true;
     const char *err;
     F.sys = pd->graphics->loadFont("/System/Fonts/Asheville-Sans-14-Bold.pft", &err);
-    LCDFont **slot[] = { &F.title, &F.bold, &F.semi, &F.bold_s, &F.semi_s, &F.label, &F.pixel };
-    const char *path[] = { "fonts/CormorantSC-Bold-28", "fonts/CormorantSC-Bold-22", "fonts/CormorantSC-SemiBold-22",
-                           "fonts/CormorantSC-Bold-18", "fonts/CormorantSC-SemiBold-18", "fonts/CormorantSC-Bold-16",
-                           "fonts/Silkscreen-16" };
+    LCDFont **slot[] = { &F.title, &F.item, &F.label, &F.pixel };
+    const char *path[] = { "fonts/Jersey10-30", "fonts/Jersey10-20", "fonts/Jersey10-10", "fonts/Silkscreen-16" };
     bool ok = true;
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 4; i++) {
         *slot[i] = pd->graphics->loadFont(path[i], &err);
         if (!*slot[i]) ok = false;
     }
-    if (!ok) for (int i = 0; i < 7; i++) *slot[i] = F.sys;
+    if (!ok) for (int i = 0; i < 4; i++) *slot[i] = F.sys;
 }
 
 static void font(PlaydateAPI *pd, LCDFont *f, int tracking) {
@@ -95,8 +94,8 @@ static int wrap(PlaydateAPI *pd, char lines[2][32], const char *s, LCDFont *f, i
 #define BAR_Y 216      /* hint bar */
 #define TITLE_BASE 105 /* baseline of the title's last line */
 
-/* Eyebrow (NULL for none), a one- or two-line title, a double rule and a subtitle. A title that will not fit
-   two lines of the display face steps down through the list faces. */
+/* Eyebrow (NULL for none), a one- or two-line title, a double rule and a subtitle. The title is 3x if it fits
+   one line, else 2x on up to two lines, else 1x. */
 static void title_block(PlaydateAPI *pd, const char *eyebrow, const char *title, const char *sub) {
     const struct playdate_graphics *g = pd->graphics;
     char lines[2][32];
@@ -105,11 +104,14 @@ static void title_block(PlaydateAPI *pd, const char *eyebrow, const char *title,
         text(pd, eyebrow, TB_X, 38);
     }
 
-    /* face, tracking, cell top to baseline, line pitch */
-    struct { LCDFont *f; int tracking, base, pitch; } face[] = {
-        { F.title, 1, 21, 26 }, { F.bold, 0, 17, 21 }, { F.bold_s, 0, 14, 17 } };
+    /* face, tracking, cell top to baseline, line pitch, most lines (3x on two would reach the eyebrow) */
+    struct { LCDFont *f; int tracking, base, pitch, max; } face[] = {
+        { F.title, 0, 36, 36, 1 }, { F.item, 0, 24, 24, 2 }, { F.label, 0, 12, 13, 2 } };
     int nl = 0, i = 0;
-    for (; i < 3 && !(nl = wrap(pd, lines, title, face[i].f, face[i].tracking, TB_W)); i++) {}
+    for (; i < 3; i++) {
+        nl = wrap(pd, lines, title, face[i].f, face[i].tracking, TB_W);
+        if (nl && nl <= face[i].max) break;
+    }
     if (!nl) {
         i = 2;
         nl = 1;
@@ -126,7 +128,7 @@ static void title_block(PlaydateAPI *pd, const char *eyebrow, const char *title,
         nl = 1;
         fit(pd, lines[0], sizeof lines[0], sub, F.label, 0, TB_W);
     }
-    for (int k = 0; k < nl; k++) text(pd, lines[k], TB_X, 124 + 16 * k);
+    for (int k = 0; k < nl; k++) text(pd, lines[k], TB_X, 124 + 14 * k);
     g->fillRect(DIV_X, 36, 1, 144, kColorBlack);
 }
 
@@ -134,19 +136,20 @@ static const LCDPattern half_white = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                                        0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 };
 
 /* One list item at y: selected is a black bar with a marker, disabled is greyed by a checker.
-   small sets the whole list in the 18 px faces, which may run closer to the item's right edge. */
+   small sets the whole list at 1x, which may run closer to the item's right edge. 2x capitals fill
+   rows 2-21 so the descenders end on the bar's last row; 1x capitals sit centred. */
 static void item(PlaydateAPI *pd, const char *label, int y, bool sel, bool on, bool small) {
     const struct playdate_graphics *g = pd->graphics;
     int lx = COL_X + (sel ? 22 : 25), max = COL_X + COL_W - (small ? 2 : 8) - lx;
-    LCDFont *f = small ? (sel ? F.bold_s : F.semi_s) : (sel ? F.bold : F.semi);
-    int ty = y + (small ? 5 : 3), tracking = 0;
+    LCDFont *f = small ? F.label : F.item;
+    int ty = y + (small ? 5 : -2), tracking = 0;
     if (width(pd, f, label, 0) > max) tracking = -1;
     char buf[48];
     fit(pd, buf, sizeof buf, label, f, tracking, max);
     font(pd, f, tracking);
     if (sel) {
         g->fillRect(COL_X, y, COL_W, ITEM_H, kColorBlack);
-        g->fillTriangle(COL_X + 8, y + 8, COL_X + 8, y + 18, COL_X + 14, y + 13, kColorWhite);
+        g->fillTriangle(COL_X + 8, y + 7, COL_X + 8, y + 17, COL_X + 14, y + 12, kColorWhite);
         g->setDrawMode(kDrawModeFillWhite);
         text(pd, buf, lx, ty);
         g->setDrawMode(kDrawModeCopy);
@@ -157,12 +160,12 @@ static void item(PlaydateAPI *pd, const char *label, int y, bool sel, bool on, b
 }
 
 /* The visible window of the current list, from m->top, with arrows when more rows are off screen.
-   If any label is too wide for the 22 px bold face, the whole list steps down to 18 px. */
+   If any label is too wide at 2x, the whole list steps down to 1x. */
 static void list(PlaydateAPI *pd, const Menu *m, const char *const *labels) {
     int n = menu_rows(m), vis = n < MENU_LIST_VIS ? n : MENU_LIST_VIS;
     int h = vis * ITEM_H + (vis - 1) * ITEM_GAP, y0 = COL_MID - h / 2, cx = COL_X + COL_W / 2;
     bool small = false;
-    for (int k = 0; k < n; k++) small |= width(pd, F.bold, labels[k], 0) > COL_W - 22 - 8;
+    for (int k = 0; k < n; k++) small |= width(pd, F.item, labels[k], 0) > COL_W - 22 - 8;
     for (int i = 0; i < vis; i++) {
         int k = m->top + i;
         item(pd, labels[k], y0 + i * (ITEM_H + ITEM_GAP), k == m->sel, menu_row_enabled(m, k), small);
@@ -346,8 +349,8 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         hint_bar(pd, "SELECT", NULL, "CHOOSE");
     } else if (m->screen == MENU_PREVIEW) {
         const Track *t = &tracks[m->track];
-        font(pd, F.bold, 0);
-        text(pd, t->name, PV_L, 4);
+        font(pd, F.item, 0);
+        text(pd, t->name, PV_L, 2);
         font(pd, F.sys, 0);
         draw_preview(pd, m, t);
         text(pd, t->info, PV_L, 197);

@@ -7,6 +7,10 @@
 #define WINDOW_RAMP_DEG 5.0f
 /* CLR also shifts to leeward when heeled, so only half the CE shift is felt as weather helm */
 #define HEEL_HELM_K 0.5f
+/* past DEPOWER_START_DEG of heel the sail spills wind: lift falls by up to DEPOWER_MAX, drag does not */
+#define DEPOWER_START_DEG 20.0f
+#define DEPOWER_RANGE_DEG 25.0f
+#define DEPOWER_MAX 0.4f
 
 SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_rad,
                      float aws, float heel_rad, float slot_cl_mult) {
@@ -32,7 +36,9 @@ SailForce sail_force(const SailCfg *s, float trim_rad, float hoist, float awa_ra
     luff = luff + (1 - luff) * (1 - win);
 
     float aoa_deg = fmaxf(aoa, 0) * 180.0f / PI_F;
-    float cl = table_eval(s->cl.p, s->cl.n, aoa_deg) * slot_cl_mult * (1 - luff);
+    float heel_deg = fabsf(heel_rad) * 180.0f / PI_F;
+    float depower = 1 - DEPOWER_MAX * clampf((heel_deg - DEPOWER_START_DEG) / DEPOWER_RANGE_DEG, 0, 1);
+    float cl = table_eval(s->cl.p, s->cl.n, aoa_deg) * slot_cl_mult * (1 - luff) * depower;
     float cd = table_eval(s->cd.p, s->cd.n, aoa_deg) + luff * s->luff_drag;
 
     float q = 0.5f * RHO_AIR * aws * aws;

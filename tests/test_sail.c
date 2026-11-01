@@ -171,7 +171,34 @@ static void test_upright_has_no_heel_helm(void) {
     T_NEAR(f.yaw_moment, f.fy * s->ce_x, 1e-3f);
 }
 
+static void test_no_depower_below_20_deg(void) {
+    const SailCfg *s = main_sail();
+    SailForce f0 = sail_force(s, D(0), 1, D(15), 8, 0, 1);
+    SailForce f15 = sail_force(s, D(0), 1, D(15), 8, D(15), 1);
+    T_NEAR(f15.fy, f0.fy * cosf(D(15)) * cosf(D(15)), 1e-3f * fabsf(f0.fy));
+}
+
+static void test_depower_flattens_sail_at_40_deg(void) {
+    const SailCfg *s = main_sail();
+    SailForce f0 = sail_force(s, D(0), 1, D(15), 8, 0, 1);
+    SailForce f40 = sail_force(s, D(0), 1, D(15), 8, D(40), 1);
+    /* magnitudes: the sideways force of a heeled sail is smaller than its upright value, sign-agnostic */
+    T_ASSERT(fabsf(f40.fy) < 0.75f * fabsf(f0.fy) * cosf(D(40)) * cosf(D(40)));
+}
+
+static void test_depower_survives_extreme_heel(void) {
+    const SailCfg *s = main_sail();
+    float heels[] = { D(105), D(-105), NAN };
+    for (int i = 0; i < 3; i++) {
+        SailForce f = sail_force(s, D(0), 1, D(60), 8, heels[i], 1);
+        T_ASSERT(isfinite(f.fx) && isfinite(f.fy) && isfinite(f.heel_moment) && isfinite(f.yaw_moment));
+    }
+}
+
 int main(void) {
+    T_RUN(test_no_depower_below_20_deg);
+    T_RUN(test_depower_flattens_sail_at_40_deg);
+    T_RUN(test_depower_survives_extreme_heel);
     T_RUN(test_heel_adds_weather_helm);
     T_RUN(test_heel_helm_mirrors_on_port_tack);
     T_RUN(test_upright_has_no_heel_helm);

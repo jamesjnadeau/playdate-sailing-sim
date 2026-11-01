@@ -145,6 +145,13 @@ static void test_moderate_wind_does_not_capsize(void) {
     T_ASSERT(maxheel < D(45));
 }
 
+static void test_strong_wind_heel_is_limited(void) {
+    Sim s; sim_init(&s, 45, 25 * KN, 1.0f);
+    run(&s, 60);
+    T_ASSERT(fabsf(s.b.heel) < D(32));
+    T_ASSERT(fabsf(s.b.heel) < D(s.cfg.hull.capsize_deg));   /* not capsized */
+}
+
 static void test_sunfish_sails_without_capsizing(void) {
     Sim s; sim_init(&s, 60, 12 * KN, 1.0f);
     FILE *f = fopen("../boats/sunfish.json", "rb");
@@ -308,6 +315,7 @@ int main(void) {
     T_RUN(test_irons_no_steerage);
     T_RUN(test_capsize_in_gust);
     T_RUN(test_moderate_wind_does_not_capsize);
+    T_RUN(test_strong_wind_heel_is_limited);
     T_RUN(test_sunfish_sails_without_capsizing);
     T_RUN(test_no_nan_zero_wind);
     T_RUN(test_bad_dt_stays_finite);

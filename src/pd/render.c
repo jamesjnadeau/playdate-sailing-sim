@@ -1215,9 +1215,22 @@ static void gate_stroke(PlaydateAPI *pd, float x0, float y0, float x1, float y1)
     pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, 1, kColorBlack);
 }
 
+/* An arrowhead with its point at (px, py), h m above the sea, pointing along the unit (ux, uy): two barbs
+   back along the line, fanned up and down (perpendicular to the sea). */
+static void turn_arrow_head(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
+                            double px, double py, double ux, double uy, float h) {
+    float tip_x, tip_y, wx[2], wy[2];
+    if (!gate_pt(g, c, t, px, py, h, &tip_x, &tip_y)) return;
+    for (int k = 0; k < 2; k++) {
+        float bh = h + (k ? -ARROW_HEAD_M : ARROW_HEAD_M) * 0.6f;
+        if (!gate_pt(g, c, t, px - ux * ARROW_HEAD_M, py - uy * ARROW_HEAD_M, bh, &wx[k], &wy[k])) return;
+        gate_stroke(pd, tip_x, tip_y, wx[k], wy[k]);
+    }
+}
+
 /* The turn arrow: a dashed arc around the mark, ARROW_SWEEP of the way round, arriving at the gate
    line at ARROW_RADIUS_M in the direction the boat has to go. It sits at twice the line's height and
-   eases down so the point lands on the line; the head is a vertical fan (perpendicular to the sea). */
+   eases down so the point lands on the line. A head at each end: the tail end points back the way it came. */
 static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                             double mx, double my, const Mark *mk) {
     const float sweep = ARROW_SWEEP * 2.0f * (float)M_PI;
@@ -1235,16 +1248,12 @@ static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c,
         }
         if (ok) gate_stroke(pd, sx[0], sy[0], sx[1], sy[1]);
     }
-    /* head: back along the tangent from the tip, fanned up and down */
+    /* head at the gate end: along the tangent of travel at the tip */
     const double tipx = mx + cos(mk->gate) * ARROW_RADIUS_M, tipy = my + sin(mk->gate) * ARROW_RADIUS_M;
-    const double tx = -turn * sin(mk->gate), ty = turn * cos(mk->gate);   /* unit travel direction at the tip */
-    float tip_x, tip_y, wx[2], wy[2];
-    if (!gate_pt(g, c, t, tipx, tipy, GATE_HEIGHT_M, &tip_x, &tip_y)) return;
-    for (int k = 0; k < 2; k++) {
-        float h = GATE_HEIGHT_M + (k ? -ARROW_HEAD_M : ARROW_HEAD_M) * 0.6f;
-        if (!gate_pt(g, c, t, tipx - tx * ARROW_HEAD_M, tipy - ty * ARROW_HEAD_M, h, &wx[k], &wy[k])) return;
-        gate_stroke(pd, tip_x, tip_y, wx[k], wy[k]);
-    }
+    turn_arrow_head(pd, g, c, t, tipx, tipy, -turn * sin(mk->gate), turn * cos(mk->gate), GATE_HEIGHT_M);
+    /* head at the start: the arc runs away from it, so it points the other way to the travel direction */
+    const double sx0 = mx + cos(a0) * ARROW_RADIUS_M, sy0 = my + sin(a0) * ARROW_RADIUS_M;
+    turn_arrow_head(pd, g, c, t, sx0, sy0, turn * sin(a0), -turn * cos(a0), GATE_HEIGHT_M * 2.0f);
 }
 
 /* A mark's gate: a dashed line raised above the sea along the ray the boat has to cross,

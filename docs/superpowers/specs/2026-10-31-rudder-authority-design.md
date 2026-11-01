@@ -130,6 +130,31 @@ Everything below was measured by driving the real `boat_step`, `sea_hull_forces`
    4. from a beam reach, full lock heads up to a close-hauled angle or better;
    5. the same for the TP52 with CHOPPY wind and `sea_hull_forces`.
 
+## Calls made after the builder check
+
+These were settled without the project owner; flagged so they can be checked.
+
+1. **Longship (square rig) is judged against its own sail limit, not head-to-wind.** Its only
+   sail has `awa_min_deg` 55, and a measured run showed it cannot get closer than ~66 deg
+   TWA (turn rate ~0 there) and cannot tack. Test cases 3 and 4 therefore use each boat's
+   close-hauled limit derived from its sails' `awa_min_deg` (the largest value among
+   non-spinnaker sails; 0 for fore-and-aft rigs, so "head-to-wind" there). For a boat whose
+   limit is above ~30 deg, case 3 becomes "reaches that limit" and the tack is skipped. No new
+   JSON field is needed, so this is not a per-boat special case in code. The longship's skid
+   stays out of scope.
+2. **Weather-helm operating point.** Flat water, true wind 10 m/s, auto-trim on, boat settled
+   close-hauled for 30 s (heel and speed steady), wheel held by a simple heading controller;
+   measure the settled wheel angle, converted to rudder degrees as `wheel * rudder_max_deg`.
+   Band: 1 to 8 degrees of rudder to windward. The same function is used by the test and by
+   `boat_check`, for fore-and-aft rigs only. Reaching feel is checked by running the existing
+   boat tests, not by a new threshold.
+3. **Which lever fixes the lee helm is the builder's.** Moving sail `ce_x`, `board_x`, or
+   both are all acceptable; pick the one that disturbs the render and reach handling least.
+   If the retune plus the monotone-lift change does not make the TP52 head up from a reach to
+   its close-hauled angle, the builder stops and reports instead of adding a new model lever.
+4. **Thresholds** come from each boat's own data: the close-hauled limit above and a time limit
+   of `K * sqrt(length)` seconds with one global `K` tuned against the five boats.
+
 ## Left to the builder
 
 - Exact numbers: stall plateau level, `rudder_min_flow` default, the weather-helm band, the

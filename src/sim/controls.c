@@ -7,6 +7,12 @@ void controls_init(Controls *c) {
     c->sail = 0;
     c->camera_yaw = 0;
     c->camera_target_yaw = 0;
+    c->camera_pitch = 0;
+    c->camera_target_pitch = 0;
+    c->camera_vertical = false;
+    c->camera_recentre = false;
+    c->down_time = 0;
+    c->down_tracking = c->down_fired = c->down_entered = false;
 }
 
 static void select_sail(Controls *c, int count, int advance) {
@@ -15,7 +21,11 @@ static void select_sail(Controls *c, int count, int advance) {
     else if (advance) c->sail = (c->sail + 1) % count;
 }
 
-void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed,
+static float ease_to_zero(float v, float step) {
+    return fabsf(v) <= step ? 0 : v - copysignf(step, v);
+}
+
+void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t held,
                      float crank_delta_deg, float dt, BoatInputs *out) {
     const ControlsCfg *k = &cfg->controls;
     int n = cfg->sail_count;
@@ -31,8 +41,25 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed,
         select_sail(c, n, c->mode == MODE_HOIST);
         c->mode = MODE_HOIST;
     } else if (pressed & BTN_DOWN) {
-        if (c->mode == MODE_CAMERA) c->camera_recentre = true;
+        c->down_tracking = true;
+        c->down_time = 0;
+        c->down_fired = false;
+        c->down_entered = c->mode != MODE_CAMERA;
         c->mode = MODE_CAMERA;
+    }
+    if (c->down_tracking) {
+        if (c->mode != MODE_CAMERA) {
+            c->down_tracking = false;
+        } else if (held & BTN_DOWN) {
+            c->down_time += dt;
+            if (!c->down_fired && c->down_time >= k->camera_hold_s) {
+                c->down_fired = true;
+                c->camera_recentre = true;
+            }
+        } else {
+            if (!c->down_fired && !c->down_entered) c->camera_vertical = !c->camera_vertical;
+            c->down_tracking = false;
+        }
     }
     if (c->mode != MODE_CAMERA) c->camera_recentre = false;
     select_sail(c, n, 0);
@@ -57,19 +84,28 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed,
                 + crank_delta_deg * k->crank_gain_hoist, 0, 1);
         break;
     case MODE_CAMERA: {
-        float lim = deg2rad(cfg->camera.yaw_range_deg);
         if (crank_delta_deg != 0) c->camera_recentre = false;     /* turning the crank takes over again */
-        c->camera_target_yaw = clampf(c->camera_target_yaw
-            + deg2rad(crank_delta_deg * k->crank_gain_camera), -lim, lim);
-        if (!c->camera_recentre) c->camera_yaw = c->camera_target_yaw;
+        float d = deg2rad(crank_delta_deg * k->crank_gain_camera);
+        if (c->camera_vertical) {
+            float lim = deg2rad(cfg->camera.pitch_range_deg);
+            c->camera_target_pitch = clampf(c->camera_target_pitch + d, -lim, lim);
+        } else {
+            c->camera_target_yaw = wrap_pi(c->camera_target_yaw + d);
+        }
+        if (!c->camera_recentre) {
+            c->camera_yaw = c->camera_target_yaw;
+            c->camera_pitch = c->camera_target_pitch;
+        }
         break;
     }
     }
 
     if (c->camera_recentre) {
         c->camera_target_yaw = 0;
+        c->camera_target_pitch = 0;
         float step = deg2rad(cfg->camera.return_rate) * dt;
-        if (fabsf(c->camera_yaw) <= step) { c->camera_yaw = 0; c->camera_recentre = false; }
-        else c->camera_yaw -= copysignf(step, c->camera_yaw);
+        c->camera_yaw = ease_to_zero(c->camera_yaw, step);
+        c->camera_pitch = ease_to_zero(c->camera_pitch, step);
+        if (c->camera_yaw == 0 && c->camera_pitch == 0) c->camera_recentre = false;
     }
 }

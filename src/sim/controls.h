@@ -4,7 +4,7 @@
 #include "boatcfg.h"
 #include "boat.h"
 
-/* Button bits for the `pressed` mask (buttons newly pressed this frame). */
+/* Button bits for the `pressed` (newly pressed this frame) and `held` masks. */
 #define BTN_LEFT  (1u << 0)
 #define BTN_RIGHT (1u << 1)
 #define BTN_UP    (1u << 2)
@@ -16,7 +16,10 @@
  *   UP    -> WHEEL
  *   RIGHT -> TRIM  (re-press while in TRIM selects the next sail)
  *   LEFT  -> HOIST (re-press while in HOIST selects the next sail)
- *   DOWN  -> CAMERA yaw (returns to 0 at camera.return_rate once left)
+ *   DOWN  -> CAMERA look. Crank swings it all the way round the boat; a DOWN tap
+ *            while already looking switches the crank between sideways and
+ *            raise/lower; holding DOWN for controls.camera_hold_s eases the look
+ *            back to 0 at camera.return_rate. Leaving CAMERA keeps the look.
  * If several mode buttons are pressed in one frame the priority is
  * UP > RIGHT > LEFT > DOWN. The selected sail is shared by TRIM and HOIST. */
 typedef enum { MODE_WHEEL, MODE_TRIM, MODE_HOIST, MODE_CAMERA } Mode;
@@ -26,14 +29,19 @@ typedef struct {
     int sail;                 /* selected sail index */
     float camera_yaw;         /* rad, what the camera uses */
     float camera_target_yaw;  /* rad, set by the crank in CAMERA mode; held when leaving it */
-    bool camera_recentre;     /* DOWN pressed again in CAMERA mode: ease the look back to 0 */
+    float camera_pitch;       /* rad, raise (+) / lower (-) the camera about the boat */
+    float camera_target_pitch;
+    bool camera_vertical;     /* crank drives pitch instead of yaw */
+    bool camera_recentre;     /* DOWN held long enough: ease the look back to 0 */
+    float down_time;          /* how long the current DOWN press has been held */
+    bool down_tracking, down_fired, down_entered;   /* DOWN press state; entered = this press switched into CAMERA */
 } Controls;
 
 void controls_init(Controls *c);
 
 /* Edits out->wheel_target / trim_target / hoist_target in place; out is
  * expected to persist between frames. A bad crank or dt is treated as 0. */
-void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed,
+void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t held,
                      float crank_delta_deg, float dt, BoatInputs *out);
 
 #endif

@@ -123,7 +123,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     g->last_hit = HIT_NONE;
 
     if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
-        controls_update(&g->ctl, &g->boat, pressed, crank_delta, dt, &g->in);
+        controls_update(&g->ctl, &g->boat, pressed, held, crank_delta, dt, &g->in);
         autopilot_buttons(&g->ap, &g->boat.controls, pressed, held, dt, g->b.heading,
                           wrap_pi(g->wind.dir + (float)M_PI));
         if (g->ap.on && g->ctl.mode == MODE_WHEEL)

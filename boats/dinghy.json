@@ -77,7 +77,6 @@
     "pitch_smooth": 0.3,
     "heave_gain": 0.3,
     "pitch_gain": 0.4,
-    "yaw_range_deg": 120,
     "return_rate": 90
   },
   "sails": [

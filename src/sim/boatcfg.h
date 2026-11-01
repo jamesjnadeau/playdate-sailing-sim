@@ -55,6 +55,7 @@ typedef struct {
     float rudder_rate_deg, trim_rate_deg, hoist_rate;
     float weather_helm;                   /* 0..1 feel of rudder load on the wheel */
     float anchor_time;
+    float camera_hold_s;                  /* hold DOWN this long to recentre the camera */
     float autopilot_hold_s;               /* hold A this long to toggle the autopilot */
     float autopilot_step_deg;             /* a tap of A advances the target heading by this */
     float autopilot_no_go_deg;            /* targets this close to the wind's source are skipped */
@@ -88,7 +89,7 @@ typedef struct {
     float trail_dist;               /* trailing view with horizon_y: fixed distance behind the boat, m; 0 = solve from the stern */
     float roll_limit_deg, roll_smooth, pitch_smooth;
     float heave_gain, pitch_gain;   /* share of the wave heave / pitch the camera follows (the boat keeps all of it) */
-    float yaw_range_deg, return_rate;
+    float pitch_range_deg, return_rate;
 } CameraCfg;
 
 /* Boat class: racers can enter a race; cruisers are free range only. */

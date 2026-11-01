@@ -105,6 +105,7 @@ static const Field CONTROLS_F[] = {
     FF(ControlsCfg, hoist_rate, 0.25f, 0.01f, 5),
     FF(ControlsCfg, weather_helm, 0.5f, 0, 1),
     FF(ControlsCfg, anchor_time, 2.5f, 0.1f, 30),
+    FF(ControlsCfg, camera_hold_s, 0.75f, 0.1f, 3),
     FF(ControlsCfg, autopilot_hold_s, 0.6f, 0.1f, 3),
     FF(ControlsCfg, autopilot_step_deg, 45, 5, 180),
     FF(ControlsCfg, autopilot_no_go_deg, 45, 0, 90),
@@ -148,7 +149,7 @@ static const Field CAMERA_F[] = {
     FF(CameraCfg, pitch_smooth, 0.3f, 0, 3),
     FF(CameraCfg, heave_gain, 0.3f, 0, 1),
     FF(CameraCfg, pitch_gain, 0.4f, 0, 1),
-    FF(CameraCfg, yaw_range_deg, 120, 10, 180),
+    FF(CameraCfg, pitch_range_deg, 45, 5, 80),
     FF(CameraCfg, return_rate, 90, 1, 720),
 };
 

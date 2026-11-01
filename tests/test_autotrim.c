@@ -15,33 +15,14 @@ static void fresh(void) {
     boat_inputs_init(&in, &cfg);
     autotrim_init(&at);
 }
-static bool frame(uint32_t pressed, uint32_t held) {
-    return autotrim_buttons(&at, &cfg.controls, pressed, held, DT);
-}
-static bool hold_b(int frames) {
-    bool tap = frame(BTN_B, BTN_B);
-    for (int i = 1; i < frames; i++) tap |= frame(0, BTN_B);
-    return tap | frame(0, 0);
-}
-static void engage(void) { hold_b(10); }
+static void engage(void) { autotrim_toggle(&at); }
 
-static void test_hold_toggles(void) {
+static void test_toggle_flips_on_and_off(void) {
     fresh();
-    T_ASSERT(!hold_b(10));
+    autotrim_toggle(&at);
     T_ASSERT(at.on);
-    hold_b(10);
+    autotrim_toggle(&at);
     T_ASSERT(!at.on);
-}
-static void test_tap_is_reported_and_does_not_toggle(void) {
-    fresh();
-    T_ASSERT(frame(BTN_B, BTN_B) == false);
-    T_ASSERT(frame(0, 0) == true);
-    T_ASSERT(!at.on);
-}
-static void test_long_hold_fires_once_and_no_tap(void) {
-    fresh();
-    T_ASSERT(!hold_b(40));
-    T_ASSERT(at.on);
 }
 static void test_best_trim_is_sensible(void) {
     fresh();
@@ -129,9 +110,7 @@ static void test_longship_squares_up_on_a_run(void) {
 }
 
 int main(void) {
-    T_RUN(test_hold_toggles);
-    T_RUN(test_tap_is_reported_and_does_not_toggle);
-    T_RUN(test_long_hold_fires_once_and_no_tap);
+    T_RUN(test_toggle_flips_on_and_off);
     T_RUN(test_best_trim_is_sensible);
     T_RUN(test_update_sets_trim_for_wind);
     T_RUN(test_off_changes_nothing);

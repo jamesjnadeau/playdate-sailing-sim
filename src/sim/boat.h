@@ -41,6 +41,7 @@ typedef struct {
     float trim_target[BOAT_MAX_SAILS];
     float hoist_target[BOAT_MAX_SAILS];
     bool anchor;
+    bool engine;                 /* auxiliary engine running: pushes along the rudder up to ENGINE_SPEED */
 } BoatInputs;
 
 /* Added to the flat-water forces; all zeros means a flat sea. */

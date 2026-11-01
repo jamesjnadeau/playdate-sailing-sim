@@ -29,6 +29,8 @@ void hud_draw(PlaydateAPI *pd, const Game *g);
 void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 /* Indicator for the journey's next buoy. */
 void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c);
+/* Praise banner after a buoy is rounded; blank once its time is up. */
+void hud_praise(PlaydateAPI *pd, const Game *g);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
 /* System pause-menu panel: race time and next-mark info; blank in free sail. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g);

@@ -231,8 +231,8 @@ static int update(void *ud) {
         return 1;
     }
 
-    /* A restarts once the run is over; while sailing A is the autopilot, B the anchor,
-       and mashing B a paddle stroke. */
+    /* A restarts once the run is over; while sailing A toggles the autopilot, a quick press of B
+       the autotrim, and holding B starts the engine. */
     if (game.run != RUN_SAILING && (pushed & kButtonA)) {
         game_restart(&game, fresh_seed());
         pushed = 0;

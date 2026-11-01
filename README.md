@@ -8,7 +8,7 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 - Weather and world settings in `config/`
 - Racing courses in `tracks/`: triangles, windward-leeward, trapezoids and a two-buoy sprint, with an animated course preview
 - Journey mode: an endless run of buoys 60 to 150 m apart (`journey_min_m` and `journey_max_m` in `config/world.json`), each leg turning a little but always heading away from the buoys already passed; the pause menu counts buoys passed
-- Autopilot, auto trim, anchor and paddling
+- Autopilot, auto trim and an auxiliary engine
 - In-game controls screen, written in `config/help.md`
 
 ## Controls
@@ -19,8 +19,9 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 | Right | Trim: crank sheets the sail (press again for the next sail) |
 | Left | Hoist: crank raises or lowers the sail |
 | Down | Look: crank swings the camera round the boat; tap again to raise/lower it; hold to recentre |
-| Hold A | Toggle autopilot (tap A to step the heading, crank to nudge it) |
-| Hold B | Toggle auto trim (tap B for the anchor, mash B to paddle) |
+| A | Toggle autopilot (crank to nudge the heading) |
+| B | Toggle auto trim; stops the engine instead while it runs |
+| Hold B | Start the engine (1 knot, pushes along the rudder) |
 
 The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather, restart and main menu.
 

@@ -39,13 +39,10 @@
     "hoist_rate": 0.25,
     "weather_helm": 0.5,
     "anchor_time": 2.5,
-    "autopilot_hold_s": 0.6,
-    "autopilot_step_deg": 45,
     "autopilot_no_go_deg": 45,
     "autopilot_crank_deg": 10,
     "autopilot_kp": 2,
     "autopilot_kd": 1,
-    "autotrim_hold_s": 0.6,
     "autotrim_smooth_s": 4,
     "autotrim_heel_deg": 25,
     "autotrim_hoist_min": 0.3

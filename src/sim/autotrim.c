@@ -8,24 +8,9 @@
 
 void autotrim_init(Autotrim *at) { memset(at, 0, sizeof *at); }
 
-bool autotrim_buttons(Autotrim *at, const ControlsCfg *k, uint32_t pressed, uint32_t held, float dt) {
-    if (!isfinite(dt) || dt < 0) dt = 0;
-    if (pressed & BTN_B) { at->b_tracking = true; at->b_time = 0; at->b_fired = false; }
-    if (!at->b_tracking) return false;
-
-    if (held & BTN_B) {
-        at->b_time += dt;
-        if (!at->b_fired && at->b_time >= k->autotrim_hold_s) {
-            at->b_fired = true;
-            at->on = !at->on;
-            at->primed = false;
-        }
-        return false;
-    }
-    bool tap = !at->b_fired;
-    at->b_tracking = false;
-    at->b_time = 0;
-    return tap;
+void autotrim_toggle(Autotrim *at) {
+    at->on = !at->on;
+    at->primed = false;
 }
 
 /* Angle of attack (rad) where lift peaks, i.e. the first lobe of the CL curve. Past it the model has

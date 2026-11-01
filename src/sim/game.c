@@ -1,5 +1,6 @@
 #include "game.h"
 #include <math.h>
+#include "praise.h"
 #include <string.h>
 
 static int clamp_preset(int p) {
@@ -23,20 +24,19 @@ static void reset(Game *g) {
     controls_init(&g->ctl);
     autopilot_init(&g->ap);
     autotrim_init(&g->at);
+    engine_init(&g->en);
     if (g->mode == GAME_RACE) {
         g->b.x = g->track.start_x;
         g->b.y = g->track.start_y;
         g->b.heading = g->track.start_heading;
     }
     race_init(&g->race);
-    g->b_gap = GAME_TAP_GAP_S;
-    g->anchor_pending = false;
-    g->paddle_left = g->paddle_wait = 0.0f;
     start_weather(g);
     if (g->mode == GAME_JOURNEY)
         journey_init(&g->journey, g->world.journey_min_m, g->world.journey_max_m, g->seed,
                      g->b.x, g->b.y, g->b.heading, wrap_pi(g->wind.dir + (float)M_PI),
                      g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f);
+    g->praise_left = 0.0f;
     g->t = 0.0;
     g->run = RUN_SAILING;
     g->last_hit = HIT_NONE;
@@ -52,6 +52,7 @@ void game_init(Game *g, const BoatCfg *boat, const WeatherCfg *weather, const Wo
     g->world = *world;
     g->preset = clamp_preset(preset);
     g->seed = seed;
+    g->praise_rng = seed;
     reset(g);
 }
 
@@ -93,30 +94,6 @@ static void recentre(Game *g) {
     if (g->mode == GAME_JOURNEY) journey_shift(&g->journey, dx, dy);
 }
 
-/* A lone tap of B is the anchor (a hold is the autotrim), once GAME_TAP_GAP_S passes with no
-   second tap. Taps mashed closer than that start a paddle stroke instead, when the last one has rested. */
-static void b_taps(Game *g, bool tap, float dt) {
-    g->paddle_wait = fmaxf(g->paddle_wait - dt, 0.0f);
-    if (tap) {
-        if (g->b_gap < GAME_TAP_GAP_S) {
-            g->anchor_pending = false;
-            if (g->paddle_wait <= 0.0f) {
-                g->paddle_left = GAME_PADDLE_S;
-                g->paddle_wait = GAME_PADDLE_S + GAME_PADDLE_REST_S;
-            }
-        } else {
-            g->anchor_pending = true;
-        }
-        g->b_gap = 0.0f;
-        return;
-    }
-    g->b_gap = fminf(g->b_gap + dt, GAME_TAP_GAP_S);
-    if (g->anchor_pending && g->b_gap >= GAME_TAP_GAP_S) {
-        g->anchor_pending = false;
-        g->in.anchor = !g->in.anchor;
-    }
-}
-
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
@@ -124,16 +101,21 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
 
     if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
         controls_update(&g->ctl, &g->boat, pressed, held, crank_delta, dt, &g->in);
-        autopilot_buttons(&g->ap, &g->boat.controls, pressed, held, dt, g->b.heading,
-                          wrap_pi(g->wind.dir + (float)M_PI));
+        autopilot_buttons(&g->ap, pressed, g->b.heading);
         if (g->ap.on && g->ctl.mode == MODE_WHEEL)
             autopilot_crank(&g->ap, &g->boat.controls, crank_delta);
         if (g->ap.on)
             g->in.wheel_target = autopilot_wheel(&g->ap, &g->boat.controls, g->b.heading, g->b.r,
                                                  wrap_pi(g->wind.dir + (float)M_PI));
-        b_taps(g, autotrim_buttons(&g->at, &g->boat.controls, pressed, held, dt), dt);
+        /* B: a hold starts the engine, a quick press stops it if it runs and otherwise toggles the autotrim */
+        if (engine_buttons(&g->en, &g->boat.controls, pressed, held, dt)) {
+            if (g->en.on) g->en.on = false;
+            else autotrim_toggle(&g->at);
+        }
+        engine_tick(&g->en, dt);
         autotrim_update(&g->at, &g->boat, &g->b, &g->in, dt);
     }
+    g->in.engine = g->en.on && g->run == RUN_SAILING;
 
     wind_step(&g->wind, &g->weather.preset[g->preset], dt);
     g->wf = sea_hull_forces(&g->sea, &g->b, &g->boat, (float)fmod(g->t, g->sea.period));
@@ -153,10 +135,6 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     const double x0 = g->b.x, y0 = g->b.y;
     for (int i = 0; i < n; i++) {
         if (g->run == RUN_WRECKED) break;
-        if (g->paddle_left > 0.0f) {   /* paddling: surge held up to the paddle speed, no more */
-            if (g->run == RUN_SAILING && !(g->b.u >= GAME_PADDLE_SPEED)) g->b.u = GAME_PADDLE_SPEED;
-            g->paddle_left = fmaxf(g->paddle_left - h, 0.0f);
-        }
         boat_step(&g->b, &g->boat, &g->wind, &g->in, &g->wf, h);
         /* HitKind k = rocks_collide(&g->world, g->rocks, g->nrocks, &g->b, &g->boat, g->wf.heave);
         if (k > g->last_hit) g->last_hit = k;
@@ -165,10 +143,16 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
             g->b.u = g->b.v = g->b.r = 0.0f;
         } */
     }
+    bool rounded = false;
     if (g->mode == GAME_RACE && g->run == RUN_SAILING)
-        race_update(&g->race, &g->track, x0, y0, g->b.x, g->b.y, dt);
+        rounded = race_update(&g->race, &g->track, x0, y0, g->b.x, g->b.y, dt);
     if (g->mode == GAME_JOURNEY && g->run == RUN_SAILING)
-        journey_update(&g->journey, x0, y0, g->b.x, g->b.y, dt, wrap_pi(g->wind.dir + (float)M_PI));
+        rounded = journey_update(&g->journey, x0, y0, g->b.x, g->b.y, dt, wrap_pi(g->wind.dir + (float)M_PI));
+    if (rounded) {
+        g->praise = praise_pick(&g->praise_rng, g->praise);
+        g->praise_left = PRAISE_SECONDS;
+    }
+    if (g->praise_left > 0.0f) g->praise_left -= dt;
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;

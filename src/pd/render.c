@@ -505,7 +505,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     /* draw_sea_flecks(pd, g, c, t, half, vis); */
 }
 
-static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+__attribute__((unused)) static void draw_streaks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (g->wind.speed < 2.0f) return;
     float wx, wy;
     wind_vec(&g->wind, &wx, &wy);
@@ -1327,7 +1327,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->clear(kColorWhite);
     draw_clouds(pd, g, c);
     draw_sea(pd, g, c);
-    draw_streaks(pd, g, c);
+    /* draw_streaks(pd, g, c);   wind streaks disabled for now */
     /* draw_rocks(pd, g, c);   rocks disabled for now */
     if (g->mode == GAME_RACE) draw_marks(pd, g, c);
     if (g->mode == GAME_JOURNEY) draw_journey(pd, g, c);
@@ -1342,5 +1342,6 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     hud_draw(pd, g);
     if (g->mode == GAME_RACE) hud_race(pd, g, c);
     if (g->mode == GAME_JOURNEY) hud_journey(pd, g, c);
+    hud_praise(pd, g);
     hud_prompt(pd, g);
 }

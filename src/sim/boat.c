@@ -1,4 +1,5 @@
 #include "boat.h"
+#include "engine.h"
 #include <math.h>
 #include <string.h>
 
@@ -171,6 +172,15 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     b->heel_rate += heel_m / h->heel_inertia * dt;
     b->heel = clampf(b->heel + b->heel_rate * dt, -MAX_HEEL, MAX_HEEL);
     if (fabsf(b->heel) >= MAX_HEEL) b->heel_rate = 0;
+
+    /* --- engine: thrust from the stern along the rudder's direction (the force is the rudder's, turned) --- */
+    if (in->engine) {
+        float t = engine_thrust(h->mass + h->crew_mass, u);
+        float fy_eng = -t * sinf(delta);
+        fx += t * cosf(delta);
+        fy += fy_eng;
+        mz += fy_eng * f->rudder_x;
+    }
 
     /* --- anchor --- */
     fx -= b->anchor * ANCHOR_K * u;

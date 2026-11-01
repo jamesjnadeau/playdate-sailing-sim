@@ -16,7 +16,7 @@ ignored (default kept) with a warning.
 | `hull` | `length beam mass crew_mass hiking_arm hull_speed resistance(speed→N) heel_drag clr_depth(m below waterline, lateral force centre) yaw_inertia yaw_damping heel_inertia heel_damping righting(heel°→N·m) capsize_deg` |
 | `foils` | `board_*` (area, lift_slope, stall_deg, cd0, x), `rudder_*` (area, max_deg, lift_slope, stall_deg, x, min_flow) |
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |
-| `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time camera_hold_s autopilot_hold_s autopilot_step_deg autopilot_no_go_deg autopilot_crank_deg autopilot_kp autopilot_kd autotrim_hold_s autotrim_smooth_s autotrim_heel_deg autotrim_hoist_min` |
+| `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time camera_hold_s autopilot_no_go_deg autopilot_crank_deg autopilot_kp autopilot_kd engine_hold_s autotrim_smooth_s autotrim_heel_deg autotrim_hoist_min` |
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth wake_fade_m` |
 | `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate` |
 
@@ -44,6 +44,7 @@ Final field ranges for the sail entries, with the camera and control fields most
 | `camera.horizon_y` | 0-200 | trailing view: pin the horizon to this screen row (0 = off, frame by masthead). Tall rigs pitch the camera down; this keeps the horizon high, at the cost of the masthead sitting nearer the top or cropping |
 | `camera.trail_dist` | 0-200 | with `horizon_y`: fixed trailing distance behind the boat, m (0 = solve so the stern clears the status bar). Further and lower makes the boat smaller on screen |
 | `controls.camera_hold_s` | 0.1-3 | default 0.75; hold DOWN this long in look mode to recentre the camera |
+| `controls.engine_hold_s` | 0.1-5 | default 1.0; hold B this long to start the engine (1 knot, pushing along the rudder) |
 | `camera.pitch_range_deg` | 5-80 | default 45; vertical look limit each way. The eye also stays above the water |
 | `camera.roll_limit_deg` | 0-45 | horizon roll cap; deck still tilts by full heel |
 

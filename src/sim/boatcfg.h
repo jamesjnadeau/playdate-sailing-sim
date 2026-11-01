@@ -57,12 +57,10 @@ typedef struct {
     float weather_helm;                   /* 0..1 feel of rudder load on the wheel */
     float anchor_time;
     float camera_hold_s;                  /* hold DOWN this long to recentre the camera */
-    float autopilot_hold_s;               /* hold A this long to toggle the autopilot */
-    float autopilot_step_deg;             /* a tap of A advances the target heading by this */
     float autopilot_no_go_deg;            /* targets this close to the wind's source are skipped */
     float autopilot_crank_deg;            /* one full crank turn moves the autopilot target this far */
     float autopilot_kp, autopilot_kd;     /* wheel per rad of heading error / per rad/s of yaw rate */
-    float autotrim_hold_s;                /* hold B this long to toggle the autotrim */
+    float engine_hold_s;                  /* hold B this long to start the engine */
     float autotrim_smooth_s;              /* time constant filtering the wind and heel it reacts to */
     float autotrim_heel_deg;              /* reef the sails while heeled further than this */
     float autotrim_hoist_min;             /* ...but never below this hoist */

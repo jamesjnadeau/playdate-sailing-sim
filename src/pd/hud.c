@@ -4,6 +4,7 @@
 #include "render.h"
 #include "hudinfo.h"
 #include "mathx.h"
+#include "praise.h"
 
 #define HUD_MODE_W 54          /* inverted mode-name cell at the left of the bar */
 #define HUD_SPEED_END (HUD_MODE_W + 52)   /* right edge of the speed cell */
@@ -107,13 +108,15 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 
     /* the rudder flow floor is helping a slow boat steer: say so, above the status bar */
-    const char *assist = hud_assist_text(b->rudder_assist, b->wheel);
-    if (assist) {
-        const int w = 188, x = (CAM_W - w) / 2, y = top - 16;
+    const char *banners[2] = { hud_assist_text(b->rudder_assist, b->wheel), hud_engine_text(g->en.msg_left) };
+    int row = 0;
+    for (int i = 0; i < 2; i++) {
+        if (!banners[i]) continue;
+        const int w = 188, x = (CAM_W - w) / 2, y = top - 16 - 16 * row++;
         pd->graphics->fillRect(x, y, w, 14, kColorBlack);
         pd->graphics->drawRect(x, y, w, 14, kColorWhite);
         pd->graphics->setDrawMode(kDrawModeFillWhite);
-        text(pd, assist, x + 8, y + 1);
+        text(pd, banners[i], x + 8, y + 1);
         pd->graphics->setDrawMode(kDrawModeCopy);
     }
 }
@@ -171,6 +174,19 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const JourneyBuoy *b = journey_next(&g->journey);
     if (!b) return;
     mark_indicator(pd, c, b->x, b->y, hypot(b->x - g->b.x, b->y - g->b.y));
+}
+
+/* Praise after a buoy is rounded: a banner under the top edge, cleared once its time is up. */
+void hud_praise(PlaydateAPI *pd, const Game *g) {
+    if (g->praise_left <= 0.0f) return;
+    const char *s = praise_text(g->praise);
+    const int w = 6 * (int)strlen(s) + 24;   /* about 6 px a character in the system font */
+    const int x = (CAM_W - w) / 2;
+    pd->graphics->fillRect(x, 24, w, 26, kColorBlack);
+    pd->graphics->drawRect(x + 3, 27, w - 6, 20, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    text(pd, s, x + 12, 32);
+    pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
 void hud_prompt(PlaydateAPI *pd, const Game *g) {

@@ -5,6 +5,7 @@
 #include "autopilot.h"
 #include "autotrim.h"
 #include "boatcfg.h"
+#include "engine.h"
 #include "controls.h"
 #include "journey.h"
 #include "race.h"
@@ -16,10 +17,6 @@
 #define GAME_DT_MIN 0.005f
 #define GAME_DT_MAX 0.1f
 #define GAME_ROCK_RADIUS 150.0f   /* m; rocks refreshed around the boat each frame */
-#define GAME_TAP_GAP_S 0.35f      /* B taps closer than this are a mash (paddle), not the anchor */
-#define GAME_PADDLE_S 1.0f        /* s a paddle stroke lasts */
-#define GAME_PADDLE_SPEED 1.0f    /* m/s the stroke brings the boat up to; never adds beyond it */
-#define GAME_PADDLE_REST_S 3.0f   /* s after a stroke ends before mashing B can start another */
 
 typedef enum { RUN_SAILING, RUN_CAPSIZED, RUN_WRECKED } RunState;
 
@@ -39,6 +36,7 @@ typedef struct {
     Controls ctl;
     Autopilot ap;
     Autotrim at;
+    Engine en;
     Wind wind;
     Sea sea;
     WaveForces wf;          /* sampled once per frame, held across substeps */
@@ -48,10 +46,9 @@ typedef struct {
     int substeps;           /* substeps run by the last update */
     Race race;
     Journey journey;        /* used when mode == GAME_JOURNEY */
-    float b_gap;            /* s since the last B tap */
-    bool anchor_pending;    /* a lone B tap waits GAME_TAP_GAP_S to see it is not a mash */
-    float paddle_left;      /* s of paddle stroke still to run */
-    float paddle_wait;      /* s until another stroke may start (stroke plus rest) */
+    uint32_t praise_rng;    /* picks each praise message */
+    int praise;             /* index of the message on screen, see praise.h */
+    float praise_left;      /* s the message stays on screen; 0 when none */
 
     Rock rocks[ROCKS_MAX];
     int nrocks;

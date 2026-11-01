@@ -141,7 +141,7 @@ static void step(uint32_t pressed, uint32_t held, int frames) {
     }
 }
 static void engage(void) {
-    step(BTN_A, BTN_A, 25);       /* > 0.6 s */
+    step(BTN_A, BTN_A, 1);        /* a quick press toggles */
     step(0, 0, 1);
 }
 
@@ -210,21 +210,94 @@ static void tap_b(void) {
     game_update(&g, 0, 0, 0, 1.0f / 30);
 }
 
-static void test_b_tap_anchors_and_hold_autotrims(void) {
+static void hold_b(float s) {
+    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
+    for (int i = 1; i < (int)(s * 30.0f + 0.5f); i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
+static void test_b_tap_toggles_autotrim(void) {
     fresh(1);
     tap_b();
-    T_ASSERT(!g.in.anchor);                /* waits to see it is not a mash */
-    idle(GAME_TAP_GAP_S);
-    T_ASSERT(g.in.anchor && !g.at.on);
+    T_ASSERT(g.at.on && !g.en.on && !g.in.anchor);
     tap_b();
-    idle(GAME_TAP_GAP_S);
-    T_ASSERT(!g.in.anchor);
-    game_update(&g, BTN_B, BTN_B, 0, 1.0f / 30);
-    for (int i = 0; i < 30; i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
-    T_ASSERT(g.at.on && !g.in.anchor);
+    T_ASSERT(!g.at.on);
+    tap_b();
     game_restart(&g, 2);
     T_ASSERT(!g.at.on);
+}
+
+static void test_a_tap_toggles_autopilot_off_again(void) {
+    fresh(1);
+    engage();
+    T_ASSERT(g.ap.on);
+    engage();
+    T_ASSERT(!g.ap.on);
+}
+
+static void test_b_hold_starts_engine_with_banner(void) {
+    fresh(1);
+    for (int i = 0; i < 20; i++) game_update(&g, i == 0 ? BTN_B : 0, BTN_B, 0, 1.0f / 30);
+    T_ASSERT(!g.en.on);                    /* 0.67 s: not yet */
+    for (int i = 0; i < 20; i++) game_update(&g, 0, BTN_B, 0, 1.0f / 30);
+    T_ASSERT(g.en.on && g.in.engine);
+    T_ASSERT(g.en.msg_left > 0.0f);
+    game_update(&g, 0, 0, 0, 1.0f / 30);   /* releasing after the hold is not a tap */
+    T_ASSERT(g.en.on && !g.at.on);
+}
+
+static void test_b_tap_stops_engine_and_keeps_autotrim(void) {
+    fresh(1);
+    tap_b();                               /* autotrim on */
+    T_ASSERT(g.at.on);
+    hold_b(1.5f);
+    T_ASSERT(g.en.on && g.at.on);
+    tap_b();
+    T_ASSERT(!g.en.on && !g.in.engine);
+    T_ASSERT(g.at.on);                     /* left as it was */
+    tap_b();
+    T_ASSERT(!g.at.on);                    /* the next tap is autotrim again */
+}
+
+static void test_engine_is_slow_and_never_brakes(void) {
+    fresh(1);
+    wind_set_speed(&g.wind, &g.weather.preset[WEATHER_SUNNY], 0.5f);
+    g.b.u = 0.0f;
+    hold_b(1.5f);
+    T_ASSERT(g.en.on);
+    idle(20.0f);
+    T_ASSERT(g.b.u > 0.3f && g.b.u < 0.7f);          /* about a knot (0.514 m/s) */
+    g.b.u = 3.0f;
+    float before = g.b.u;
+    idle(0.2f);
+    T_ASSERT(g.b.u <= before + 0.05f);
+}
+
+static void test_engine_pushes_along_the_rudder(void) {
+    fresh(1);
+    wind_set_speed(&g.wind, &g.weather.preset[WEATHER_SUNNY], 0.5f);
+    hold_b(1.5f);
+    g.in.wheel_target = 0.8f;
+    float h0 = g.b.heading;
+    for (int i = 0; i < 90; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    float turn1 = wrap_pi(g.b.heading - h0);
+    fresh(1);
+    wind_set_speed(&g.wind, &g.weather.preset[WEATHER_SUNNY], 0.5f);
+    hold_b(1.5f);
+    g.in.wheel_target = -0.8f;
+    h0 = g.b.heading;
+    for (int i = 0; i < 90; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    float turn2 = wrap_pi(g.b.heading - h0);
+    T_ASSERT(turn1 * turn2 < 0.0f);                  /* opposite wheel, opposite turn */
+}
+
+static void test_engine_cleared_by_restart(void) {
+    fresh(1);
+    hold_b(1.5f);
+    T_ASSERT(g.en.on);
+    game_restart(&g, 2);
+    T_ASSERT(!g.en.on && !g.in.engine);
+    T_NEAR(g.en.msg_left, 0.0, 1e-6);
 }
 
 static Track tr;
@@ -331,55 +404,6 @@ static void test_free_range_unchanged(void) {
     T_NEAR(g.b.y, 0.0, 1e-9);
 }
 
-static void test_b_mash_paddles_without_anchoring(void) {
-    fresh(1);
-    wind_set_speed(&g.wind, &g.weather.preset[WEATHER_SUNNY], 4.0f);   /* light air, so the sails barely add */
-    g.b.u = -0.5f;                         /* stuck going backwards */
-    tap_b(); tap_b();
-    T_ASSERT(g.paddle_left > 0.0f);
-    idle(0.5f);
-    T_ASSERT(g.b.u > 0.9f && g.b.u <= GAME_PADDLE_SPEED + 0.15f);   /* plus the sails' own push */
-    idle(1.0f);
-    T_NEAR(g.paddle_left, 0.0, 1e-6);
-    T_ASSERT(!g.in.anchor);
-}
-
-static void test_paddle_never_adds_speed(void) {
-    fresh(1);
-    g.b.u = 3.0f;
-    tap_b(); tap_b();
-    T_ASSERT(g.paddle_left > 0.0f);
-    float before = g.b.u;
-    idle(0.2f);
-    T_ASSERT(g.b.u <= before + 0.05f);     /* only the sails' own push, nothing from the paddle */
-    g.b.u = 0.6f;
-    idle(0.1f);
-    T_ASSERT(g.b.u <= GAME_PADDLE_SPEED + 0.15f);
-}
-
-static void test_paddle_rests_before_another_stroke(void) {
-    fresh(1);
-    tap_b(); tap_b();                      /* stroke at t=0 */
-    idle(GAME_PADDLE_S + 1.0f);
-    T_NEAR(g.paddle_left, 0.0, 1e-6);
-    tap_b(); tap_b();                      /* still resting: no stroke, and no anchor either */
-    T_NEAR(g.paddle_left, 0.0, 1e-6);
-    idle(GAME_TAP_GAP_S);
-    T_ASSERT(!g.in.anchor);
-    idle(GAME_PADDLE_REST_S);
-    tap_b(); tap_b();
-    T_ASSERT(g.paddle_left > 0.0f);
-}
-
-static void test_paddle_cleared_by_restart(void) {
-    fresh(1);
-    tap_b(); tap_b();
-    game_restart(&g, 2);
-    T_NEAR(g.paddle_left, 0.0, 1e-6);
-    T_NEAR(g.paddle_wait, 0.0, 1e-6);
-    T_ASSERT(!g.anchor_pending);
-}
-
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -397,11 +421,13 @@ int main(void) {
     T_RUN(test_held_a_without_press_does_not_engage);
     T_RUN(test_autopilot_cleared_on_restart);
     T_RUN(test_autopilot_frozen_when_capsized);
-    T_RUN(test_b_tap_anchors_and_hold_autotrims);
-    T_RUN(test_b_mash_paddles_without_anchoring);
-    T_RUN(test_paddle_never_adds_speed);
-    T_RUN(test_paddle_rests_before_another_stroke);
-    T_RUN(test_paddle_cleared_by_restart);
+    T_RUN(test_b_tap_toggles_autotrim);
+    T_RUN(test_a_tap_toggles_autopilot_off_again);
+    T_RUN(test_b_hold_starts_engine_with_banner);
+    T_RUN(test_b_tap_stops_engine_and_keeps_autotrim);
+    T_RUN(test_engine_is_slow_and_never_brakes);
+    T_RUN(test_engine_pushes_along_the_rudder);
+    T_RUN(test_engine_cleared_by_restart);
     T_RUN(test_set_track_places_boat_and_wind);
     T_RUN(test_track_wind_speed_overrides_preset);
     T_RUN(test_race_advances_when_boat_rounds_b);

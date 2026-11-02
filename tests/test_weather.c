@@ -139,6 +139,18 @@ static void test_load_clamps_and_warns(void) {
     T_ASSERT(!weather_load(&l, NULL, 0, warn, sizeof warn));
 }
 
+static void test_load_sky_fields(void) {
+    WeatherCfg l;
+    char warn[256];
+    const char *s = "{\"sunny\":{\"sky_top\":7,\"rain\":0.4,\"lightning_interval\":12,\"cloud_shade\":40}}";
+    T_ASSERT(!weather_load(&l, s, strlen(s), warn, sizeof warn));   /* cloud_shade is out of range */
+    T_ASSERT(strstr(warn, "sunny.cloud_shade") != NULL);
+    T_ASSERT(l.preset[WEATHER_SUNNY].sky_top == 7.0f);
+    T_NEAR(l.preset[WEATHER_SUNNY].rain, 0.4f, 1e-6);
+    T_ASSERT(l.preset[WEATHER_SUNNY].lightning_interval == 12.0f);
+    T_ASSERT(l.preset[WEATHER_SUNNY].cloud_shade == 15.0f);
+}
+
 static void test_set_base_keeps_offset(void) {
     WeatherCfg wc;
     weather_default(&wc);
@@ -162,6 +174,7 @@ int main(void) {
     T_RUN(test_wind_init_gives_nonzero_wind);
     T_RUN(test_shipped_config_equals_default);
     T_RUN(test_load_clamps_and_warns);
+    T_RUN(test_load_sky_fields);
     T_RUN(test_set_base_keeps_offset);
     return T_DONE();
 }

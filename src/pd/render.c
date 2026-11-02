@@ -10,7 +10,9 @@
 
 #define LEVELS 17
 #define SEA_BANDS 15
-#define CLOUDS 24
+#define CLOUDS 32
+#define RAIN_MAX 70
+#define SKY_BANDS 6
 #define STREAKS 24
 #define PI_D 3.14159265358979323846
 
@@ -97,22 +99,117 @@ static uint32_t hash32(uint32_t x) {
 static float frand(uint32_t i, uint32_t salt) { return (float)(hash32(i * 2654435761u + salt) >> 8) / 16777216.0f; }
 
 static float fvis(const Game *g) { return g->weather.preset[g->preset].visibility; }
+static const WeatherPreset *wx(const Game *g) { return &g->weather.preset[g->preset]; }
+
+/* Sky shade the distance haze fades toward; set per frame from the preset. */
+static float haze;
+static int fog_level(int level, float fog) {
+    float k = 0.9f * fog * fog;
+    return (int)(level * (1.0f - k) + haze * k);
+}
 
 /* ---- sky ---- */
 
-static void draw_clouds(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    static const int shade[WEATHER_PRESETS] = { 8, 2, 5, 6, 9, 11, 13 };
-    LCDColor col = render_pattern(shade[g->preset]);
-    for (int i = 0; i < CLOUDS; i++) {
-        float az = frand(i, 1) * 2.0f * (float)PI_D + (float)g->t * (0.002f + 0.004f * frand(i, 2));
+static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, int level);
+static bool sea_line(const CameraPose *c, float d, float z, float *y0, float *y1);
+
+/* Lightning: each lightning_interval-long slot holds one flash at a hashed time. Returns the
+   seconds since that flash began (or -1) and its slot. */
+static float lightning_age(const Game *g, uint32_t *slot) {
+    float ivl = wx(g)->lightning_interval;
+    if (!(ivl > 0)) return -1.0f;
+    double k = floor(g->t / (double)ivl);
+    *slot = (uint32_t)(int32_t)k;
+    float age = (float)(g->t - (k + 0.2 + 0.6 * (double)frand(*slot, 21)) * (double)ivl);
+    return age >= 0 && age < 0.35f ? age : -1.0f;
+}
+
+static void draw_sky(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    const WeatherPreset *p = wx(g);
+    uint32_t slot = 0;
+    float age = lightning_age(g, &slot);
+    bool flash = age >= 0 && (age < 0.12f || (age > 0.2f && age < 0.28f));   /* a flash and a flicker */
+    float top = flash ? p->sky_top * 0.3f : p->sky_top, hz = flash ? p->sky_horizon * 0.3f : p->sky_horizon;
+    float hy0, hy1;
+    if (!sea_line(c, 20000.0f, 0.0f, &hy0, &hy1)) { hy0 = hy1 = CAM_HORIZON_Y; }
+    if (top > 0.5f || hz > 0.5f) {
+        /* bands from the horizon up, each a little taller; the last one runs off the top of the screen */
+        static const float up[SKY_BANDS + 1] = { 0, 10, 24, 44, 72, 110, 600 };
+        for (int i = 0; i < SKY_BANDS; i++) {
+            int level = iroundf(hz + (top - hz) * (float)i / (SKY_BANDS - 1));
+            if (level <= 0) continue;
+            strip(pd, hy0 - up[i + 1], hy1 - up[i + 1], hy0 - up[i], hy1 - up[i], level);
+        }
+    }
+    if (p->sun > 0.5f && !flash) {
+        float sx, sy, d;
+        if (camera_project_rel(c, 3000.0f * rcos(0.6f), 3000.0f * rsin(0.6f), 1100.0f, &sx, &sy, &d)) {
+            int r = 11;
+            if (sx > -2 * r && sx < CAM_W + 2 * r) {
+                for (int i = 0; i < 8; i++) {
+                    float a = (float)i * (float)PI_D / 4.0f, ca = rcos(a), sa = rsin(a);
+                    pd->graphics->drawLine((int)(sx + ca * (r + 3)), (int)(sy + sa * (r + 3)),
+                                           (int)(sx + ca * (r + 8)), (int)(sy + sa * (r + 8)), 1, kColorBlack);
+                }
+                pd->graphics->fillEllipse((int)sx - r, (int)sy - r, 2 * r, 2 * r, 0, 0, kColorBlack);
+                pd->graphics->fillEllipse((int)sx - r + 2, (int)sy - r + 2, 2 * r - 4, 2 * r - 4, 0, 0, kColorWhite);
+            }
+        }
+    }
+    int n = iroundf(p->cloud_cover * CLOUDS);
+    LCDColor col = render_pattern(iroundf(flash ? p->cloud_shade * 0.4f : p->cloud_shade));
+    for (int i = 0; i < n; i++) {
+        float az = frand(i, 1) * 2.0f * (float)PI_D + (float)g->t * p->cloud_speed * (0.002f + 0.004f * frand(i, 2));
         float z = 150.0f + 350.0f * frand(i, 3);
-        float w = 250.0f + 400.0f * frand(i, 4);
+        float w = (250.0f + 400.0f * frand(i, 4)) * p->cloud_size;
         float sx, sy, d;
         if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z, &sx, &sy, &d)) continue;
         float pw = w * CAM_FOCAL / d, ph = pw * 0.22f;
         if (sx + pw < 0 || sx - pw > CAM_W) continue;
         pd->graphics->fillEllipse((int)(sx - pw / 2), (int)(sy - ph / 2), (int)pw, (int)ph, 0, 0, col);
         pd->graphics->fillEllipse((int)(sx - pw / 4), (int)(sy - ph * 0.85f), (int)(pw * 0.5f), (int)(ph * 0.9f), 0, 0, col);
+    }
+    if (flash) {
+        /* a jagged bolt from the cloud base to the horizon, black edged so it shows on any sky */
+        float x = 40.0f + (CAM_W - 80.0f) * frand(slot, 22);
+        float y = fminf(hy0, hy1) - 110.0f, yend = 0.5f * (hy0 + hy1);
+        int pts[2 * 9], k = 0;
+        for (int i = 0; i <= 8 && k < 9; i++, k++) {
+            pts[2 * k] = (int)x;
+            pts[2 * k + 1] = (int)(y + (yend - y) * (float)i / 8.0f);
+            x += (frand(slot * 16u + (uint32_t)i, 23) - 0.5f) * 44.0f;
+        }
+        for (int i = 0; i + 1 < k; i++)
+            pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * i + 2], pts[2 * i + 3], 3, kColorBlack);
+        for (int i = 0; i + 1 < k; i++)
+            pd->graphics->drawLine(pts[2 * i], pts[2 * i + 1], pts[2 * i + 2], pts[2 * i + 3], 1, kColorWhite);
+    }
+}
+
+/* Rain streaks across the view, slanted by the wind as the camera sees it. */
+static void draw_rain(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    int n = iroundf(wx(g)->rain * RAIN_MAX);
+    if (n <= 0) return;
+    float wxv, wyv;
+    wind_vec(&g->wind, &wxv, &wyv);
+    /* screen direction of a drop falling at 9 m/s and drifting with the wind, 30 m ahead */
+    float fx = rcos(c->yaw) * 30.0f, fy = rsin(c->yaw) * 30.0f;
+    float ax, ay, bx, by;
+    float dx = 0.0f, dy = 1.0f;
+    if (camera_project_rel(c, fx, fy, 5.0f, &ax, &ay, NULL)
+        && camera_project_rel(c, fx + wxv * 0.1f, fy + wyv * 0.1f, 4.1f, &bx, &by, NULL)) {
+        float l = hypotf(bx - ax, by - ay);
+        if (l > 1e-3f) { dx = (bx - ax) / l; dy = (by - ay) / l; }
+    }
+    float len = 12.0f, fall = 420.0f, tf = (float)fmod(g->t, 600.0);   /* wrapping is invisible in random streaks */
+    for (int i = 0; i < n; i++) {
+        float tt = tf * (0.8f + 0.4f * frand(i, 31)) + frand(i, 32);
+        tt -= floorf(tt);
+        float x = frand(i, 33) * (CAM_W + 80.0f) - 40.0f + dx * fall * tt;
+        float y = frand(i, 34) * CAM_H + dy * fall * tt;
+        x = fmodf(x + 40.0f + 4.0f * (CAM_W + 80.0f), CAM_W + 80.0f) - 40.0f;
+        y = fmodf(y + 4.0f * CAM_H, CAM_H);
+        pd->graphics->drawLine((int)x, (int)y, (int)(x + dx * len), (int)(y + dy * len), 1, kColorWhite);
     }
 }
 
@@ -278,7 +375,7 @@ static int lat_level(float a, float slope, float hz) {
     float fog = clampf(a / lat.vis, 0.0f, 1.0f);
     float base = 10.0f - 3.0f * clampf(a / 300.0f, 0.0f, 1.0f);
     float shade = clampf(-slope * lat.sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / lat.half, -1.0f, 1.0f) * -3.0f;
-    return (int)((float)iroundf(base + shade) * (1.0f - 0.9f * fog * fog));
+    return fog_level(iroundf(base + shade), fog);
 }
 
 /* Clip a convex ground polygon to the band's depth range, lift it onto the waves and queue it. */
@@ -474,7 +571,7 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
             float base = 10.0f - 3.0f * clampf(ca / 300.0f, 0.0f, 1.0f);
             float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
             int level = iroundf(base + shade + (((k + j) & 1) ? 1.0f : -1.0f));
-            cb->level = (int)(level * (1.0f - 0.9f * fog * fog));
+            cb->level = fog_level(level, fog);
             cb->depth = ca;
             cb->n = n;
             nc++;
@@ -522,7 +619,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         /* faces tipped toward the eye are light, faces tipped away dark; crests light, troughs dark */
         float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 0.7f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
         int level = iroundf(base + shade + ((i & 1) ? 1.0f : -1.0f));
-        level = (int)(level * (1.0f - 0.9f * fog * fog));
+        level = fog_level(level, fog);
         strip(pd, fy0, fy1, y0, y1, level);
         fy0 = y0; fy1 = y1;
     }
@@ -1366,12 +1463,14 @@ static void draw_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     pd->graphics->clear(kColorWhite);
-    draw_clouds(pd, g, c);
+    haze = wx(g)->sky_horizon;
+    draw_sky(pd, g, c);
     draw_sea(pd, g, c);
     /* draw_streaks(pd, g, c);   wind streaks disabled for now */
     /* draw_rocks(pd, g, c);   rocks disabled for now */
     if (g->mode == GAME_RACE) draw_marks(pd, g, c);
     if (g->mode == GAME_JOURNEY) draw_journey(pd, g, c);
+    draw_rain(pd, g, c);
     draw_spray(pd, g, c);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */

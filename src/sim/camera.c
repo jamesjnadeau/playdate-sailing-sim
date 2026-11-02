@@ -106,26 +106,39 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
     c->deck_bob = b->heave;
 }
 
-bool camera_project(const CameraPose *c, double wx, double wy, float wz,
-                    float *sx, float *sy, float *depth) {
-    float dx = (float)(wx - c->x), dy = (float)(wy - c->y), dz = wz - c->height;
-    float cy = cosf(c->yaw), sy_ = sinf(c->yaw);
-    float fwd = dx * cy + dy * sy_;
-    float right = -dx * sy_ + dy * cy;
-    float cp = cosf(c->pitch), sp = sinf(c->pitch);
-    float f = fwd * cp + dz * sp;
-    float up = -fwd * sp + dz * cp;
+/* The pose's trig is the same for every point of a frame, so keep the last set. */
+typedef struct { float yaw, pitch, roll, cy, sy, cp, sp, cr, sr; bool ok; } PoseTrig;
+
+bool camera_project_rel(const CameraPose *c, float dx, float dy, float wz,
+                        float *sx, float *sy, float *depth) {
+    static PoseTrig k;
+    if (!k.ok || k.yaw != c->yaw || k.pitch != c->pitch || k.roll != c->roll) {
+        k.yaw = c->yaw; k.pitch = c->pitch; k.roll = c->roll;
+        k.cy = cosf(c->yaw); k.sy = sinf(c->yaw);
+        k.cp = cosf(c->pitch); k.sp = sinf(c->pitch);
+        k.cr = cosf(c->roll); k.sr = sinf(c->roll);
+        k.ok = true;
+    }
+    float dz = wz - c->height;
+    float fwd = dx * k.cy + dy * k.sy;
+    float right = -dx * k.sy + dy * k.cy;
+    float f = fwd * k.cp + dz * k.sp;
+    float up = -fwd * k.sp + dz * k.cp;
     if (!(f > 0.05f)) return false;
 
     float px = CAM_FOCAL * right / f;
     float py = CAM_FOCAL * up / f;
-    float cr = cosf(c->roll), sr = sinf(c->roll);
-    float rx = px * cr - py * sr;
-    float ry = px * sr + py * cr;
+    float rx = px * k.cr - py * k.sr;
+    float ry = px * k.sr + py * k.cr;
     if (sx) *sx = CAM_W * 0.5f + rx;
     if (sy) *sy = CAM_HORIZON_Y - ry;
     if (depth) *depth = f;
     return true;
+}
+
+bool camera_project(const CameraPose *c, double wx, double wy, float wz,
+                    float *sx, float *sy, float *depth) {
+    return camera_project_rel(c, (float)(wx - c->x), (float)(wy - c->y), wz, sx, sy, depth);
 }
 
 void camera_mark_view(const CameraPose *c, double wx, double wy, float bottom, MarkView *out) {

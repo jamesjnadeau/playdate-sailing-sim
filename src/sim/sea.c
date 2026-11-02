@@ -1,5 +1,6 @@
 #include "sea.h"
 #include <math.h>
+#include <stdbool.h>
 #include <string.h>
 #include "mathx.h"
 
@@ -65,8 +66,19 @@ float sea_height(const Sea *s, float x, float y, float t) {
     return (float)height(s, find(x), find(y), find(t));
 }
 
+/* One period of cos, sampled COS_N times (+1 so interpolation never wraps), read by sea_view_height. */
+#define COS_N 1024
+static float cos_tab[COS_N + 1];
+static bool cos_ready;
+
+static void cos_tab_init(void) {
+    for (int i = 0; i <= COS_N; i++) cos_tab[i] = (float)cos(TWO_PI * i / COS_N);
+    cos_ready = true;
+}
+
 void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t) {
     double xw = fmod(find(ox), SEA_WRAP), yw = fmod(find(oy), SEA_WRAP), td = find(t);
+    if (!cos_ready) cos_tab_init();
     v->n = s->n;
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
@@ -78,9 +90,20 @@ void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t) {
     }
 }
 
+static inline float table_cosf(float x) {
+    float u = x * 0.15915494f;            /* turns */
+    u -= (float)(int)u;
+    if (u < 0.0f) u += 1.0f;
+    float f = u * (float)COS_N;
+    int i = (int)f;
+    if (i >= COS_N) i = COS_N - 1;
+    float a = cos_tab[i];
+    return a + (f - (float)i) * (cos_tab[i + 1] - a);
+}
+
 float sea_view_height(const SeaView *v, float dx, float dy) {
     float h = 0.0f;
-    for (int i = 0; i < v->n; i++) h += v->amp[i] * cosf(v->kx[i] * dx + v->ky[i] * dy + v->ph[i]);
+    for (int i = 0; i < v->n; i++) h += v->amp[i] * table_cosf(v->kx[i] * dx + v->ky[i] * dy + v->ph[i]);
     return h;
 }
 

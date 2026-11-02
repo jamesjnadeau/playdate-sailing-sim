@@ -214,6 +214,17 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
+/* Asked before "go back" leaves the run; the same box as the finish and wreck panels. */
+void hud_back_confirm(PlaydateAPI *pd) {
+    pd->graphics->fillRect(90, 80, 220, 64, kColorBlack);
+    pd->graphics->drawRect(94, 84, 212, 56, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    text(pd, "GO BACK?", 200 - 4 * 8, 90);
+    text(pd, "Return to the home screen", 98, 106);
+    text(pd, "A: yes     B: no", 98, 122);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
 /* Course map in the pause panel: north-up, x north / y east in the track frame. */
 #define MAP_L 2
 #define MAP_T 62

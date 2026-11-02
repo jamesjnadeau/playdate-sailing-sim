@@ -3,6 +3,7 @@
 #include "pd_api.h"
 #include "assets.h"
 #include "audio.h"
+#include "besttimes.h"
 #include "camera.h"
 #include "game.h"
 #include "helptext.h"
@@ -29,6 +30,7 @@ static WorldCfg world_cfg;
 static int boat_index, preset_index = WEATHER_CHOPPY;
 static int sound_level = 2;   /* kept here because the menu is rebuilt on every visit */
 static uint32_t restart_count;
+static bool back_asked;   /* "go back" picked in the system menu; the run waits for A (home) or B (stay) */
 static char warn[ASSETS_WARN_LEN];
 static char track_warn[ASSETS_WARN_LEN];
 static float warn_left;
@@ -36,11 +38,38 @@ static AppState app = APP_MENU;
 static Menu menu;
 static Track tracks[TRACKS_MAX];
 static int ntracks;
+static BestTimes best;
+static bool finish_recorded;   /* this race's time has been offered to `best` */
 static HelpLine help[HELP_ROWS_MAX];
 static int nhelp;
 
 static PDMenuItem *boat_item, *weather_item;
 static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
+
+#define BEST_FILE "besttimes.txt"
+
+static void best_load(void) {
+    besttimes_init(&best);
+    SDFile *f = pd->file->open(BEST_FILE, kFileReadData);
+    if (!f) return;
+    char buf[1024];
+    int n = pd->file->read(f, buf, sizeof buf - 1);
+    pd->file->close(f);
+    if (n > 0) {
+        buf[n] = 0;
+        besttimes_load(&best, buf);
+    }
+}
+
+static void best_save(void) {
+    char buf[1024];
+    int n = besttimes_save(&best, buf, sizeof buf);
+    if (n < 0) return;
+    SDFile *f = pd->file->open(BEST_FILE, kFileWrite);
+    if (!f) return;
+    pd->file->write(f, buf, (unsigned int)n);
+    pd->file->close(f);
+}
 
 static uint32_t fresh_seed(void) {
 #ifdef SCENARIO
@@ -102,8 +131,8 @@ static void menu_weather(void *ud) {
     preset_index = pd->system->getMenuItemValue(weather_item);
     game_set_preset(&game, preset_index);
 }
-static void menu_restart(void *ud) { (void)ud; game_restart(&game, fresh_seed()); }
-static void menu_main(void *ud) { (void)ud; show_menu(); }
+/* The system menu runs this outside update(), so it only raises the question; update() acts on the answer. */
+static void menu_back(void *ud) { (void)ud; if (app == APP_PLAY) back_asked = true; }
 
 /* A race is set up from the main menu, so the system menu only offers boat and weather in free range. */
 static void sys_menu_build(bool racing) {
@@ -115,16 +144,14 @@ static void sys_menu_build(bool racing) {
         pd->system->setMenuItemValue(boat_item, boat_index);
         pd->system->setMenuItemValue(weather_item, preset_index);
     }
-    pd->system->addMenuItem("restart", menu_restart, NULL);
-    pd->system->addMenuItem("main menu", menu_main, NULL);
+    pd->system->addMenuItem("go back", menu_back, NULL);
 }
 
 #ifdef SCENARIO
 /* A scripted system-menu action, applied as the simulator would on selection. */
 static void scenario_sys(const ScFrame *f) {
     switch (f->sys) {
-    case SC_SYS_RESTART: menu_restart(NULL); break;
-    case SC_SYS_MAIN: menu_main(NULL); break;
+    case SC_SYS_BACK: menu_back(NULL); break;
     case SC_SYS_BOAT:
     case SC_SYS_WEATHER: {
         PDMenuItem *item = f->sys == SC_SYS_BOAT ? boat_item : weather_item;
@@ -215,7 +242,7 @@ static int update(void *ud) {
             camera_snap();
             app = APP_PLAY;
         }
-        menu_draw(pd, &menu, tracks, help);
+        menu_draw(pd, &menu, tracks, &best, help);
 #ifdef SHOW_FPS
         pd->system->drawFPS(0, 0);
 #endif
@@ -223,6 +250,28 @@ static int update(void *ud) {
         scenario_frame_done(pd, &game, "menu");
 #endif
         return 1;
+    }
+
+    if (back_asked) {
+        /* the run stays frozen until the player answers: A goes to the home screen, B carries on sailing */
+        if (pushed & kButtonA) {
+            back_asked = false;
+            show_menu();
+#ifdef SCENARIO
+            scenario_frame_done(pd, &game, "menu");
+#endif
+            return 1;
+        }
+        if (!(pushed & kButtonB)) {
+            render_frame(pd, &game, &cam);
+            hud_back_confirm(pd);
+#ifdef SCENARIO
+            scenario_frame_done(pd, &game, "play");
+#endif
+            return 1;
+        }
+        back_asked = false;
+        pushed = 0;   /* the B that answered "no" is not also an autotrim press */
     }
 
     if (game.mode == GAME_RACE && game.race.finished && game.run == RUN_SAILING && (pushed & kButtonA)) {
@@ -241,6 +290,14 @@ static int update(void *ud) {
         dt = 1.0f / 30;
     }
     game_update(&game, (uint32_t)pushed, (uint32_t)cur, crank, dt);
+    if (game.mode == GAME_RACE && game.race.finished) {
+        if (!finish_recorded) {
+            finish_recorded = true;
+            if (besttimes_record(&best, game.track.name, game.race.t)) best_save();
+        }
+    } else {
+        finish_recorded = false;
+    }
     camera_update(&cam, &game, &game.boat, dt);
     if (game.mode == GAME_JOURNEY) journey_cull(&game, &cam);
     audio_update(&game, dt);
@@ -283,6 +340,7 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
     if (event == kEventInit) {
         pd = playdate;
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
+        best_load();
         assets_scan_boats(pd);
         assets_boat_raceable(pd, boat_raceable);
         sys_menu_build(false);

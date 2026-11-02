@@ -89,7 +89,7 @@ static void test_sysmenu(void) {
     P("sysmenu boat dinghy\nwait 1");
     T_ASSERT(scenario_poll(&S, &f));
     T_ASSERT(f.sys == SC_SYS_BOAT && f.sys_arg == -1 && !strcmp(f.sys_name, "dinghy"));
-    P("sysmenu restart\nsysmenu weather 1\nwait 1");
+    P("sysmenu back\nsysmenu weather 1\nwait 1");
     T_ASSERT(scenario_poll(&S, &f));
     T_ASSERT(f.sys == SC_SYS_WEATHER && f.sys_arg == 1);
 }
@@ -97,7 +97,7 @@ static void test_sysmenu(void) {
 static void test_snap_behind_sysmenu(void) {
     ScFrame f;
     char name[SC_NAME_MAX];
-    P("wait 1\nsysmenu restart\nsnap a\nstate\nwait 1\nend");
+    P("wait 1\nsysmenu back\nsnap a\nstate\nwait 1\nend");
     T_ASSERT(scenario_poll(&S, &f));
     T_ASSERT(f.sys == SC_SYS_NONE);
     T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP);
@@ -105,7 +105,7 @@ static void test_snap_behind_sysmenu(void) {
     T_ASSERT(scenario_after(&S, name) == SC_AFTER_STATE);
     T_ASSERT(scenario_after(&S, name) == SC_AFTER_NONE);
     T_ASSERT(scenario_poll(&S, &f));
-    T_ASSERT(f.sys == SC_SYS_RESTART);
+    T_ASSERT(f.sys == SC_SYS_BACK);
 }
 
 static void test_snap_after_press_and_hold(void) {
@@ -150,7 +150,7 @@ static void test_errors_have_line_numbers(void) {
     T_ASSERT(fails("wait 1\nhold A", "line 2"));
     T_ASSERT(fails("wait 1\nsnap", "line 2"));
     T_ASSERT(fails("snap a\nwait 1", "line 1"));
-    T_ASSERT(fails("wait 1\nsysmenu main\n", "line 2"));
+    T_ASSERT(fails("wait 1\nsysmenu main\n", "line 2"));   /* no such item any more */
     T_ASSERT(fails("crank nan for 2", "line 1"));
     big[0] = 0;
     for (i = 0; i < 600; i++) strcat(big, "wait 1\n");

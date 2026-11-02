@@ -100,10 +100,10 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
         if (nt != 1) return "usage: state";
     } else if (!strcmp(tok[0], "sysmenu")) {
         c->kind = SC_C_SYS;
-        if (nt < 2) return "usage: sysmenu restart|main|boat N|weather N";
-        if (!strcmp(tok[1], "restart") || !strcmp(tok[1], "main")) {
-            if (nt != 2) return "usage: sysmenu restart|main";
-            c->sys = tok[1][0] == 'r' ? SC_SYS_RESTART : SC_SYS_MAIN;
+        if (nt < 2) return "usage: sysmenu back|boat N|weather N";
+        if (!strcmp(tok[1], "back")) {
+            if (nt != 2) return "usage: sysmenu back";
+            c->sys = SC_SYS_BACK;
         } else if (!strcmp(tok[1], "boat") || !strcmp(tok[1], "weather")) {
             char *e;
             long v;

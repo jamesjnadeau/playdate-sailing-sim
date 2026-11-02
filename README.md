@@ -23,7 +23,7 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 | B | Toggle auto trim; stops the engine instead while it runs |
 | Hold B | Start the engine (1 knot, pushes along the rudder) |
 
-The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather, restart and main menu.
+The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather and go back. Go back asks for confirmation, then returns to the home screen.
 
 ## Building
 
@@ -59,7 +59,7 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `crank DEG for N` | Turn the crank DEG degrees on each of N frames |
 | `snap NAME` | Save the frame buffer as `NAME.fb` (`NAME` is `[A-Za-z0-9_]+`; needs at least one frame before it) |
 | `state` | Save the game state as text |
-| `sysmenu restart\|main\|boat N\|weather N` | Pick that system-menu item on the next frame |
+| `sysmenu back\|boat N\|weather N` | Pick that system-menu item on the next frame |
 | `end` | Stop the scenario |
 
 Two `press A` lines in a row land on consecutive frames, so put a `wait 1` between them if the game should see two separate taps. A `sysmenu` with no frame after it is a parse error. The grammar is in `src/pd/scenario.c`.

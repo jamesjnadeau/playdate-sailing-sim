@@ -4,6 +4,7 @@
 #include <string.h>
 #include "assets.h"
 #include "helptext.h"
+#include "hudinfo.h"
 #include "menu.h"
 #include "weather.h"
 #include "race.h"
@@ -309,7 +310,7 @@ static void draw_preview(PlaydateAPI *pd, const Menu *m, const Track *t) {
     text(pd, "WIND", ax - 16, ay + 8);
 }
 
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLine *help) {
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const HelpLine *help) {
     load_fonts(pd);
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
@@ -353,6 +354,12 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLi
         text(pd, t->name, PV_L, 2);
         font(pd, F.sys, 0);
         draw_preview(pd, m, t);
+        char btime[16], bline[32];
+        double bt;
+        if (best && besttimes_get(best, t->name, &bt)) hud_fmt_time(bt, btime, sizeof btime);
+        else snprintf(btime, sizeof btime, "--:--.-");
+        snprintf(bline, sizeof bline, "Best %s", btime);
+        text(pd, bline, CAM_W - PV_L - width(pd, F.sys, bline, 0), 2);
         text(pd, t->info, PV_L, 197);
         hint_bar(pd, "CONFIRM", "BACK", NULL);
     } else if (m->screen == MENU_BOATS) {

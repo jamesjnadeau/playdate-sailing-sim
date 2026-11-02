@@ -9,7 +9,7 @@
 #define SC_MAX_CMDS 512
 #define SC_NAME_MAX 48
 
-typedef enum { SC_SYS_NONE, SC_SYS_RESTART, SC_SYS_MAIN, SC_SYS_BOAT, SC_SYS_WEATHER } ScSys;
+typedef enum { SC_SYS_NONE, SC_SYS_BACK,SC_SYS_BOAT, SC_SYS_WEATHER } ScSys;
 
 typedef struct {
     uint32_t cur, pushed, released;   /* BTN_* / PDButtons bits: left 1, right 2, up 4, down 8, B 16, A 32 */

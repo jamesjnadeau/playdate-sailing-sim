@@ -39,6 +39,10 @@ typedef struct {
 bool camera_project(const CameraPose *c, double wx, double wy, float wz,
                     float *sx, float *sy, float *depth);
 
+/* Same, for a point given as a float offset from the camera's x, y (no double arithmetic). */
+bool camera_project_rel(const CameraPose *c, float dx, float dy, float wz,
+                        float *sx, float *sy, float *depth);
+
 /* bottom: lowest usable row (the HUD panel top). Always fills `out` with finite values. */
 void camera_mark_view(const CameraPose *c, double wx, double wy, float bottom, MarkView *out);
 

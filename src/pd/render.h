@@ -6,6 +6,7 @@
 #include "helptext.h"
 #include "menu.h"
 #include "race.h"
+#include "besttimes.h"
 
 /* Draws the whole frame: sky, sea, rocks, rig, deck, HUD and any restart prompt.
    Does not clear; callers clear to white first only if they draw behind it. */
@@ -21,7 +22,7 @@ void render_set_sea_style(int style);
 int render_sea_style(void);
 
 /* Main menu screen (menu_draw.c). */
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const HelpLine *help);
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const HelpLine *help);
 
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);
@@ -32,6 +33,8 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 /* Praise banner after a buoy is rounded; blank once its time is up. */
 void hud_praise(PlaydateAPI *pd, const Game *g);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
+/* Confirmation box shown when "go back" is picked from the system menu. */
+void hud_back_confirm(PlaydateAPI *pd);
 /* System pause-menu panel: race time and next-mark info; blank in free sail. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g);
 

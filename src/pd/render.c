@@ -264,7 +264,7 @@ static void sort_far_first(const CrestBand *c, int n, uint16_t *idx) {
    slant and converge with the swell. Every corner is lifted to its own wave height, and a hexagon can
    be split into six facets around a centre sampled at its own height, so each facet tilts and shades
    on its own. */
-#define LAT_MAX 225
+#define LAT_MAX 300
 
 typedef struct { const CameraPose *c; float fx, fy, half, sgain, vis, dfar; int n; } Lat;
 static Lat lat;
@@ -338,7 +338,7 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
 
     /* keep the polygon count roughly constant: a facet covers k * size^2 of ground */
     float area = 1.1f * (dfar * dfar - CREST_NEAR * CREST_NEAR);
-    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 200.0f : 195.0f;
+    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 200.0f : 260.0f;
     float size = bw * (sea_style == SEA_HEX ? 0.8f : sea_style == SEA_HEXC ? 1.7f : 1.6f);
     size = fmaxf(size, sqrtf(area / (budget * kfacet)));
 
@@ -506,7 +506,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     for (int i = 0; i < SEA_BANDS; i++) dist[SEA_BANDS - 1 - i] = 3.0f * powf(1.5f, (float)i);
     /* far -> near; dist[0] is the farthest band. Lateral bands run out to the first one inside
        the crest-band range, which then takes over. */
-    float cap = fminf(vis * 0.9f, 60.0f);
+    float cap = fminf(vis * 0.9f, 90.0f);
     int last = SEA_BANDS - 1;
     if (crest) { last = 0; while (last < SEA_BANDS - 1 && dist[last] > cap) last++; }
     for (int i = 0; i <= last; i++) {

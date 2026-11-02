@@ -107,33 +107,56 @@ float sea_view_height(const SeaView *v, float dx, float dy) {
     return h;
 }
 
-typedef struct { double h[HULL_SAMPLES + 2]; } Samples;
+typedef struct { float h[HULL_SAMPLES + 2]; } Samples;
 
-/* Sample 0..6 run stern to bow along the keel; 7 is port, 8 is starboard at midships. */
-static void sample(const Sea *s, double x, double y, double heading, float L, float beam,
-                   double t, Samples *out) {
-    double fx = cos(heading), fy = sin(heading);
-    double sx = -fy, sy = fx;
-    for (int i = 0; i < HULL_SAMPLES; i++) {
-        double d = L * ((double)i / (HULL_SAMPLES - 1) - 0.5);
-        out->h[i] = height(s, x + d * fx, y + d * fy, t);
+/* The hull is a few metres across, so every sample is the phase at the boat plus a small float offset:
+   the wrapped double phase is computed once per component and the cosines run in single precision. */
+typedef struct { float ph[SEA_MAX_COMPONENTS]; } BasePhase;
+
+static void base_phase(const Sea *s, double x, double y, double t, BasePhase *out) {
+    double xw = fmod(x, SEA_WRAP), yw = fmod(y, SEA_WRAP);
+    for (int i = 0; i < s->n; i++) {
+        const SeaComp *c = &s->c[i];
+        out->ph[i] = (float)(TWO_PI * fmod(c->m * xw + c->n * yw, SEA_WRAP) / SEA_WRAP
+                           - fmod((double)c->omega * t, TWO_PI) + c->phase);
     }
-    out->h[7] = height(s, x - 0.5 * beam * sx, y - 0.5 * beam * sy, t);
-    out->h[8] = height(s, x + 0.5 * beam * sx, y + 0.5 * beam * sy, t);
+}
+
+static float height_at(const Sea *s, const BasePhase *bp, float dx, float dy, float dt) {
+    const float k = (float)(TWO_PI / SEA_WRAP);
+    float h = 0.0f;
+    for (int i = 0; i < s->n; i++) {
+        const SeaComp *c = &s->c[i];
+        h += c->amp * fast_cosf(bp->ph[i] + k * ((float)c->m * dx + (float)c->n * dy) - c->omega * dt);
+    }
+    return h;
+}
+
+/* Sample 0..6 run stern to bow along the keel; 7 is port, 8 is starboard at midships.
+   (ox, oy, ot) is this sample set's offset from the base phase's point and time. */
+static void sample(const Sea *s, const BasePhase *bp, float ox, float oy, float ot, float fx, float fy,
+                   float L, float beam, Samples *out) {
+    float sx = -fy, sy = fx;
+    for (int i = 0; i < HULL_SAMPLES; i++) {
+        float d = L * ((float)i / (HULL_SAMPLES - 1) - 0.5f);
+        out->h[i] = height_at(s, bp, ox + d * fx, oy + d * fy, ot);
+    }
+    out->h[7] = height_at(s, bp, ox - 0.5f * beam * sx, oy - 0.5f * beam * sy, ot);
+    out->h[8] = height_at(s, bp, ox + 0.5f * beam * sx, oy + 0.5f * beam * sy, ot);
 }
 
 /* Least-squares plane along the keel: mean elevation and bow-up slope. */
 static void fit(const Samples *a, float L, float *mean, float *slope) {
-    double m = 0, num = 0, den = 0;
+    float m = 0, num = 0, den = 0;
     for (int i = 0; i < HULL_SAMPLES; i++) m += a->h[i];
     m /= HULL_SAMPLES;
     for (int i = 0; i < HULL_SAMPLES; i++) {
-        double d = L * ((double)i / (HULL_SAMPLES - 1) - 0.5);
+        float d = L * ((float)i / (HULL_SAMPLES - 1) - 0.5f);
         num += d * (a->h[i] - m);
         den += d * d;
     }
-    *mean = (float)m;
-    *slope = (float)(num / den);
+    *mean = m;
+    *slope = num / den;
 }
 
 WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg, float t) {
@@ -147,17 +170,20 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
     float u = fin(b->u), v = fin(b->v);
     float L = fmaxf(cfg->hull.length, 0.5f), beam = fmaxf(cfg->hull.beam, 0.2f);
     float m = cfg->hull.mass + cfg->hull.crew_mass;
-    double vx = u * cos(hd) - v * sin(hd), vy = u * sin(hd) + v * cos(hd);
+    float fx = fast_cosf((float)hd), fy = fast_sinf((float)hd);
+    float vx = u * fx - v * fy, vy = u * fy + v * fx;
     float speed = hypotf(u, v);
 
     Samples a, a1;
-    sample(s, x, y, hd, L, beam, td, &a);
-    sample(s, x + vx * RATE_EPS, y + vy * RATE_EPS, hd, L, beam, td + RATE_EPS, &a1);
+    BasePhase bp;
+    base_phase(s, x, y, td, &bp);
+    sample(s, &bp, 0.0f, 0.0f, 0.0f, fx, fy, L, beam, &a);
+    sample(s, &bp, vx * (float)RATE_EPS, vy * (float)RATE_EPS, (float)RATE_EPS, fx, fy, L, beam, &a1);
     float mean, slope, mean1, slope1;
     fit(&a, L, &mean, &slope);
     fit(&a1, L, &mean1, &slope1);
     slope = clampf(slope, -SLOPE_MAX, SLOPE_MAX);
-    float cross = clampf((float)(a.h[8] - a.h[7]) / beam, -SLOPE_MAX, SLOPE_MAX);
+    float cross = clampf((a.h[8] - a.h[7]) / beam, -SLOPE_MAX, SLOPE_MAX);
 
     f.heave = mean;
     f.pitch = atanf(slope);
@@ -167,10 +193,10 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
     f.surge = -s->surf_gain * m * (float)G * slope;
     /* slam: the bow meets rising water faster than the hull's own motion carries it */
     if (s->slam_gain > 0.0f && speed > s->slam_speed) {
-        double bow = L * 0.5;
-        double rel0 = a.h[HULL_SAMPLES - 1] - mean - slope * bow;
-        double rel1 = a1.h[HULL_SAMPLES - 1] - mean1 - slope1 * bow;
-        float rb = (float)((rel1 - rel0) / RATE_EPS);
+        float bow = L * 0.5f;
+        float rel0 = a.h[HULL_SAMPLES - 1] - mean - slope * bow;
+        float rel1 = a1.h[HULL_SAMPLES - 1] - mean1 - slope1 * bow;
+        float rb = (rel1 - rel0) / (float)RATE_EPS;
         if (rb > 0.0f) f.surge -= s->slam_gain * m * rb * rb;
     }
     f.heel = -m * (float)G * HEEL_ARM * cross;

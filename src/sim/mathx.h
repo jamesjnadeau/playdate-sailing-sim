@@ -25,6 +25,9 @@ static inline float fast_cosf(float x) {
                  + x2 * (2.4801587e-5f + x2 * (-2.7557319e-7f + x2 * 2.0876757e-9f))))));
 }
 
+/* lroundf without the libm call: half away from zero, for values well inside int range. */
+static inline int iroundf(float x) { return (int)(x + (x < 0.0f ? -0.5f : 0.5f)); }
+
 static inline float fast_sinf(float x) { return fast_cosf(x - 1.5707964f); }
 
 #endif

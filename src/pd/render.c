@@ -85,8 +85,8 @@ static void foam_stroke(PlaydateAPI *pd, int x0, int y0, int x1, int y1, float w
         ex = dx / len * w * 0.5f; ey = dy / len * w * 0.5f;     /* run past each end so neighbouring strokes overlap, not gap */
     }
     float ax = x0 - ex, ay = y0 - ey, bx = x1 + ex, by = y1 + ey;
-    int p[8] = { (int)lroundf(ax + nx), (int)lroundf(ay + ny), (int)lroundf(bx + nx), (int)lroundf(by + ny),
-                 (int)lroundf(bx - nx), (int)lroundf(by - ny), (int)lroundf(ax - nx), (int)lroundf(ay - ny) };
+    int p[8] = { iroundf(ax + nx), iroundf(ay + ny), iroundf(bx + nx), iroundf(by + ny),
+                 iroundf(bx - nx), iroundf(by - ny), iroundf(ax - nx), iroundf(ay - ny) };
     foam_poly4(pd, p, level);
 }
 
@@ -141,7 +141,7 @@ static void strip(PlaydateAPI *pd, float fy0, float fy1, float ny0, float ny1, i
 
 static double sv_ox, sv_oy;                         /* world position the sea view is anchored at */
 static SeaView sv;                                   /* per-frame sea evaluator, origin at the camera */
-static int iround(float v) { return (int)lroundf(clampf(v, -2000.0f, 2000.0f)); }
+static int iround(float v) { return iroundf(clampf(v, -2000.0f, 2000.0f)); }
 
 /* Crest and trough streaks: short dashes scattered at jittered, world-fixed spots and laid
    along the dominant wave's crest line. A dash shows white while a crest is under it and black
@@ -240,9 +240,23 @@ static int clip_u(const Gp *in, int n, Gp *out, float na, float nb, float lo, fl
 #define MOGUL_CELLS_MAX 620
 #define MOGUL_MAX_ACROSS 48
 
-static int mogul_cmp(const void *x, const void *y) {
-    float a = ((const CrestBand *)x)->depth, b = ((const CrestBand *)y)->depth;
-    return (a < b) - (a > b);                          /* far to near */
+/* Orders the cells far to near by sorting indices, not the (large) cells themselves: a bottom-up merge
+   sort with the comparison inline, stable so equal depths keep their emit order. */
+static void sort_far_first(const CrestBand *c, int n, uint16_t *idx) {
+    uint16_t tmp[MOGUL_CELLS_MAX];
+    for (int i = 0; i < n; i++) idx[i] = (uint16_t)i;
+    uint16_t *src = idx, *dst = tmp;
+    for (int w = 1; w < n; w *= 2) {
+        for (int lo = 0; lo < n; lo += 2 * w) {
+            int mid = lo + w < n ? lo + w : n, hi = lo + 2 * w < n ? lo + 2 * w : n;
+            int a = lo, b = mid, o = lo;
+            while (a < mid && b < hi) dst[o++] = c[src[b]].depth > c[src[a]].depth ? src[b++] : src[a++];
+            while (a < mid) dst[o++] = src[a++];
+            while (b < hi) dst[o++] = src[b++];
+        }
+        uint16_t *t = src; src = dst; dst = t;
+    }
+    if (src != idx) for (int i = 0; i < n; i++) idx[i] = src[i];
 }
 
 /* ---- polygon tilings of the near sea (hex / hex+centre / tri) ----
@@ -264,7 +278,7 @@ static int lat_level(float a, float slope, float hz) {
     float fog = clampf(a / lat.vis, 0.0f, 1.0f);
     float base = 10.0f - 3.0f * clampf(a / 300.0f, 0.0f, 1.0f);
     float shade = clampf(-slope * lat.sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / lat.half, -1.0f, 1.0f) * -3.0f;
-    return (int)((float)lroundf(base + shade) * (1.0f - 0.9f * fog * fog));
+    return (int)((float)iroundf(base + shade) * (1.0f - 0.9f * fog * fog));
 }
 
 /* Clip a convex ground polygon to the band's depth range, lift it onto the waves and queue it. */
@@ -383,9 +397,12 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
             }
         }
     }
-    qsort(polys, (size_t)lat.n, sizeof polys[0], mogul_cmp);
-    for (int i = 0; i < lat.n; i++)
-        pd->graphics->fillPolygon(polys[i].n, polys[i].pts, render_pattern(polys[i].level), kPolygonFillNonZero);
+    uint16_t order[LAT_MAX];
+    sort_far_first(polys, lat.n, order);
+    for (int i = 0; i < lat.n; i++) {
+        const CrestBand *p = &polys[order[i]];
+        pd->graphics->fillPolygon(p->n, p->pts, render_pattern(p->level), kPolygonFillNonZero);
+    }
 }
 
 static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
@@ -456,16 +473,19 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
             float fog = clampf(ca / vis, 0.0f, 1.0f);
             float base = 10.0f - 3.0f * clampf(ca / 300.0f, 0.0f, 1.0f);
             float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 1.6f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
-            int level = (int)lroundf(base + shade + (((k + j) & 1) ? 1.0f : -1.0f));
+            int level = iroundf(base + shade + (((k + j) & 1) ? 1.0f : -1.0f));
             cb->level = (int)(level * (1.0f - 0.9f * fog * fog));
             cb->depth = ca;
             cb->n = n;
             nc++;
         }
     }
-    qsort(cells, (size_t)nc, sizeof cells[0], mogul_cmp);
-    for (int i = 0; i < nc; i++)
-        pd->graphics->fillPolygon(cells[i].n, cells[i].pts, render_pattern(cells[i].level), kPolygonFillNonZero);
+    uint16_t order[MOGUL_CELLS_MAX];
+    sort_far_first(cells, nc, order);
+    for (int i = 0; i < nc; i++) {
+        const CrestBand *p = &cells[order[i]];
+        pd->graphics->fillPolygon(p->n, p->pts, render_pattern(p->level), kPolygonFillNonZero);
+    }
 }
 
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -501,7 +521,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         float base = 10.0f - 3.0f * (d / 300.0f > 1 ? 1 : d / 300.0f);
         /* faces tipped toward the eye are light, faces tipped away dark; crests light, troughs dark */
         float shade = clampf(-slope * sgain, -5.0f, 5.0f) * 0.7f + clampf(hz / half, -1.0f, 1.0f) * -3.0f;
-        int level = (int)lroundf(base + shade + ((i & 1) ? 1.0f : -1.0f));
+        int level = iroundf(base + shade + ((i & 1) ? 1.0f : -1.0f));
         level = (int)(level * (1.0f - 0.9f * fog * fog));
         strip(pd, fy0, fy1, y0, y1, level);
         fy0 = y0; fy1 = y1;
@@ -1034,7 +1054,7 @@ static void fill_clipped(PlaydateAPI *pd, const float *poly, int n, const float 
     int c = clip_convex(poly, n, rim, 4, o, 32);
     if (c < 3) return;
     int q[64];
-    for (int i = 0; i < 2 * c; i++) q[i] = (int)lroundf(o[i]);
+    for (int i = 0; i < 2 * c; i++) q[i] = iroundf(o[i]);
     pd->graphics->fillPolygon(c, q, fill, kPolygonFillNonZero);
 }
 
@@ -1096,7 +1116,7 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
     }
 
     int q[8];                                  /* the rim on the deck */
-    for (int i = 0; i < 8; i++) q[i] = (int)lroundf(rim[i]);
+    for (int i = 0; i < 8; i++) q[i] = iroundf(rim[i]);
     for (int i = 0; i < 4; i++) {
         int j = (i + 1) % 4;
         pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 2, kColorBlack);
@@ -1203,8 +1223,8 @@ static int mark_far_first(const void *x, const void *y) {
 }
 
 static void draw_buoy(PlaydateAPI *pd, const MarkDraw *m) {
-    int tx = (int)lroundf(m->tx), ty = (int)lroundf(m->ty);
-    int lx = (int)lroundf(m->bx - m->hw), rx = (int)lroundf(m->bx + m->hw), by = (int)lroundf(m->by);
+    int tx = iroundf(m->tx), ty = iroundf(m->ty);
+    int lx = iroundf(m->bx - m->hw), rx = iroundf(m->bx + m->hw), by = iroundf(m->by);
     pd->graphics->fillTriangle(tx, ty, lx, by, rx, by, kColorBlack);
     pd->graphics->drawLine(tx, ty, lx, by, 1, kColorWhite);
     pd->graphics->drawLine(tx, ty, rx, by, 1, kColorWhite);

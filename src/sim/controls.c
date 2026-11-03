@@ -12,6 +12,12 @@ void controls_init(Controls *c) {
     c->camera_target_pitch = 0;
     c->camera_vertical = false;
     c->camera_recentre = false;
+    c->camera_follow = false;
+    c->buoy_rel = NAN;
+    c->buoy_id = 0;
+    c->swing_active = c->swing_seen = false;
+    c->swing_from = c->swing_t = 0;
+    c->swing_id = 0;
     c->down_time = 0;
     c->down_tracking = c->down_fired = c->down_entered = false;
 }
@@ -24,6 +30,35 @@ static void select_sail(Controls *c, int count, int advance) {
 
 static float ease_to_zero(float v, float step) {
     return fabsf(v) <= step ? 0 : v - copysignf(step, v);
+}
+
+static float smoothstep01(float x) {
+    x = clampf(x, 0, 1);
+    return x * x * (3 - 2 * x);
+}
+
+/* Drives camera_yaw towards the next buoy (following) or back to 0 (leaving follow). */
+static void follow_update(Controls *c, const CameraCfg *k, float dt) {
+    if (!c->camera_follow && !c->swing_active) return;
+    bool following = c->camera_follow;
+    if (following && !isfinite(c->buoy_rel)) return;   /* no target: hold, stay on */
+    float goal = following ? c->buoy_rel : 0;
+    if (following && (!c->swing_seen || c->buoy_id != c->swing_id)) {
+        c->swing_seen = true;
+        c->swing_id = c->buoy_id;
+        c->swing_from = c->camera_yaw;
+        c->swing_t = 0;
+        c->swing_active = true;
+    }
+    if (c->swing_active) {
+        c->swing_t += dt;
+        float s = k->buoy_swing_s > 0 ? smoothstep01(c->swing_t / k->buoy_swing_s) : 1;
+        if (s >= 1) c->swing_active = false;
+        c->camera_yaw = wrap_pi(c->swing_from + wrap_pi(goal - c->swing_from) * s);
+    } else {
+        c->camera_yaw = wrap_pi(goal);
+    }
+    c->camera_target_yaw = c->camera_yaw;
 }
 
 void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t held,
@@ -56,14 +91,22 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
             c->down_time += dt;
             if (!c->down_fired && c->down_time >= k->camera_hold_s) {
                 c->down_fired = true;
-                c->camera_recentre = true;
+                c->camera_follow = !c->camera_follow;
+                c->camera_recentre = false;
+                c->swing_active = true;
+                c->swing_seen = false;
+                c->swing_from = c->camera_yaw;
+                c->swing_t = 0;
             }
         } else {
             if (!c->down_fired && !c->down_entered) c->camera_vertical = !c->camera_vertical;
             c->down_tracking = false;
         }
     }
-    if (up_again) c->camera_recentre = true;
+    if (up_again) {
+        c->camera_recentre = true;
+        c->camera_follow = c->swing_active = false;
+    }
     else if ((pressed & (BTN_UP | BTN_RIGHT | BTN_LEFT | BTN_DOWN)) && c->mode != MODE_CAMERA) c->camera_recentre = false;
     select_sail(c, n, 0);
 
@@ -87,8 +130,9 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
                 + crank_delta_deg * k->crank_gain_hoist, 0, 1);
         break;
     case MODE_CAMERA: {
-        if (crank_delta_deg != 0 && c->camera_recentre) {   /* turning the crank takes over from where the view is */
-            c->camera_recentre = false;
+        if (crank_delta_deg != 0 && (c->camera_recentre || c->camera_follow || c->swing_active)) {
+            /* turning the crank takes over from where the view is */
+            c->camera_recentre = c->camera_follow = c->swing_active = false;
             c->camera_target_yaw = c->camera_yaw;
             c->camera_target_pitch = c->camera_pitch;
         }
@@ -101,12 +145,14 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
             c->camera_target_yaw = wrap_pi(c->camera_target_yaw + d);
         }
         if (!c->camera_recentre) {
-            c->camera_yaw = c->camera_target_yaw;
+            if (!c->camera_follow && !c->swing_active) c->camera_yaw = c->camera_target_yaw;
             c->camera_pitch = c->camera_target_pitch;
         }
         break;
     }
     }
+
+    follow_update(c, &cfg->camera, dt);
 
     if (c->camera_recentre) {
         c->camera_target_yaw = 0;

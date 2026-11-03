@@ -70,8 +70,10 @@ static void hold_down(Rig *r, float secs) {
     tick_h(r, 0, 0, 0);
 }
 static void idle(Rig *r, int n) { for (int i = 0; i < n; i++) tick_h(r, 0, 0, 0); }
+static void aim(Rig *r, float rel, int id) { r->c.buoy_rel = rel; r->c.buoy_id = id; }
+static void toggle_follow(Rig *r) { hold_down(r, r->cfg.controls.camera_hold_s + 0.1f); }
 
-static void test_camera_yaw_unlimited_and_hold_returns(void) {
+static void test_camera_yaw_unlimited_and_second_up_returns(void) {
     Rig r; rig_init(&r);
     tick(&r, BTN_DOWN, 0);
     int passed_pi = 0;
@@ -99,10 +101,10 @@ static void test_camera_yaw_unlimited_and_hold_returns(void) {
     T_NEAR(r.c.camera_yaw, y, 1e-6);
     tick_h(&r, BTN_DOWN, BTN_DOWN, 0);    /* entering does not recentre */
     T_NEAR(r.c.camera_yaw, y, 1e-6);
-    float hold = r.cfg.controls.camera_hold_s;
-    for (int i = 0; i < (int)(hold * 30) + 2; i++) tick_h(&r, 0, BTN_DOWN, 0);   /* hold fires */
+    tick(&r, BTN_UP, 0);
+    tick(&r, BTN_UP, 0);                  /* second UP recentres */
     float y0 = r.c.camera_yaw;
-    tick_h(&r, 0, BTN_DOWN, 0);
+    tick_h(&r, 0, 0, 0);
     float step = deg2rad(r.cfg.camera.return_rate) / 30;
     T_NEAR(fabsf(r.c.camera_yaw - y0), step, 1e-4);
     T_ASSERT(fabsf(r.c.camera_yaw) < fabsf(y0));
@@ -128,14 +130,14 @@ static void test_entering_tap_does_not_toggle_axis(void) {
     T_ASSERT(r.c.mode == MODE_CAMERA && !r.c.camera_vertical);
 }
 
-static void test_hold_recentres_both_axes_and_does_not_toggle(void) {
+static void test_second_up_recentres_both_axes(void) {
     Rig r; rig_init(&r);
     tap_down(&r);
     for (int i = 0; i < 40; i++) tick(&r, 0, 30);          /* yaw */
     tap_down(&r);
     for (int i = 0; i < 40; i++) tick(&r, 0, 30);          /* pitch */
     T_ASSERT(r.c.camera_yaw != 0.0f && r.c.camera_pitch != 0.0f && r.c.camera_vertical);
-    hold_down(&r, r.cfg.controls.camera_hold_s + 0.1f);
+    tick(&r, BTN_UP, 0); tick(&r, BTN_UP, 0);
     idle(&r, 300);
     T_ASSERT(r.c.camera_yaw == 0.0f && r.c.camera_pitch == 0.0f);
     T_ASSERT(r.c.camera_vertical);
@@ -148,15 +150,17 @@ static void test_hold_shorter_than_threshold_toggles_not_recentres(void) {
     float y = r.c.camera_yaw;
     hold_down(&r, r.cfg.controls.camera_hold_s - 0.1f);
     T_ASSERT(r.c.camera_vertical);
+    T_ASSERT(!r.c.camera_follow);
     idle(&r, 100);
     T_NEAR(r.c.camera_yaw, y, 1e-6);
 }
 
-static void test_crank_cancels_hold_recentre(void) {
+static void test_crank_cancels_recentre(void) {
     Rig r; rig_init(&r);
     tap_down(&r);
     for (int i = 0; i < 60; i++) tick(&r, 0, 30);
-    for (int i = 0; i < 30; i++) tick_h(&r, i ? 0 : BTN_DOWN, BTN_DOWN, 0);   /* hold fires */
+    tick(&r, BTN_UP, 0); tick(&r, BTN_UP, 0);   /* second UP starts recentre */
+    tap_down(&r);                                /* back into look mode; recentre keeps running */
     T_ASSERT(r.c.camera_recentre);
     tick_h(&r, 0, 0, 10);
     T_ASSERT(!r.c.camera_recentre);
@@ -169,7 +173,8 @@ static void test_crank_after_cancel_moves_one_step_from_the_live_view(void) {
     Rig r; rig_init(&r);
     tap_down(&r);
     for (int i = 0; i < 60; i++) tick(&r, 0, 30);
-    for (int i = 0; i < 30; i++) tick_h(&r, i ? 0 : BTN_DOWN, BTN_DOWN, 0);   /* hold fires */
+    tick(&r, BTN_UP, 0); tick(&r, BTN_UP, 0);
+    tap_down(&r);
     for (int i = 0; i < 5; i++) tick_h(&r, 0, 0, 0);                          /* eases part-way */
     float live = r.c.camera_yaw;
     T_ASSERT(live != 0 && r.c.camera_target_yaw != live);
@@ -220,7 +225,7 @@ static void test_recentre_from_near_pi_goes_short_way(void) {
     Rig r; rig_init(&r);
     tap_down(&r);
     r.c.camera_yaw = r.c.camera_target_yaw = 3.0f;
-    for (int i = 0; i < 30; i++) tick_h(&r, i ? 0 : BTN_DOWN, BTN_DOWN, 0);
+    tick(&r, BTN_UP, 0); tick(&r, BTN_UP, 0);
     float prev = r.c.camera_yaw;
     for (int i = 0; i < 100; i++) {
         tick_h(&r, 0, 0, 0);
@@ -282,17 +287,176 @@ static void test_b_is_left_to_game(void) {   /* the anchor tap lives with the au
     T_ASSERT(!r.in.anchor);
 }
 
+static void settle_follow(Rig *r, float rel, int id) {
+    aim(r, rel, id); toggle_follow(r); idle(r, 80);
+}
+
+static void test_hold_down_toggles_follow(void) {
+    Rig r; rig_init(&r);
+    T_ASSERT(!r.c.camera_follow);
+    toggle_follow(&r);
+    T_ASSERT(r.c.camera_follow && r.c.mode == MODE_CAMERA);
+    toggle_follow(&r);
+    T_ASSERT(!r.c.camera_follow);
+}
+
+static void test_follow_swings_to_buoy_over_swing_time(void) {
+    Rig r; rig_init(&r);
+    aim(&r, 1.0f, 1);
+    toggle_follow(&r);
+    T_ASSERT(r.c.camera_yaw > 0 && r.c.camera_yaw < 0.9f);
+    float prev = r.c.camera_yaw;
+    for (int i = 0; i < 80; i++) {
+        idle(&r, 1);
+        T_ASSERT(r.c.camera_yaw >= prev);
+        prev = r.c.camera_yaw;
+    }
+    T_NEAR(r.c.camera_yaw, 1.0, 1e-3);
+    T_ASSERT(r.c.camera_pitch == 0.0f);
+}
+
+static void test_follow_tracks_live_bearing_after_swing(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    aim(&r, 0.3f, 1);
+    idle(&r, 1);
+    T_NEAR(r.c.camera_yaw, 0.3, 1e-4);
+}
+
+static void test_new_buoy_restarts_swing_without_jump(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    aim(&r, -0.5f, 2);
+    idle(&r, 1);
+    T_ASSERT(fabsf(r.c.camera_yaw - 1.0f) < 0.05f);
+    idle(&r, 80);
+    T_NEAR(r.c.camera_yaw, -0.5, 1e-3);
+
+    Rig q; rig_init(&q);
+    aim(&q, 1.0f, 1); toggle_follow(&q); idle(&q, 15);
+    float y = q.c.camera_yaw;
+    aim(&q, -0.5f, 2);
+    idle(&q, 1);
+    T_ASSERT(fabsf(q.c.camera_yaw - y) < 0.05f);
+}
+
+static void test_swing_takes_the_short_way_round(void) {
+    Rig r; rig_init(&r);
+    tap_down(&r);
+    r.c.camera_yaw = r.c.camera_target_yaw = 3.0f;
+    aim(&r, -3.0f, 1);
+    toggle_follow(&r);
+    for (int i = 0; i < 80; i++) {
+        idle(&r, 1);
+        T_ASSERT(fabsf(r.c.camera_yaw) > 2.9f);
+    }
+}
+
+static void test_follow_holds_yaw_with_no_target_and_keeps_following(void) {
+    Rig r; rig_init(&r);
+    aim(&r, NAN, 0);
+    tap_down(&r);
+    for (int i = 0; i < 20; i++) tick(&r, 0, 30);
+    float y = r.c.camera_yaw;
+    toggle_follow(&r);
+    idle(&r, 100);
+    T_NEAR(r.c.camera_yaw, y, 1e-6);
+    T_ASSERT(r.c.camera_follow);
+    aim(&r, INFINITY, 1);
+    idle(&r, 10);
+    T_ASSERT(isfinite(r.c.camera_yaw));
+    T_NEAR(r.c.camera_yaw, y, 1e-6);
+    aim(&r, 0.0f, 1);
+    idle(&r, 80);
+    T_NEAR(r.c.camera_yaw, 0, 1e-3);
+}
+
+static void test_toggle_off_swings_behind(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    toggle_follow(&r);
+    T_ASSERT(!r.c.camera_follow);
+    idle(&r, 80);
+    T_NEAR(r.c.camera_yaw, 0, 1e-3);
+    T_ASSERT(r.c.camera_pitch == 0.0f);
+}
+
+static void test_crank_in_look_mode_exits_follow_in_place(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    tick(&r, 0, 10);
+    T_ASSERT(!r.c.camera_follow);
+    T_NEAR(wrap_pi(r.c.camera_yaw - 1.0f), deg2rad(10 * r.cfg.controls.crank_gain_camera), 1e-4);
+    float y = r.c.camera_yaw;
+    idle(&r, 30);
+    T_NEAR(r.c.camera_yaw, y, 1e-6);
+
+    Rig q; rig_init(&q);
+    aim(&q, 1.0f, 1); toggle_follow(&q); idle(&q, 15);
+    float live = q.c.camera_yaw;
+    tick(&q, 0, 10);
+    T_ASSERT(!q.c.camera_follow);
+    T_ASSERT(fabsf(wrap_pi(q.c.camera_yaw - live)) <= deg2rad(10 * q.cfg.controls.crank_gain_camera) + 1e-4f);
+}
+
+static void test_follow_survives_leaving_look_mode(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    tick(&r, BTN_RIGHT, 0);
+    T_ASSERT(r.c.mode == MODE_TRIM);
+    aim(&r, 0.4f, 1);
+    idle(&r, 80);
+    T_ASSERT(r.c.camera_follow);
+    T_NEAR(r.c.camera_yaw, 0.4, 1e-3);
+    tick(&r, 0, 30);
+    T_ASSERT(r.c.camera_follow);
+}
+
+static void test_second_up_press_ends_follow_and_recentres(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    tick(&r, BTN_UP, 0);
+    T_ASSERT(r.c.camera_follow);
+    tick(&r, BTN_UP, 0);
+    T_ASSERT(!r.c.camera_follow && r.c.camera_recentre);
+    idle(&r, 600);
+    T_NEAR(r.c.camera_yaw, 0, 1e-6);
+}
+
+static void test_swing_zero_is_immediate(void) {
+    Rig r; rig_init(&r);
+    r.cfg.camera.buoy_swing_s = 0;
+    aim(&r, 1.0f, 1);
+    toggle_follow(&r);
+    T_NEAR(r.c.camera_yaw, 1.0, 1e-5);
+}
+
+static void test_follow_bad_dt_stays_finite(void) {
+    Rig r; rig_init(&r);
+    settle_follow(&r, 1.0f, 1);
+    controls_update(&r.c, &r.cfg, 0, 0, 0, NAN, &r.in);
+    float y = r.c.camera_yaw;
+    for (int i = 0; i < 4; i++) controls_update(&r.c, &r.cfg, 0, 0, 0, 0, &r.in);
+    T_ASSERT(isfinite(r.c.camera_yaw));
+    T_NEAR(r.c.camera_yaw, y, 1e-6);
+}
+
+static void test_init_has_no_target(void) {
+    Rig r; rig_init(&r);
+    T_ASSERT(!isfinite(r.c.buoy_rel) && !r.c.camera_follow);
+}
+
 int main(void) {
     T_RUN(test_right_latches_trim);
     T_RUN(test_repress_advances_sail);
     T_RUN(test_left_hoist_shares_selection);
     T_RUN(test_up_crank_moves_wheel_not_trim);
-    T_RUN(test_camera_yaw_unlimited_and_hold_returns);
+    T_RUN(test_camera_yaw_unlimited_and_second_up_returns);
     T_RUN(test_down_tap_in_camera_mode_toggles_axis);
     T_RUN(test_entering_tap_does_not_toggle_axis);
-    T_RUN(test_hold_recentres_both_axes_and_does_not_toggle);
+    T_RUN(test_second_up_recentres_both_axes);
     T_RUN(test_hold_shorter_than_threshold_toggles_not_recentres);
-    T_RUN(test_crank_cancels_hold_recentre);
+    T_RUN(test_crank_cancels_recentre);
     T_RUN(test_crank_after_cancel_moves_one_step_from_the_live_view);
     T_RUN(test_vertical_crank_has_no_dead_travel_past_the_floor);
     T_RUN(test_second_up_press_recentres_camera);
@@ -304,5 +468,18 @@ int main(void) {
     T_RUN(test_single_sail_ignores_repress);
     T_RUN(test_bad_inputs_stay_finite);
     T_RUN(test_b_is_left_to_game);
+    T_RUN(test_hold_down_toggles_follow);
+    T_RUN(test_follow_swings_to_buoy_over_swing_time);
+    T_RUN(test_follow_tracks_live_bearing_after_swing);
+    T_RUN(test_new_buoy_restarts_swing_without_jump);
+    T_RUN(test_swing_takes_the_short_way_round);
+    T_RUN(test_follow_holds_yaw_with_no_target_and_keeps_following);
+    T_RUN(test_toggle_off_swings_behind);
+    T_RUN(test_crank_in_look_mode_exits_follow_in_place);
+    T_RUN(test_follow_survives_leaving_look_mode);
+    T_RUN(test_second_up_press_ends_follow_and_recentres);
+    T_RUN(test_swing_zero_is_immediate);
+    T_RUN(test_follow_bad_dt_stays_finite);
+    T_RUN(test_init_has_no_target);
     return T_DONE();
 }

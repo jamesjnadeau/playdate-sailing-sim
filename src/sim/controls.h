@@ -13,13 +13,15 @@
 #define BTN_A     (1u << 5)
 
 /* The crank drives whichever mode was last latched; no button needs holding.
- *   UP    -> WHEEL  (a second UP press eases the camera look back to 0)
+ *   UP    -> WHEEL  (a second UP press eases the camera look back to 0 and ends buoy-follow)
  *   RIGHT -> TRIM  (re-press while in TRIM selects the next sail)
  *   LEFT  -> HOIST (re-press while in HOIST selects the next sail)
  *   DOWN  -> CAMERA look. Crank swings it all the way round the boat; a DOWN tap
  *            while already looking switches the crank between sideways and
- *            raise/lower; holding DOWN for controls.camera_hold_s eases the look
- *            back to 0 at camera.return_rate. Leaving CAMERA keeps the look.
+ *            raise/lower; holding DOWN for controls.camera_hold_s toggles buoy-follow
+ *            (camera yaw faces the next buoy) and behind-follow (yaw 0), swinging over
+ *            camera.buoy_swing_s. A crank turn in CAMERA exits buoy-follow where the view
+ *            is. Leaving CAMERA keeps the look and keeps following.
  * If several mode buttons are pressed in one frame the priority is
  * UP > RIGHT > LEFT > DOWN. The selected sail is shared by TRIM and HOIST. */
 typedef enum { MODE_WHEEL, MODE_TRIM, MODE_HOIST, MODE_CAMERA } Mode;
@@ -32,7 +34,13 @@ typedef struct {
     float camera_pitch;       /* rad, raise (+) / lower (-) the camera about the boat */
     float camera_target_pitch;
     bool camera_vertical;     /* crank drives pitch instead of yaw */
-    bool camera_recentre;     /* DOWN held long enough: ease the look back to 0 */
+    bool camera_recentre;     /* second UP: ease the look back to 0 */
+    bool camera_follow;       /* buoy-follow: yaw faces the next buoy (pitch untouched) */
+    float buoy_rel;           /* set by the game each frame: rad, bearing to next buoy minus heading; NAN = none */
+    int buoy_id;              /* set by the game: changes when the target buoy changes */
+    bool swing_active, swing_seen;   /* yaw blend in progress; first valid target seen since toggling */
+    float swing_from, swing_t;       /* yaw the blend started from; seconds into it */
+    int swing_id;             /* buoy_id the blend is heading for */
     float down_time;          /* how long the current DOWN press has been held */
     bool down_tracking, down_fired, down_entered;   /* DOWN press state; entered = this press switched into CAMERA */
 } Controls;

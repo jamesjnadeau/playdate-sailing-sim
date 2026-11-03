@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include "follower.h"
+#include "game.h"
 
 static void rec(Follower *f, double x, double y, float heading) {
     BoatState b;
@@ -120,6 +121,97 @@ static void test_shift_moves_the_trail(void) {
     T_NEAR(f.smp[f.head].p.y, 40.0, 1e-9);
 }
 
+static Game g;
+static BoatCfg bc;
+static WeatherCfg wcfg;
+static WorldCfg wc;
+static Track tr;
+
+static void fresh(void) {
+    boatcfg_default(&bc);
+    weather_default(&wcfg);
+    world_default(&wc);
+    game_init(&g, &bc, &wcfg, &wc, WEATHER_SUNNY, 1);
+}
+
+static void fresh_journey(void) {
+    fresh();
+    game_set_journey(&g);
+}
+
+static void step(bool drive) {
+    if (drive) {
+        g.b.u = 8.0f;
+        g.b.heading = 0.0f;
+    }
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
+/* Drives until the ghost exists; returns whether it did within `cap` frames. */
+static bool drive_until_ghost(FollowPose *p, int cap) {
+    for (int i = 0; i < cap; i++) {
+        step(true);
+        if (follower_pose(&g.follow, FOLLOW_DISTANCE_M, p)) return true;
+    }
+    return false;
+}
+
+static void test_journey_records_and_ghost_appears(void) {
+    FollowPose p;
+    fresh_journey();
+    T_ASSERT(drive_until_ghost(&p, 20000));
+    T_ASSERT(hypot(p.x - g.b.x, p.y - g.b.y) <= 30.001);
+}
+
+static void test_free_range_records(void) {
+    FollowPose p;
+    fresh();
+    game_set_track(&g, NULL);
+    T_ASSERT(drive_until_ghost(&p, 20000));
+    T_ASSERT(hypot(p.x - g.b.x, p.y - g.b.y) <= 30.001);
+}
+
+static void test_race_records_nothing(void) {
+    fresh();
+    track_default(&tr);
+    game_set_track(&g, &tr);
+    for (int i = 0; i < 300; i++) step(true);
+    T_ASSERT(g.follow.n == 0);
+}
+
+static void test_restart_clears_the_trail(void) {
+    FollowPose p;
+    fresh_journey();
+    T_ASSERT(drive_until_ghost(&p, 20000));
+    game_restart(&g, 2);
+    T_ASSERT(g.follow.n <= 1);
+    T_ASSERT(!follower_pose(&g.follow, FOLLOW_DISTANCE_M, &p));
+    T_ASSERT(drive_until_ghost(&p, 20000));
+    game_set_track(&g, NULL);
+    T_ASSERT(g.follow.n <= 1);
+    T_ASSERT(!follower_pose(&g.follow, FOLLOW_DISTANCE_M, &p));
+    T_ASSERT(drive_until_ghost(&p, 20000));
+    game_set_journey(&g);
+    T_ASSERT(g.follow.n <= 1);
+    T_ASSERT(!follower_pose(&g.follow, FOLLOW_DISTANCE_M, &p));
+}
+
+static void test_origin_shift_keeps_the_ghost_close(void) {
+    FollowPose p;
+    bool shifted = false;
+    fresh();
+    game_set_track(&g, NULL);
+    for (int i = 0; i < 60000 && !shifted; i++) {
+        double before = g.b.x;
+        step(true);
+        shifted = g.b.x < before;
+    }
+    T_ASSERT(shifted);
+    T_ASSERT(follower_pose(&g.follow, FOLLOW_DISTANCE_M, &p));
+    double d = hypot(p.x - g.b.x, p.y - g.b.y);
+    T_ASSERT(d >= 15.0 && d <= 30.001);
+}
+
 int main(void) {
     T_RUN(test_empty_has_no_pose);
     T_RUN(test_pose_is_30m_of_path_behind);
@@ -130,5 +222,10 @@ int main(void) {
     T_RUN(test_ring_wraps);
     T_RUN(test_at_rest_stays_put);
     T_RUN(test_shift_moves_the_trail);
+    T_RUN(test_journey_records_and_ghost_appears);
+    T_RUN(test_free_range_records);
+    T_RUN(test_race_records_nothing);
+    T_RUN(test_restart_clears_the_trail);
+    T_RUN(test_origin_shift_keeps_the_ghost_close);
     return T_DONE();
 }

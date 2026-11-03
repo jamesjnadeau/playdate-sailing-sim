@@ -80,20 +80,64 @@ static void test_deterministic(void) {
     T_ASSERT(memcmp(enc_a, enc_b, na) == 0);
 }
 
+/* One course x boat race; returns 1 when it failed. */
+static int run_row(const char *track, const char *boat) {
+    load(track, boat);
+    const BaselineResult r = baseline_sail(&g, &gh, boat);
+    const int ok = r.finished && r.min_mark_m >= BASELINE_MIN_CLEAR_M;
+    printf("  %-18s %-8s %7.1f s  closest %5.1f m%s\n", track, boat, r.time, r.min_mark_m, ok ? "" : "   <-- FAIL");
+    return !ok;
+}
+
 static void test_all_courses_all_boats_finish(void) {
     int bad = 0;
     for (int t = 0; t < N_TRACKS; t++)
-        for (int b = 0; b < N_BOATS; b++) {
-            load(TRACKS[t], BOATS[b]);
-            const BaselineResult r = baseline_sail(&g, &gh, BOATS[b]);
-            printf("  %-18s %-8s %7.1f s  closest %5.1f m%s\n", TRACKS[t], BOATS[b], r.time, r.min_mark_m,
-                   r.finished && r.min_mark_m >= BASELINE_MIN_CLEAR_M ? "" : "   <-- FAIL");
-            if (!r.finished || r.min_mark_m < BASELINE_MIN_CLEAR_M) bad++;
-        }
+        for (int b = 0; b < N_BOATS; b++) bad += run_row(TRACKS[t], BOATS[b]);
     T_ASSERT(bad == 0);
 }
 
-int main(void) {
+static const char *row_track, *row_boat;
+
+static void test_one_row(void) {
+    T_ASSERT(run_row(row_track, row_boat) == 0);
+}
+
+static int known(const char *const *list, int n, const char *name) {
+    for (int i = 0; i < n; i++)
+        if (strcmp(list[i], name) == 0) return 1;
+    return 0;
+}
+
+/* No arguments runs everything. The Makefile shards the matrix to run it in parallel:
+ *   list            print the "<track> <boat>" pairs, one per line
+ *   core            run only the tests outside the matrix
+ *   <track> <boat>  run one matrix row */
+int main(int argc, char **argv) {
+    if (argc == 2 && strcmp(argv[1], "list") == 0) {
+        for (int t = 0; t < N_TRACKS; t++)
+            for (int b = 0; b < N_BOATS; b++) printf("%s %s\n", TRACKS[t], BOATS[b]);
+        return 0;
+    }
+    if (argc == 2 && strcmp(argv[1], "core") == 0) {
+        T_RUN(test_sunfish_finishes_windward_leeward);
+        T_RUN(test_passes_marks_wide);
+        T_RUN(test_deterministic);
+        return T_DONE();
+    }
+    if (argc == 3) {
+        if (!known(TRACKS, N_TRACKS, argv[1]) || !known(BOATS, N_BOATS, argv[2])) {
+            fprintf(stderr, "unknown track or boat: %s %s\n", argv[1], argv[2]);
+            return 1;
+        }
+        row_track = argv[1];
+        row_boat = argv[2];
+        T_RUN(test_one_row);
+        return T_DONE();
+    }
+    if (argc != 1) {
+        fprintf(stderr, "usage: %s [list | core | <track> <boat>]\n", argv[0]);
+        return 1;
+    }
     T_RUN(test_sunfish_finishes_windward_leeward);
     T_RUN(test_passes_marks_wide);
     T_RUN(test_deterministic);

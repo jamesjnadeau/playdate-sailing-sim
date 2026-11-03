@@ -3,14 +3,16 @@
 #include "pd_api.h"
 #include "camera.h"
 #include "game.h"
+#include "ghost.h"
 #include "helptext.h"
 #include "menu.h"
 #include "race.h"
 #include "besttimes.h"
 
 /* Draws the whole frame: sky, sea, rocks, rig, deck, HUD and any restart prompt.
-   Does not clear; callers clear to white first only if they draw behind it. */
-void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam);
+   Does not clear; callers clear to white first only if they draw behind it. `ghost` (may be NULL) is the
+   run to race against: drawn as a light boat, with its gap on the HUD. */
+void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam, Ghost *ghost);
 
 /* Ordered-dither fill: 0 = white .. 16 = black. Out-of-range levels are clamped. */
 LCDColor render_pattern(int level);
@@ -21,13 +23,16 @@ enum { SEA_GRID, SEA_HEX, SEA_HEXC, SEA_TRI, SEA_STYLES };
 void render_set_sea_style(int style);
 int render_sea_style(void);
 
-/* Main menu screen (menu_draw.c). */
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const HelpLine *help);
+/* Main menu screen (menu_draw.c). boat_best: per boat row on the boat screen, the finish time of its ghost on
+   the chosen course, or < 0 for none (NULL: unknown). */
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const double *boat_best, const HelpLine *help);
 
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);
 /* Next-mark indicator and its distance label; race mode only. */
 void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c);
+/* Gap to the ghost (+ behind, - ahead) and an edge arrow while it is off screen; race mode only. */
+void hud_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *ghost);
 /* Indicator for the journey's next buoy. */
 void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 /* Praise banner after a buoy is rounded; blank once its time is up. */

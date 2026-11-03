@@ -170,6 +170,29 @@ void hud_race(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     mark_indicator(pd, c, mx, my, hypot(mx - g->b.x, my - g->b.y));
 }
 
+void hud_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *ghost) {
+    GhostPose p;
+    double tg;
+    if (!ghost || g->mode != GAME_RACE || g->race.finished || !ghost_pose_at(ghost, g->race.t, &p) ||
+        !ghost_time_at_progress(ghost, ghost_progress(g), &tg)) return;
+
+    char line[24];
+    snprintf(line, sizeof line, "GHOST %+.1fs", g->race.t - tg);
+    const int w = 6 * (int)strlen(line) + 8, x = (CAM_W - w) / 2;
+    pd->graphics->setDrawMode(kDrawModeCopy);
+    pd->graphics->fillRect(x, 2, w, 14, kColorWhite);
+    pd->graphics->drawRect(x, 2, w, 14, kColorBlack);
+    text(pd, line, x + 4, 3);
+
+    MarkView mv;
+    camera_mark_view(c, p.x - g->race.ox, p.y - g->race.oy, (float)(CAM_H - HUD_H), &mv);
+    if (mv.on_screen) return;   /* the boat itself is in view */
+    float s = sinf(mv.angle), co = cosf(mv.angle);
+    float bcx = mv.x - 6.0f * co, bcy = mv.y - 6.0f * s;
+    tri(pd, mv.x + 6.0f * co, mv.y + 6.0f * s, bcx - 6.0f * s, bcy + 6.0f * co, bcx + 6.0f * s, bcy - 6.0f * co);
+    dist_label(pd, hypot(p.x - g->race.ox - g->b.x, p.y - g->race.oy - g->b.y), (int)mv.x + 10, (int)mv.y - 6, false);
+}
+
 void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     const JourneyBuoy *b = journey_next(&g->journey);
     if (!b) return;

@@ -754,6 +754,11 @@ static void draw_spray(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 
 typedef struct { const PlaydateAPI *pd; const Game *g; const CameraPose *c; } Ctx;
 
+/* The ghost is drawn with the boat's own routines, lighter: halved fills and a dithered outline. */
+static bool ghost_pass;
+static LCDColor ink(void) { return ghost_pass ? render_pattern(9) : kColorBlack; }
+static LCDColor fillpat(int level) { return render_pattern(ghost_pass ? level / 2 : level); }
+
 static const float HULL_KEEL = -0.3f, HULL_TUCK = 0.45f;   /* topsides tuck to 45% of the gunwale width at the keel line */
 
 /* heading-frame point (fwd, stbd, up from the mean waterline; heel already applied) -> screen */
@@ -919,10 +924,10 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     float lufft = b->luff[i];
     int mw = s->mesh_w < 1 ? 1 : s->mesh_w > 12 ? 12 : s->mesh_w;
     int mh = s->mesh_h < 1 ? 1 : s->mesh_h > 16 ? 16 : s->mesh_h;
-    float px[17][13], py[17][13];
-    HgPt wp[17][13];                                      /* heading-frame position of each mesh point */
-    float dw[17][13];                                     /* height above the sea: < 0 is under water */
-    bool ok[17][13];
+    static float px[17][13], py[17][13];
+    static HgPt wp[17][13];                                      /* heading-frame position of each mesh point */
+    static float dw[17][13];                                     /* height above the sea: < 0 is under water */
+    static bool ok[17][13];
     float lo = 1e9f;
     for (int a = 0; a <= mh; a++) {
         float u = (float)a / (float)mh;
@@ -963,20 +968,21 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             dw[a][q] = lo > 1.0f ? 1.0f : wp[a][q].z - rel_surface(k->g, wp[a][q].f, wp[a][q].l);
 
     /* outline: luff up, head across, leech down, foot back */
-    HgPt op[2 * 17 + 2]; float od[2 * 17 + 2]; int on0 = 0;
+    static HgPt op[2 * 17 + 2]; static float od[2 * 17 + 2]; int on0 = 0;
     for (int a = 0; a <= mh; a++) { op[on0] = wp[a][0]; od[on0++] = dw[a][0]; }
     for (int a = mh; a >= 0; a--) { op[on0] = wp[a][mw]; od[on0++] = dw[a][mw]; }
-    HgPt cl[2 * (2 * 17 + 2)]; bool cut[2 * (2 * 17 + 2)];
+    static HgPt cl[2 * (2 * 17 + 2)]; static bool cut[2 * (2 * 17 + 2)];
     int cn = hull_clip_above(op, od, on0, cl, cut, 2 * (2 * 17 + 2));
-    int outline[2 * 2 * (2 * 17 + 2)], on = 0;
-    bool foam[2 * (2 * 17 + 2)];
+    static int outline[2 * 2 * (2 * 17 + 2)];
+    int on = 0;
+    static bool foam[2 * (2 * 17 + 2)];
     for (int i = 0; i < cn; i++) {
         float sx, sy;
         if (!rel_pt(k, cl[i].f, cl[i].l, cl[i].z, &sx, &sy)) continue;
         outline[2 * on] = (int)sx; outline[2 * on + 1] = (int)sy; foam[on] = cut[i]; on++;
     }
     int shade = (int)clampf(s->shade * 16.0f, 0.0f, 16.0f);
-    if (on >= 3) pd->graphics->fillPolygon(on, outline, render_pattern(16 - shade), kPolygonFillNonZero);
+    if (on >= 3) pd->graphics->fillPolygon(on, outline, fillpat(16 - shade), kPolygonFillNonZero);
     for (int a = 0; a <= mh; a++)
         for (int q = 0; q < mw; q++) {
             if (!(a == 0 || a == mh || (a & 1) == 0)) continue;
@@ -991,12 +997,12 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
                 if (d0 < 0.0f) { x0 = cx2; y0 = cy2; } else { x1 = cx2; y1 = cy2; }
             }
             int seam_w = (s->shape == 3 && a == mh) ? 3 : 1;   /* a square sail's head is its heavy yard */
-            pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, seam_w, kColorBlack);
+            pd->graphics->drawLine((int)x0, (int)y0, (int)x1, (int)y1, seam_w, ink());
         }
     for (int p = 0; p < on; p++) {
         int n2 = (p + 1) % on;
         if (foam[p] && foam[n2]) continue;                   /* the cut along the sea: no sail edge there */
-        pd->graphics->drawLine(outline[2 * p], outline[2 * p + 1], outline[2 * n2], outline[2 * n2 + 1], 1, kColorBlack);
+        pd->graphics->drawLine(outline[2 * p], outline[2 * p + 1], outline[2 * n2], outline[2 * n2 + 1], 1, ink());
     }
 
     /* telltales are disabled: they were too small to read.
@@ -1019,7 +1025,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             float fl = sinf(ph) * (0.03f + 0.12f * lm) * (float)seg;
             float ex2, ey2;
             if (!boat_pt(k, ax + (dx * 0.15f * (float)seg) - dy * fl, ay + dy * 0.15f * (float)seg + dx * fl, az - 0.02f * (float)seg, &ex2, &ey2)) break;
-            pd->graphics->drawLine((int)ppx, (int)ppy, (int)ex2, (int)ey2, 1, kColorBlack);
+            pd->graphics->drawLine((int)ppx, (int)ppy, (int)ex2, (int)ey2, 1, ink());
             ppx = ex2; ppy = ey2;
         }
     }
@@ -1041,12 +1047,12 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     for (int i = 0; i < n; i++) draw_sail(pd, &k, order[i]);
     if (boat_pt(&k, lk->mast_x, 0, lk->freeboard, &sx0, &sy0) &&
         boat_pt(&k, lk->mast_x, 0, lk->mast_height, &sx1, &sy1)) {
-        pd->graphics->drawLine((int)sx0, (int)sy0, (int)sx1, (int)sy1, 2, kColorBlack);
+        pd->graphics->drawLine((int)sx0, (int)sy0, (int)sx1, (int)sy1, 2, ink());
         if (boat_pt(&k, lk->forestay_x, 0, lk->freeboard, &sx2, &sy2))
-            pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, kColorBlack);
+            pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, ink());
         for (int sd = -1; sd <= 1; sd += 2)
             if (boat_pt(&k, lk->mast_x, sd * lk->shroud_width, lk->freeboard, &sx2, &sy2))
-                pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, kColorBlack);
+                pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, ink());
         /* masthead ribbon streams away from the apparent wind (awa: 0 = from the bow, + = from starboard) */
         const BoatState *bs = &g->b;
         float wx = -cosf(bs->awa), wy = -sinf(bs->awa);
@@ -1058,7 +1064,7 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
             float ex, ey;
             if (!boat_pt(&k, lk->mast_x + wx * d - wy * fl, wy * d + wx * fl,
                          lk->mast_height - 0.03f * (float)seg * (float)seg, &ex, &ey)) break;
-            pd->graphics->drawLine((int)px, (int)py, (int)ex, (int)ey, seg < 3 ? 3 : 2, kColorBlack);
+            pd->graphics->drawLine((int)px, (int)py, (int)ex, (int)ey, seg < 3 ? 3 : 2, ink());
             px = ex; py = ey;
         }
     }
@@ -1083,8 +1089,8 @@ static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (!boat_pt(&k, rx, 0, 0.45f, &x0, &y0) || !boat_pt(&k, tx, ty, 0.45f, &x1, &y1) ||
         !boat_pt(&k, tx, ty, zw, &x2, &y2) || !boat_pt(&k, rx, 0, zw, &x3, &y3)) return;
     int pts[8] = { (int)x0, (int)y0, (int)x1, (int)y1, (int)x2, (int)y2, (int)x3, (int)y3 };
-    pd->graphics->fillPolygon(4, pts, kColorBlack, kPolygonFillNonZero);
-    pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, kColorBlack);   /* stock */
+    pd->graphics->fillPolygon(4, pts, ink(), kPolygonFillNonZero);
+    pd->graphics->drawLine((int)x0, (int)y0, (int)x3, (int)y3, 3, ink());   /* stock */
 }
 
 /* sea surface relative to the hull's mean waterline, at a boat-frame point (m, + up) */
@@ -1131,7 +1137,7 @@ static void draw_panel(PlaydateAPI *pd, const Ctx *k, const HgPt *in, int n, LCD
     for (int i = 0; i < v; i++) {
         int j = (i + 1) % v;
         if (foam_edge[i]) foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 4.0f, 5);
-        else pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], lw, kColorBlack);
+        else pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], lw, ink());
     }
 }
 
@@ -1207,7 +1213,7 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
 
     /* floor: the whole floor, not cut against the sea. The opening is a hole in an opaque deck, so
      * whatever is under it must paint over the opening, or a heeled boat shows the sea through it. */
-    fill_clipped(pd, flo, 4, rim, render_pattern((int)(lk->hull_shade * 16.0f) + 9));
+    fill_clipped(pd, flo, 4, rim, fillpat((int)(lk->hull_shade * 16.0f) + 9));
 
     /* walls: an inner face shows when the eye is on the well's side of its plane */
     const BoatState *b = &g->b;
@@ -1222,7 +1228,7 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
         mid[1] += 0.125f * (top[i].l + bot[i].l);
         mid[2] += 0.125f * (top[i].z + bot[i].z);
     }
-    LCDColor wall_col = render_pattern((int)(lk->hull_shade * 16.0f) + 3);
+    LCDColor wall_col = fillpat((int)(lk->hull_shade * 16.0f) + 3);
     for (int i = 0; i < 4; i++) {
         int j = (i + 1) % 4;
         float u[3] = { top[j].f - top[i].f, top[j].l - top[i].l, top[j].z - top[i].z };
@@ -1241,7 +1247,7 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
     for (int i = 0; i < 8; i++) q[i] = iroundf(rim[i]);
     for (int i = 0; i < 4; i++) {
         int j = (i + 1) % 4;
-        pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 2, kColorBlack);
+        pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * j], q[2 * j + 1], 2, ink());
     }
 }
 
@@ -1252,8 +1258,8 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float L = g->boat.hull.length, hb = 0.5f * g->boat.hull.beam, fb = lk->freeboard;
     enum { N = 9 };
     float sx, sy;
-    LCDColor side_col = render_pattern((int)(lk->hull_shade * 16.0f) + 5);
-    LCDColor deck_col = render_pattern((int)(lk->hull_shade * 16.0f));
+    LCDColor side_col = fillpat((int)(lk->hull_shade * 16.0f) + 5);
+    LCDColor deck_col = fillpat((int)(lk->hull_shade * 16.0f));
     int hidden = far_side(g, c);
     bool up = deck_faces_eye(g, c);
 
@@ -1294,11 +1300,11 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         if (!ok || !dry) continue;        /* a side that is all under water shows nothing */
         pd->graphics->fillPolygon(m, q, side_col, kPolygonFillNonZero);
         for (int i = 0; i + 1 < top; i++)   /* gunwale */
-            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, kColorBlack);
+            pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, ink());
         for (int i = top; i + 1 < m; i++)   /* waterline: foam */
             foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 4.0f, 5);
-        pd->graphics->drawLine(q[0], q[1], q[2 * (m - 1)], q[2 * (m - 1) + 1], 1, kColorBlack);                  /* stem */
-        pd->graphics->drawLine(q[2 * (top - 1)], q[2 * (top - 1) + 1], q[2 * top], q[2 * top + 1], 1, kColorBlack);   /* stern */
+        pd->graphics->drawLine(q[0], q[1], q[2 * (m - 1)], q[2 * (m - 1) + 1], 1, ink());                  /* stem */
+        pd->graphics->drawLine(q[2 * (top - 1)], q[2 * (top - 1) + 1], q[2 * top], q[2 * top + 1], 1, ink());   /* stern */
     }
     {
         float wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
@@ -1486,7 +1492,43 @@ static void draw_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_buoys(pd, dm, n, g->journey.next);
 }
 
-void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+/* The ghost's pose stands in for the boat while its hull and rig are drawn; the player's state is put back after. */
+static void draw_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh) {
+    GhostPose p;
+    if (!ghost_pose_at(gh, g->race.t, &p)) return;
+    BoatState gb = g->b;
+    gb.x = p.x - g->race.ox;
+    gb.y = p.y - g->race.oy;
+    if (hypot(gb.x - c->x, gb.y - c->y) > wx(g)->visibility) return;
+    gb.heading = p.heading;
+    gb.heel = p.heel;
+    gb.wheel = p.wheel;
+    gb.u = p.speed;
+    gb.v = gb.r = gb.pitch = 0.0f;
+    gb.heave = sea_view_height(&sv, (float)(gb.x - sv_ox), (float)(gb.y - sv_oy));
+    for (int i = 0; i < BOAT_MAX_SAILS; i++) {
+        const bool have = i < GHOST_SAILS;
+        gb.trims[i] = have ? p.trim[i] : 0.0f;
+        gb.hoists[i] = have ? p.hoist[i] : 0.0f;
+        gb.swing[i] = have ? p.swing[i] : -1.0f;
+        gb.luff[i] = 0.0f;
+    }
+    boat_apparent_wind(&gb, &g->wind, &gb.awa, &gb.aws);
+
+    /* g is the caller's live Game, never a const object; b is restored below */
+    Game *mg = (Game *)g;
+    const BoatState keep = mg->b;
+    mg->b = gb;
+    ghost_pass = true;
+    const bool rig_behind = !deck_faces_eye(mg, c);
+    if (rig_behind) draw_rig(pd, mg, c);
+    draw_hull(pd, mg, c);
+    if (!rig_behind) draw_rig(pd, mg, c);
+    ghost_pass = false;
+    mg->b = keep;
+}
+
+void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *ghost) {
     pd->graphics->clear(kColorWhite);
     haze = wx(g)->sky_horizon;
     draw_sky(pd, g, c);
@@ -1497,6 +1539,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (g->mode == GAME_JOURNEY) draw_journey(pd, g, c);
     draw_rain(pd, g, c);
     draw_spray(pd, g, c);
+    if (ghost && g->mode == GAME_RACE) draw_ghost(pd, g, c, ghost);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */
     bool rig_behind = !deck_faces_eye(g, c);
@@ -1506,6 +1549,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     if (!rig_behind) draw_rig(pd, g, c);
     hud_draw(pd, g);
     if (g->mode == GAME_RACE) hud_race(pd, g, c);
+    hud_ghost(pd, g, c, ghost);
     if (g->mode == GAME_JOURNEY) hud_journey(pd, g, c);
     hud_praise(pd, g);
     hud_prompt(pd, g);

@@ -152,6 +152,11 @@ static uint8_t *s_getFrame(void) {
 
 /* ---- system ---- */
 
+static void *s_realloc(void *p, size_t n) {
+    if (n == 0) { free(p); return NULL; }
+    return realloc(p, n);
+}
+
 static void s_log(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -263,6 +268,7 @@ PlaydateAPI *pdstub_init(const char *outdir, const char *assets_root, const char
     mkdir(out_dir, 0755);
 
     memset(&sys_api, 0, sizeof sys_api);
+    sys_api.realloc = s_realloc;
     sys_api.logToConsole = s_log;
     sys_api.getCurrentTimeMilliseconds = s_millis;
     sys_api.setUpdateCallback = s_setUpdate;

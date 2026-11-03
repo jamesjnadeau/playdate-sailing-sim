@@ -6,5 +6,6 @@ build/
 Source/boats/
 Source/config/
 Source/tracks/
+Source/ghosts/
 Source/pdex.*
 __pycache__/

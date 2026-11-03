@@ -15,6 +15,21 @@ static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
+#define MSG_BACK_DX 1          /* offset of the white layer behind an on-screen message */
+#define MSG_BACK_DY 1
+
+/* Centred on-screen message: black text over a white layer offset behind it. The one place the style of
+   praise and the assist/engine banners lives. */
+static void message(PlaydateAPI *pd, const char *s, int y) {
+    const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
+    int x = (CAM_W - w) / 2;
+    if (x < 0) x = 0;
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    text(pd, s, x + MSG_BACK_DX, y + MSG_BACK_DY);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+    text(pd, s, x, y);
+}
+
 /* The system font has no gear or compass glyph, so the AT and AP badges are drawn as small icons. */
 static void icon_gear(PlaydateAPI *pd, int cx, int cy) {
     static const int dx[8] = { 1, 1, 0, -1, -1, -1, 0, 1 }, dy[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -112,12 +127,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     int row = 0;
     for (int i = 0; i < 2; i++) {
         if (!banners[i]) continue;
-        const int w = 188, x = (CAM_W - w) / 2, y = top - 16 - 16 * row++;
-        pd->graphics->fillRect(x, y, w, 14, kColorBlack);
-        pd->graphics->drawRect(x, y, w, 14, kColorWhite);
-        pd->graphics->setDrawMode(kDrawModeFillWhite);
-        text(pd, banners[i], x + 8, y + 1);
-        pd->graphics->setDrawMode(kDrawModeCopy);
+        message(pd, banners[i], top - 16 - 16 * row++ + 1);
     }
 }
 
@@ -199,18 +209,11 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     mark_indicator(pd, c, b->x, b->y, hypot(b->x - g->b.x, b->y - g->b.y));
 }
 
-/* Praise after a buoy is rounded: white text with a 1px black shadow under the top edge, cleared once its
-   time is up. No box behind it, so it reads over sea and sky alike. */
+/* Praise after a buoy is rounded, drawn by message(), cleared once its time is up. No box behind it, so it
+   reads over sea and sky alike. */
 void hud_praise(PlaydateAPI *pd, const Game *g) {
     if (g->praise_left <= 0.0f) return;
-    const char *s = praise_text(g->praise);
-    const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
-    const int x = (CAM_W - w) / 2, y = 26;
-    pd->graphics->setDrawMode(kDrawModeCopy);
-    text(pd, s, x + 1, y + 1);          /* shadow */
-    pd->graphics->setDrawMode(kDrawModeFillWhite);
-    text(pd, s, x, y);
-    pd->graphics->setDrawMode(kDrawModeCopy);
+    message(pd, praise_text(g->praise), 26);
 }
 
 void hud_prompt(PlaydateAPI *pd, const Game *g) {

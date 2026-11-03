@@ -66,3 +66,6 @@ Exact signature of the new input; which struct holds the blend state; race-mode 
 1. Follow persists when you switch to wheel/trim/hoist; only a crank turn *in look mode* exits it.
 2. No next buoy: camera holds its yaw and follow stays on.
 3. Leaving by hold swings back to behind over `buoy_swing_s`.
+4. The second UP press (recentre) also ends follow, so the two never fight.
+5. The game hands the target to `Controls` as two caller-set fields (`buoy_rel`, `buoy_id`) rather than a new
+   `controls_update` parameter, matching how `CameraPose.trail` is set.

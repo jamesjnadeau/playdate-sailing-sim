@@ -123,7 +123,7 @@ git commit -m "feat: hold DOWN toggles a buoy-follow camera look"
 
 **Files:**
 - Modify: `src/sim/game.c` (new `static void aim_camera(Game *g)`, called in `game_update` just before the `controls_update(...)` call at the top of the `RUN_SAILING` block)
-- Modify: `README.md:18,21`
+- Modify: `README.md:18,21`, `config/help.md:3,6` (in-game help), `docs/boat-schema.md:21,46` (+ new `camera.buoy_swing_s` row)
 - Test: `tests/test_game.c`
 
 **Interfaces:**
@@ -143,7 +143,12 @@ git commit -m "feat: hold DOWN toggles a buoy-follow camera look"
 - [ ] **Step 2: Run** `make -C tests build/test_game && tests/build/test_game` — Expected: the new tests FAIL (yaw never moves; `buoy_rel` stays NaN).
 - [ ] **Step 3: Implement `aim_camera` in `game.c`** per the Interfaces block and call it before `controls_update`. If `game_start`/`game_init` do not already `controls_init` on a new race, leave that alone; the `buoy_id` change is what triggers the swing.
 - [ ] **Step 4: Run** `make -C tests build/test_game && tests/build/test_game` — Expected: all pass.
-- [ ] **Step 5: Update `README.md`**: the Up row keeps "press again to recentre the camera" (also ends buoy-follow); the Down row becomes: "Look: crank swings the camera round the boat; tap again to raise/lower it; hold to follow the next buoy (hold again to go back behind); turning the crank stops following".
+- [ ] **Step 5: Update every controls doc** (all must agree):
+  - `README.md` Up row keeps "press again to recentre the camera" and adds that it also ends buoy-follow; Down row becomes: "Look: crank swings the camera round the boat; tap again to raise/lower it; hold to follow the next buoy (hold again to go back behind); turning the crank stops following".
+  - `config/help.md` (shown in-game; keep lines short, it is laid out by `helptext_layout`): UP line gets "Press UP again to recentre the camera and stop following the buoy."; DOWN line: "Look. Crank swings the camera all the way round the boat. Tap again to switch to raising and lowering it. Hold to follow the next buoy; hold again to go back behind."
+  - `docs/boat-schema.md`: add `buoy_swing_s` to the `camera` field list (line 21); a table row `camera.buoy_swing_s | 0-10 | default 2; seconds the camera takes to swing to a new buoy-follow target (0 = instant)`; fix the `controls.camera_hold_s` row (line 46) to "hold DOWN this long in look mode to toggle buoy-follow / behind-follow".
+  - Check: `grep -rniE "recentre|hold" README.md config/help.md docs/boat-schema.md` shows no remaining "hold ... to recentre" wording.
+
 - [ ] **Step 6: Full verification:** `make -C tests test` — Expected: every suite passes. If `harness/Makefile` goldens depend on controls, also run `make -C harness check-regression` and report any golden diff rather than updating goldens.
 - [ ] **Step 7: Commit**
 
@@ -156,6 +161,6 @@ git commit -m "feat: aim the buoy-follow camera at the next race mark or journey
 
 ## Self-review
 
-- **Spec coverage:** toggle by hold (T2), recentre kept on UP (T2 tests), swing config (T1), smoothstep restart on entry / buoy change / leave (T2), short way round (T2), crank exit in place (T2), persistence across modes (T2), no-target hold (T2/T3), pitch untouched (T2), game wiring for race, journey, free (T3), docs (T2 step 7, T3 step 5).
+- **Spec coverage:** toggle by hold (T2), recentre kept on UP (T2 tests), swing config (T1), smoothstep restart on entry / buoy change / leave (T2), short way round (T2), crank exit in place (T2), persistence across modes (T2), no-target hold (T2/T3), pitch untouched (T2), game wiring for race, journey, free (T3), docs (T2 step 7 header comment, T3 step 5: README, in-game help, boat schema).
 - **Types:** `Controls.buoy_rel` / `buoy_id` / `camera_follow` and `CameraCfg.buoy_swing_s` named identically in all tasks; `follow_update` is private to `controls.c`.
 - **New calls vs the spec (flagged for review):** follow state is two caller-set fields on `Controls` rather than a new parameter (avoids touching the 4 call sites and matches `CameraPose.trail`); second UP press also ends follow.

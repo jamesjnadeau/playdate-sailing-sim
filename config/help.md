@@ -3,7 +3,7 @@ The d-pad picks what the crank does.
 - UP: Helm. Crank turns the wheel. Press UP again to recentre the camera and stop following the buoy.
 - RIGHT: Trim. Crank sheets the sail in and out. Press again for the next sail.
 - LEFT: Hoist. Crank raises and lowers the sail. Press again for the next sail.
-- DOWN: Look. Crank swings the camera all the way round the boat. Tap again to switch to raising and lowering it. Hold to follow the next buoy; hold again to go back behind.
+- DOWN: Look. Crank swings the camera all the way round the boat. Tap again to switch to raising and lowering it. Hold to follow the next buoy from over the rudder; hold again to go back behind.
 
 # Autopilot (A)
 Hold A for about half a second to switch the autopilot on or off. A compass shows in the bar with the heading it holds.

@@ -4,6 +4,7 @@
 
 #define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
 #define MIN_EYE 0.5f          /* m, lowest the trailing eye may be lowered above the sea */
+#define FOLLOW_MIX_S 0.5f     /* s the eye takes to glide between the orbit and the rudder */
 #define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
 /* Reachable orbit angles about the framed one: lo <= 0 keeps the eye MIN_EYE above sea level,
@@ -86,8 +87,12 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
         look = 0.0f;
     }
     if (c->trail) side = 0.0f;
-    c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
-    c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
+    /* buoy-follow sits the eye over the rudder, clear of the mast, and turns it in place */
+    c->follow_mix = approach(c->follow_mix, c->trail && g->ctl.camera_follow ? 1.0f : 0.0f, FOLLOW_MIX_S, dt);
+    float stern = fminf(cfg->foils.rudder_x, -0.5f * cfg->hull.length) * c->follow_mix;
+    xo *= 1.0f - c->follow_mix;
+    c->x = b->x + (double)(fwd_x * xo - fwd_y * side + cosf(b->heading) * stern);
+    c->y = b->y + (double)(fwd_y * xo + fwd_x * side + sinf(b->heading) * stern);
     c->height = eye + k->heave_gain * b->heave;
     if (c->trail && look_tipped_down) {   /* a lowered eye must clear the wave under it, not just mean sea level */
         float sea = sea_height(&g->sea, (float)c->x, (float)c->y, g->t);

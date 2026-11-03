@@ -152,6 +152,7 @@ static const Field CAMERA_F[] = {
     FF(CameraCfg, pitch_gain, 0.4f, 0, 1),
     FF(CameraCfg, pitch_range_deg, 45, 5, 80),
     FF(CameraCfg, return_rate, 90, 1, 720),
+    FF(CameraCfg, buoy_swing_s, 2.0f, 0, 10),
 };
 
 static const Field TOP_F[] = {

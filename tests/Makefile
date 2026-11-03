@@ -13,17 +13,28 @@ vpath %.c ../src/sim ../src/pd
 
 # the generated shard list below must not become the default goal
 .DEFAULT_GOAL := test
+.DELETE_ON_ERROR:
+
+# `make clean test`: run each goal in its own make, in order, so the build sees the cleaned tree
+MIXED := $(and $(filter clean,$(MAKECMDGOALS)),$(filter-out clean,$(MAKECMDGOALS)))
+ifneq ($(MIXED),)
+.NOTPARALLEL:
+.PHONY: $(MAKECMDGOALS)
+$(MAKECMDGOALS):
+	@$(MAKE) --no-print-directory $@
+else
 
 # test_baseline is one long process, so it runs as one target per race (plus its other tests, "core").
 # The races come from the binary itself, which writes them to build/baseline_shards.mk.
 ifneq ($(filter-out clean bench,$(or $(MAKECMDGOALS),test)),)
--include build/baseline_shards.mk
+include build/baseline_shards.mk
 endif
 BASELINE_RUNS := $(addprefix build/test_baseline.,$(addsuffix .ok,core $(BASELINE_SHARDS)))
 RUNS    := $(filter-out build/test_baseline.ok,$(TESTS:%.c=build/%.ok)) $(BASELINE_RUNS)
 
 build/baseline_shards.mk: build/test_baseline
-	@{ printf 'BASELINE_SHARDS :='; ./$< list | tr ' ' '.' | sed 's/^/ /' | tr -d '\n'; echo; } > $@
+	@./$< list > $@.tmp && test -s $@.tmp || { rm -f $@.tmp; echo "test_baseline list failed or printed no races"; exit 1; }
+	@{ printf 'BASELINE_SHARDS :='; tr ' ' '.' < $@.tmp | sed 's/^/ /' | tr -d '\n'; echo; } > $@ && rm $@.tmp
 
 # The run targets are phony so every `make test` really runs every test.
 .PHONY: test bench clean $(RUNS)
@@ -59,3 +70,4 @@ build/bench_seasound: bench_seasound.c $(SRC) $(wildcard ../src/sim/*.h)
 
 clean:
 	rm -rf build
+endif

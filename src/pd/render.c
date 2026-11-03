@@ -1140,13 +1140,17 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 /* rudder blade seen from above and behind: stock at the stern, trailing edge swung by the helm */
 static float rel_surface(const Game *g, float fwd, float lat);
 
+/* where the rudder stock is drawn: the physics rudder sits forward of the transom on big boats; draw
+ * the stock at the transom so the blade always trails out past the stern */
+static float rudder_stock_x(const Game *g) {
+    return fminf(g->boat.foils.rudder_x, -0.5f * g->boat.hull.length);
+}
+
 static void draw_rudder(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     Ctx k = { pd, g, c };
     float L = g->boat.hull.length;
     float chord = 0.55f * fmaxf(1.0f, sqrtf(L / 4.0f));   /* bigger boats carry a bigger blade */
-    /* the physics rudder sits forward of the transom on big boats; draw the stock at the transom so
-     * the blade always trails out past the stern */
-    float rx = fminf(g->boat.foils.rudder_x, -0.5f * L);
+    float rx = rudder_stock_x(g);
     float d = g->b.wheel * g->boat.foils.rudder_max_deg * 0.017453f;
     float tx = rx - chord * cosf(d), ty = chord * sinf(d);
     float x0, y0, x1, y1, x2, y2, x3, y3;
@@ -1393,7 +1397,8 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     }
 }
 
-/* A catamaran's two crossbeams: square boxes at stations 1/3 and 2/3 from the bow, spanning from
+/* A catamaran's two crossbeams: square boxes, the forward one at L/6 (under the mast) and the aft one
+ * at the rudder stock so the rudder is attached to the boat, spanning from
  * hull centre to hull centre at deck height. Only what faces the eye is drawn: the top (the underside
  * when the boat is heeled far enough to show it) and the end toward the eye, in the deck shade. */
 static void draw_crossbeams(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -1405,8 +1410,8 @@ static void draw_crossbeams(PlaydateAPI *pd, const Game *g, const CameraPose *c)
     float ch = rcos(b->heading), sh = rsin(b->heading);
     const float eye_x = (float)(c->x - b->x) * ch + (float)(c->y - b->y) * sh;
     const bool faces = deck_faces_eye(g, c);
-    float xs[2] = { L / 6.0f, -L / 6.0f };
-    if (fabsf(eye_x - xs[0]) < fabsf(eye_x - xs[1])) { xs[0] = -xs[0]; xs[1] = -xs[1]; }   /* far one first */
+    float xs[2] = { L / 6.0f, rudder_stock_x(g) + hw };   /* aft beam's aft face lines up with the stock */
+    if (fabsf(eye_x - xs[0]) < fabsf(eye_x - xs[1])) { float t = xs[0]; xs[0] = xs[1]; xs[1] = t; }   /* far one first */
     for (int i = 0; i < 2; i++) {
         const float xe = xs[i] + (eye_x > xs[i] ? hw : -hw);
         const float zt = faces ? fb : fb - s;

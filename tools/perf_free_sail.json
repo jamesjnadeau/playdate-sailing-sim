@@ -1,0 +1,11 @@
+{
+  "events": [
+    { "frame": 2,   "press": ["a"] },
+    { "frame": 4,   "release": ["a"] },
+    { "frame": 20,  "press": ["a"] },
+    { "frame": 40,  "release": ["a"] },
+    { "frame": 60,  "crank": 90.0 },
+    { "frame": 200, "crank": -60.0 }
+  ],
+  "crank_per_frame": 0
+}

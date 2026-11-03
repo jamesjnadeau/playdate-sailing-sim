@@ -81,8 +81,8 @@ try {
   check(await hudMode('TRIM'), 'D selects trim');
   await tap('KeyW');
 
-  await tap('Escape');
-  check(await page.locator('#sysmenu').isVisible(), 'Esc opens the system menu');
+  await tap('Backspace');
+  check(await page.locator('#sysmenu').isVisible(), 'Backspace opens the system menu');
   await shot('sysmenu');
   await page.locator('.sys-back').click();
   await page.waitForTimeout(200);
@@ -105,7 +105,7 @@ try {
   check(await page.evaluate(() => !document.querySelector('.hud-marker').hidden), 'next-mark marker shows');
   await shot('race');
 
-  await tap('Escape');
+  await tap('Backspace');
   await page.locator('.sys-back').click();
   await tap('KeyV');
   check(await waitDraw(1), 'back home from the race');

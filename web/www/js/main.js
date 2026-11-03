@@ -12,7 +12,7 @@ const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3 };
 const KEYS = { A: 'V', B: 'C', updown: 'W / S',
   legend: '<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> d-pad, ' +
     '<span class="key">V</span> A, <span class="key">C</span> B, move the mouse up and down to turn the crank ' +
-    '(click the view first), <span class="key">Esc</span> the system menu.' };
+    '(click the view first), <span class="key">Backspace</span> the system menu.' };
 const HUD_PX = 46;
 
 const $ = (s) => document.querySelector(s);
@@ -80,7 +80,7 @@ async function boot() {
 
   window.addEventListener('keydown', (e) => {
     audio.start();
-    if (e.code === 'Escape' || e.code === 'KeyP') {
+    if (e.code === 'Backspace' || e.code === 'KeyP') {
       e.preventDefault();
       if (sys.open) sys.close(); else openSys();
       return;

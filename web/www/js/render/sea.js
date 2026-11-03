@@ -68,6 +68,7 @@ void main() {
 const fragment = /* glsl */ `
 uniform vec3 uSkyTop, uSkyHorizon, uDeep, uFog;
 uniform vec3 uCamPos;
+uniform vec2 uOrigin;
 uniform float uVis, uSun, uTime, uAmp, uFoam;
 varying vec3 vWorld;
 varying vec2 vSlope;
@@ -92,7 +93,9 @@ void main() {
   float dist = length(toEye);
   vec3 v = toEye / dist;
   float near = clamp(1.0 - dist / 120.0, 0.0, 1.0);
-  vec2 rp = ripple(vWorld.xy, uTime) * 0.08 * near;
+  // the camera sits at the origin, so anchor the noise to the real sea position: it slides past as the boat moves
+  vec2 wp = vWorld.xy + uOrigin;
+  vec2 rp = ripple(wp, uTime) * 0.08 * near;
   vec3 n = normalize(vec3(-vSlope.x - rp.x, -vSlope.y - rp.y, 1.0));
   float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
@@ -108,7 +111,7 @@ void main() {
   // whitecaps on steep crests, broken up by noise
   float steep = length(vSlope);
   float crest = smoothstep(0.55, 1.0, vHeight / max(uAmp, 0.05));
-  float foamN = noise(vWorld.xy * 0.7 + uTime * 0.25) * noise(vWorld.xy * 2.1 - uTime * 0.3);
+  float foamN = noise(wp * 0.7 + uTime * 0.25) * noise(wp * 2.1 - uTime * 0.3);
   float foam = clamp((crest * 0.8 + smoothstep(0.25, 0.6, steep)) * uFoam * smoothstep(0.15, 0.45, foamN), 0.0, 0.85);
   col = mix(col, vec3(0.93, 0.96, 0.98) * diffuse, foam);
   // haze: fog to the horizon colour over the preset's visibility
@@ -128,6 +131,7 @@ export class Sea {
       uDeep: { value: new THREE.Color() },
       uFog: { value: new THREE.Color() },
       uCamPos: { value: new THREE.Vector3() },
+      uOrigin: { value: new THREE.Vector2() },
       uVis: { value: 1000 },
       uSun: { value: 1 },
       uTime: { value: 0 },
@@ -141,8 +145,10 @@ export class Sea {
   }
 
   // k: the frame's [kx, ky, ph, amp]* list; pal: weather.palette(); preset: the weather preset.
-  update(k, camZ, pal, preset, t) {
+  // camX, camY: the camera's sim-frame world position (the mesh itself stays centred on the camera).
+  update(k, camZ, pal, preset, t, camX = 0, camY = 0) {
     const u = this.uniforms;
+    u.uOrigin.value.set(camX, -camY);   // Three Y = -sim y
     const n = Math.min(MAX_COMPONENTS, Math.floor(k.length / 4));
     let amp = 0;
     for (let i = 0; i < n; i++) {

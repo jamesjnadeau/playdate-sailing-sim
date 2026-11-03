@@ -45,7 +45,7 @@ make                    # build only
 | V | A |
 | C | B |
 | Move the mouse up and down | Crank (click the view first to lock the pointer; the wheel works too) |
-| Esc | System menu: boat, weather, go back, mouse sensitivity and direction |
+| Backspace | System menu: boat, weather, go back, mouse sensitivity and direction |
 
 Best times and ghosts are saved in the browser (IndexedDB). On the web, rocks are drawn; the Playdate renderer leaves them out.
 

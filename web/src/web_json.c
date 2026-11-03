@@ -466,6 +466,8 @@ const char *web_json_frame(AppDraw d) {
     num("t", g->t);
     obj("cam");
     numx("z", c->height);
+    numx("x", c->x);   /* world position: the sea's ripples and foam are anchored to it so they slide past the boat */
+    numx("y", c->y);
     numx("yaw", c->yaw);
     numx("pitch", c->pitch);
     numx("roll", c->roll);

@@ -77,7 +77,7 @@ export class View {
     const pal = palette(preset);
     this.poseCamera(f.cam);
     this.sky.update(pal, preset, f.t, dt, f.cam.z, f.wind);
-    this.sea.update(f.sea.k, f.cam.z, pal, preset, f.t);
+    this.sea.update(f.sea.k, f.cam.z, pal, preset, f.t, f.cam.x, f.cam.y);
     this.scene.fog.color.copy(pal.fog);
     this.scene.fog.near = Math.min(40, preset.visibility * 0.1);
     this.scene.fog.far = preset.visibility * 1.25;

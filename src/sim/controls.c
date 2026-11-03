@@ -16,7 +16,8 @@ void controls_init(Controls *c) {
     c->buoy_rel = NAN;
     c->buoy_id = 0;
     c->swing_active = c->swing_seen = false;
-    c->swing_from = c->swing_t = 0;
+    c->swing_from = c->swing_t = c->swing_delta = 0;
+    c->swing_dvalid = false;
     c->swing_id = 0;
     c->down_time = 0;
     c->down_tracking = c->down_fired = c->down_entered = false;
@@ -48,13 +49,20 @@ static void follow_update(Controls *c, const CameraCfg *k, float dt) {
         c->swing_id = c->buoy_id;
         c->swing_from = c->camera_yaw;
         c->swing_t = 0;
+        c->swing_dvalid = false;
         c->swing_active = true;
     }
     if (c->swing_active) {
         c->swing_t += dt;
         float s = k->buoy_swing_s > 0 ? smoothstep01(c->swing_t / k->buoy_swing_s) : 1;
         if (s >= 1) c->swing_active = false;
-        c->camera_yaw = wrap_pi(c->swing_from + wrap_pi(goal - c->swing_from) * s);
+        /* the nearest equivalent of goal - from to last frame's distance, so a target crossing +-pi
+           behind the boat does not flip the swing the other way round */
+        float d = wrap_pi(goal - c->swing_from);
+        if (c->swing_dvalid) d = c->swing_delta + wrap_pi(d - c->swing_delta);
+        c->swing_delta = d;
+        c->swing_dvalid = true;
+        c->camera_yaw = wrap_pi(c->swing_from + d * s);
     } else {
         c->camera_yaw = wrap_pi(goal);
     }
@@ -97,6 +105,7 @@ void controls_update(Controls *c, const BoatCfg *cfg, uint32_t pressed, uint32_t
                 c->swing_seen = false;
                 c->swing_from = c->camera_yaw;
                 c->swing_t = 0;
+                c->swing_dvalid = false;
             }
         } else {
             if (!c->down_fired && !c->down_entered) c->camera_vertical = !c->camera_vertical;

@@ -352,6 +352,22 @@ static void test_swing_takes_the_short_way_round(void) {
     }
 }
 
+static void test_swing_stays_continuous_when_target_wraps_past_pi(void) {
+    Rig r; rig_init(&r);
+    aim(&r, 3.12f, 1);
+    toggle_follow(&r);
+    float prev = r.c.camera_yaw;
+    for (int i = 0; i < 60; i++) {
+        aim(&r, (i & 1) ? -3.12f : 3.12f, 1);
+        idle(&r, 1);
+        T_ASSERT(fabsf(wrap_pi(r.c.camera_yaw - prev)) < 0.3f);
+        prev = r.c.camera_yaw;
+    }
+    aim(&r, 3.12f, 1);
+    idle(&r, 80);
+    T_NEAR(wrap_pi(r.c.camera_yaw - 3.12f), 0, 1e-3);
+}
+
 static void test_follow_holds_yaw_with_no_target_and_keeps_following(void) {
     Rig r; rig_init(&r);
     aim(&r, NAN, 0);
@@ -473,6 +489,7 @@ int main(void) {
     T_RUN(test_follow_tracks_live_bearing_after_swing);
     T_RUN(test_new_buoy_restarts_swing_without_jump);
     T_RUN(test_swing_takes_the_short_way_round);
+    T_RUN(test_swing_stays_continuous_when_target_wraps_past_pi);
     T_RUN(test_follow_holds_yaw_with_no_target_and_keeps_following);
     T_RUN(test_toggle_off_swings_behind);
     T_RUN(test_crank_in_look_mode_exits_follow_in_place);

@@ -40,6 +40,8 @@ typedef struct {
     int buoy_id;              /* set by the game: changes when the target buoy changes */
     bool swing_active, swing_seen;   /* yaw blend in progress; first valid target seen since toggling */
     float swing_from, swing_t;       /* yaw the blend started from; seconds into it */
+    float swing_delta;        /* blend distance, kept continuous as the target moves past +-pi */
+    bool swing_dvalid;        /* swing_delta set since the blend (re)started */
     int swing_id;             /* buoy_id the blend is heading for */
     float down_time;          /* how long the current DOWN press has been held */
     bool down_tracking, down_fired, down_entered;   /* DOWN press state; entered = this press switched into CAMERA */

@@ -7,7 +7,7 @@
 # Output lands in outdir (default build/praise): praise_short.png and praise_long.png, 2x scale.
 # The snapshots are the device framebuffer, so the font and shadow are the real ones (unlike the
 # host frame harness, whose drawText is a stub). The simulator opens on the current DISPLAY for
-# the few seconds the scenario takes, then closes itself. Needs the Playdate SDK
+# the few seconds the scenario takes; the script then stops it (SIGTERM, then SIGKILL). Needs the Playdate SDK
 # (PLAYDATE_SDK_PATH, default ~/Developer/PlaydateSDK-3.1.2) and Pillow for the PNG step.
 set -euo pipefail
 
@@ -38,7 +38,14 @@ echo "== running the scenario in the simulator"
 env -u WAYLAND_DISPLAY GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 SDL_AUDIODRIVER=dummy "$SIM" "$PDX" >/dev/null 2>&1 &
 SIM_PID=$!
 cleanup() {
+    # The simulator ignores SIGTERM, so escalate to SIGKILL; never wait on it unbounded.
     kill "$SIM_PID" 2>/dev/null || true
+    for _ in $(seq 1 25); do
+        kill -0 "$SIM_PID" 2>/dev/null || break
+        sleep 0.2
+    done
+    kill -9 "$SIM_PID" 2>/dev/null || true
+    wait "$SIM_PID" 2>/dev/null || true
     rm -f "$PDX/scenario.txt"
 }
 trap cleanup EXIT

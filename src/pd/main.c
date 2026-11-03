@@ -41,8 +41,7 @@ static Track tracks[TRACKS_MAX];
 static int ntracks;
 static BestTimes best;
 static bool finish_recorded;   /* this race's time has been offered to `best` */
-static GhostSample ghost_best_store[GHOST_MAX_SAMPLES], ghost_run_store[GHOST_MAX_SAMPLES];
-static uint8_t ghost_io[GHOST_FILE_MAX];
+static GhostSample *ghost_stores;   /* two GHOST_MAX_SAMPLES arrays, held only while a race is on (~576 KB) */
 static Ghost ghost_best, ghost_run;   /* the personal best on this course, and the run being sailed */
 static HelpLine help[HELP_ROWS_MAX];
 static int nhelp;
@@ -85,26 +84,52 @@ static void ghost_path(char *out, size_t n, const char *course) {
 
 static uint32_t ghost_boat_hash(void) { return ghost_hash_str(assets_boat_names()[boat_index]); }
 
+/* Sample storage exists only for races; other modes give it back. Without it the ghost is simply off. */
+static void ghost_storage(bool want) {
+    if (want == (ghost_stores != NULL)) return;
+    if (want) {
+        ghost_stores = pd->system->realloc(NULL, 2 * sizeof(GhostSample) * GHOST_MAX_SAMPLES);
+        if (!ghost_stores) return;
+        ghost_init(&ghost_best, ghost_stores, GHOST_MAX_SAMPLES);
+        ghost_init(&ghost_run, ghost_stores + GHOST_MAX_SAMPLES, GHOST_MAX_SAMPLES);
+    } else {
+        ghost_init(&ghost_best, NULL, 0);
+        ghost_init(&ghost_run, NULL, 0);
+        pd->system->realloc(ghost_stores, 0);
+        ghost_stores = NULL;
+    }
+}
+
 static void ghost_load(void) {
     char path[64];
     ghost_clear(&ghost_best);
+    if (!ghost_best.s) return;
     ghost_path(path, sizeof path, game.track.name);
     SDFile *f = pd->file->open(path, kFileReadData);
     if (!f) return;
-    const int n = pd->file->read(f, ghost_io, sizeof ghost_io);
+    uint8_t *io = pd->system->realloc(NULL, GHOST_FILE_MAX);
+    if (io) {
+        const int n = pd->file->read(f, io, GHOST_FILE_MAX);
+        if (n > 0 && !ghost_decode(&ghost_best, io, (size_t)n)) ghost_clear(&ghost_best);
+        pd->system->realloc(io, 0);
+    }
     pd->file->close(f);
-    if (n > 0 && !ghost_decode(&ghost_best, ghost_io, (size_t)n)) ghost_clear(&ghost_best);
 }
 
 static void ghost_save(const Ghost *gh) {
     char path[64];
-    const size_t n = ghost_encode(gh, ghost_io, sizeof ghost_io);
-    if (n == 0) return;
-    ghost_path(path, sizeof path, game.track.name);
-    SDFile *f = pd->file->open(path, kFileWrite);
-    if (!f) return;
-    pd->file->write(f, ghost_io, (unsigned int)n);
-    pd->file->close(f);
+    uint8_t *io = pd->system->realloc(NULL, GHOST_FILE_MAX);
+    if (!io) return;
+    const size_t n = ghost_encode(gh, io, GHOST_FILE_MAX);
+    if (n > 0) {
+        ghost_path(path, sizeof path, game.track.name);
+        SDFile *f = pd->file->open(path, kFileWrite);
+        if (f) {
+            pd->file->write(f, io, (unsigned int)n);
+            pd->file->close(f);
+        }
+    }
+    pd->system->realloc(io, 0);
 }
 
 /* The ghost to race, or NULL when there is none or it was sailed in other conditions. */
@@ -264,6 +289,7 @@ static int update(void *ud) {
             audio_set_level(sound_level);
         }
         menu_crank(&menu, crank);
+        if (act != MENU_NONE) ghost_storage(act == MENU_START_RACE);
         if (act == MENU_START_FREE) {
             game_set_track(&game, NULL);
             sys_menu_build(false);
@@ -347,7 +373,7 @@ static int update(void *ud) {
             finish_recorded = true;
             if (besttimes_record(&best, game.track.name, game.race.t)) {
                 best_save();
-                if (ghost_finish(&ghost_run, &game)) {
+                if (ghost_run.s && ghost_finish(&ghost_run, &game)) {
                     ghost_save(&ghost_run);
                     const Ghost keep = ghost_run;   /* the new best is the one on show next time; the old storage records */
                     ghost_run = ghost_best;
@@ -401,8 +427,6 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         pd = playdate;
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
         best_load();
-        ghost_init(&ghost_best, ghost_best_store, GHOST_MAX_SAMPLES);
-        ghost_init(&ghost_run, ghost_run_store, GHOST_MAX_SAMPLES);
         assets_scan_boats(pd);
         assets_boat_raceable(pd, boat_raceable);
         sys_menu_build(false);

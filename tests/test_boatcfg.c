@@ -177,7 +177,7 @@ static void test_hobie16_json(void) {
 }
 
 static void test_tp52_json(void) {
-    BoatCfg c; load_boat("../boats/tp52.json", &c);
+    BoatCfg c; load_boat("../boats/disabled/tp52.json", &c);
     T_ASSERT(c.hull.length >= 15.8f);
     T_ASSERT(c.sail_count == 3);
     T_ASSERT(c.sails[2].shape == 2 && c.sails[2].awa_min_deg >= 80);
@@ -193,7 +193,7 @@ static void test_tp52_json(void) {
 static void test_wake_fade_default_and_clamp(void) {
     BoatCfg d, c; boatcfg_default(&d);
     T_NEAR(d.look.wake_fade_m, 4.0, 1e-6);
-    load_boat("../boats/tp52.json", &c);              /* omits the key */
+    load_boat("../boats/disabled/tp52.json", &c);              /* omits the key */
     T_NEAR(c.look.wake_fade_m, 4.0, 1e-6);
 }
 
@@ -231,7 +231,7 @@ static void test_boat_class_defaults_to_racer(void) {
     T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
     load_boat("../boats/j24.json", &c);
     T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
-    load_boat("../boats/tp52.json", &c);
+    load_boat("../boats/disabled/tp52.json", &c);
     T_ASSERT(c.boat_class == BOAT_CLASS_RACER);
 }
 
@@ -282,7 +282,7 @@ static void test_longship_json(void) {
 }
 
 static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
-    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json", "../boats/disabled/longship.json" };
+    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/disabled/tp52.json", "../boats/disabled/longship.json" };
     for (int i = 0; i < 5; i++) {
         size_t n = 0;
         char *buf = slurp(files[i], &n);

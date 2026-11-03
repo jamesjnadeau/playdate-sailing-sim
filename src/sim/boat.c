@@ -205,8 +205,8 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     b->heading = wrap_pi(b->heading + b->r * dt);
 
     float cx = cosf(b->heading), cy = sinf(b->heading);
-    b->x += (double)(b->u * cx - b->v * cy) * dt;
-    b->y += (double)(b->u * cy + b->v * cx) * dt;
+    b->x += (double)((b->u * cx - b->v * cy) * dt);
+    b->y += (double)((b->u * cy + b->v * cx) * dt);
 
     b->pitch = fin(wf->pitch, 0.0f);
     b->heave = fin(wf->heave, 0.0f);

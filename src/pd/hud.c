@@ -15,6 +15,21 @@ static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
 }
 
+#define MSG_BACK_DX 1          /* offset of the white layer behind an on-screen message */
+#define MSG_BACK_DY 1
+
+/* Centred on-screen message: black text over a white layer offset behind it. The one place the style of
+   praise and the assist/engine banners lives. */
+static void message(PlaydateAPI *pd, const char *s, int y) {
+    const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
+    int x = (CAM_W - w) / 2;
+    if (x < 0) x = 0;
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    text(pd, s, x + MSG_BACK_DX, y + MSG_BACK_DY);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+    text(pd, s, x, y);
+}
+
 /* The system font has no gear or compass glyph, so the AT and AP badges are drawn as small icons. */
 static void icon_gear(PlaydateAPI *pd, int cx, int cy) {
     static const int dx[8] = { 1, 1, 0, -1, -1, -1, 0, 1 }, dy[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -67,15 +82,15 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     if (hud_shows_nav(mode)) {
         /* speed, heading and heel in fixed-width cells separated by 1px lines; the AWS number sits by the dial */
-        snprintf(line, sizeof line, "%.1fkn", fabsf(b->u) * 1.94384f);
+        snprintf(line, sizeof line, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
         text(pd, line, HUD_MODE_W + HUD_PAD, ty);
         pd->graphics->drawLine(HUD_SPEED_END, top, HUD_SPEED_END, CAM_H - 1, 1, kColorWhite);
         snprintf(line, sizeof line, "HDG %03d", hud_heading_deg(b->heading));
         text(pd, line, HUD_SPEED_END + HUD_PAD, ty);
         pd->graphics->drawLine(HUD_HDG_END, top, HUD_HDG_END, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "HEEL %+.0f", b->heel * 57.29578f);
+        snprintf(line, sizeof line, "HEEL %+.0f", (double)(b->heel * 57.29578f));
         text(pd, line, HUD_HDG_END + HUD_PAD, ty);
-        snprintf(line, sizeof line, "%.0f", b->aws);
+        snprintf(line, sizeof line, "%.0f", (double)b->aws);
         text(pd, line, CAM_W - 12 - 8 - 26, ty);
     } else if (mode == MODE_TRIM || mode == MODE_HOIST) {
         /* selected sail: its name, then the trim or hoist bar */
@@ -112,12 +127,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     int row = 0;
     for (int i = 0; i < 2; i++) {
         if (!banners[i]) continue;
-        const int w = 188, x = (CAM_W - w) / 2, y = top - 16 - 16 * row++;
-        pd->graphics->fillRect(x, y, w, 14, kColorBlack);
-        pd->graphics->drawRect(x, y, w, 14, kColorWhite);
-        pd->graphics->setDrawMode(kDrawModeFillWhite);
-        text(pd, banners[i], x + 8, y + 1);
-        pd->graphics->setDrawMode(kDrawModeCopy);
+        message(pd, banners[i], top - 16 - 16 * row++ + 1);
     }
 }
 
@@ -199,18 +209,11 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     mark_indicator(pd, c, b->x, b->y, hypot(b->x - g->b.x, b->y - g->b.y));
 }
 
-/* Praise after a buoy is rounded: white text with a 1px black shadow under the top edge, cleared once its
-   time is up. No box behind it, so it reads over sea and sky alike. */
+/* Praise after a buoy is rounded, drawn by message(), cleared once its time is up. No box behind it, so it
+   reads over sea and sky alike. */
 void hud_praise(PlaydateAPI *pd, const Game *g) {
     if (g->praise_left <= 0.0f) return;
-    const char *s = praise_text(g->praise);
-    const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
-    const int x = (CAM_W - w) / 2, y = 26;
-    pd->graphics->setDrawMode(kDrawModeCopy);
-    text(pd, s, x + 1, y + 1);          /* shadow */
-    pd->graphics->setDrawMode(kDrawModeFillWhite);
-    text(pd, s, x, y);
-    pd->graphics->setDrawMode(kDrawModeCopy);
+    message(pd, praise_text(g->praise), 26);
 }
 
 void hud_prompt(PlaydateAPI *pd, const Game *g) {
@@ -311,8 +314,10 @@ static void draw_course_map(PlaydateAPI *pd, const Game *g) {
     const float bx = (float)(g->b.x + r->ox), by = (float)(g->b.y + r->oy);   /* boat, track frame */
     float lo_x = tr->start_x, hi_x = lo_x, lo_y = tr->start_y, hi_y = lo_y;
 #define EXT(X, Y) do { float _x = (X), _y = (Y); \
-        if (_x < lo_x) lo_x = _x; if (_x > hi_x) hi_x = _x; \
-        if (_y < lo_y) lo_y = _y; if (_y > hi_y) hi_y = _y; } while (0)
+        if (_x < lo_x) lo_x = _x; \
+        if (_x > hi_x) hi_x = _x; \
+        if (_y < lo_y) lo_y = _y; \
+        if (_y > hi_y) hi_y = _y; } while (0)
     for (int i = 0; i < tr->nmarks; i++) EXT(tr->marks[i].x, tr->marks[i].y);
     EXT(bx, by);
 #undef EXT

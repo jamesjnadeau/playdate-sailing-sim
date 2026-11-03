@@ -52,11 +52,11 @@ static void wadd(char *buf, size_t cap, size_t *n, bool *any, const char *fmt, .
 /* Cross-field limits. Each fix raises a warning (buf may be NULL to fix silently). */
 static void enforce(WorldCfg *c, char *buf, size_t cap, size_t *n, bool *any) {
     if (c->rock_r_max > 0.5f * c->rock_cell_size) {
-        wadd(buf, cap, n, any, "rock_r_max: %g exceeds half the cell size, clamped", c->rock_r_max);
+        wadd(buf, cap, n, any, "rock_r_max: %g exceeds half the cell size, clamped", (double)c->rock_r_max);
         c->rock_r_max = 0.5f * c->rock_cell_size;
     }
     if (c->rock_r_min > c->rock_r_max) {
-        wadd(buf, cap, n, any, "rock_r_min: %g exceeds rock_r_max, clamped", c->rock_r_min);
+        wadd(buf, cap, n, any, "rock_r_min: %g exceeds rock_r_max, clamped", (double)c->rock_r_min);
         c->rock_r_min = c->rock_r_max;
     }
     if (!(c->rock_wreck_speed > c->rock_bump_speed)) {
@@ -64,7 +64,7 @@ static void enforce(WorldCfg *c, char *buf, size_t cap, size_t *n, bool *any) {
         c->rock_wreck_speed = c->rock_bump_speed + 0.1f;
     }
     if (c->journey_max_m < c->journey_min_m) {
-        wadd(buf, cap, n, any, "journey_max_m: %g below journey_min_m, raised", c->journey_max_m);
+        wadd(buf, cap, n, any, "journey_max_m: %g below journey_min_m, raised", (double)c->journey_max_m);
         c->journey_max_m = c->journey_min_m;
     }
 }
@@ -99,7 +99,7 @@ bool world_load(WorldCfg *out, const char *buf, size_t len, char *warn, size_t w
         }
         if (v < FLDS[i].mn || v > FLDS[i].mx) {
             wadd(warn, warnlen, &wn, &any, "%s: %g outside [%g, %g], clamped",
-                 FLDS[i].key, v, FLDS[i].mn, FLDS[i].mx);
+                 FLDS[i].key, (double)v, (double)FLDS[i].mn, (double)FLDS[i].mx);
             v = clampf(v, FLDS[i].mn, FLDS[i].mx);
         }
         *dst = v;
@@ -135,7 +135,7 @@ int rocks_near(const WorldCfg *cfg, uint32_t seed, float x, float y, float radiu
     radius = clampf(radius, 0.0f, RADIUS_MAX);
     if (!(c.rock_density > 0.0f)) return 0;
 
-    double cell = c.rock_cell_size, reach = (double)radius + c.rock_r_max;
+    double cell = c.rock_cell_size, reach = (double)radius + (double)c.rock_r_max;
     double x0 = floor(((double)x - reach) / cell), x1 = floor(((double)x + reach) / cell);
     double y0 = floor(((double)y - reach) / cell), y1 = floor(((double)y + reach) / cell);
     x0 = fmax(x0, -CELL_LIM); x1 = fmin(x1, CELL_LIM);
@@ -148,12 +148,12 @@ int rocks_near(const WorldCfg *cfg, uint32_t seed, float x, float y, float radiu
         for (int64_t cy = (int64_t)y0; cy <= (int64_t)y1; cy++) {
             int32_t ix = (int32_t)cx, iy = (int32_t)cy;
             if (!(cellf(ix, iy, seed, K_PRESENT) < c.rock_density)) continue;
-            double r = c.rock_r_min + (double)cellf(ix, iy, seed, K_RADIUS) * (c.rock_r_max - c.rock_r_min);
+            double r = (double)c.rock_r_min + (double)cellf(ix, iy, seed, K_RADIUS) * (double)(c.rock_r_max - c.rock_r_min);
             double rx = (double)ix * cell + r + (double)cellf(ix, iy, seed, K_OFFX) * (cell - 2 * r);
             double ry = (double)iy * cell + r + (double)cellf(ix, iy, seed, K_OFFY) * (cell - 2 * r);
-            if (hypot(rx, ry) - r < c.start_clear_radius) continue;
-            double e = hypot(rx - x, ry - y) - r;
-            if (e > radius) continue;
+            if (hypot(rx, ry) - r < (double)c.start_clear_radius) continue;
+            double e = hypot(rx - (double)x, ry - (double)y) - r;
+            if (e > (double)radius) continue;
             int slot = n;
             if (n == max) {
                 slot = 0;
@@ -184,26 +184,26 @@ HitKind rocks_collide(const WorldCfg *cfg, const Rock *rocks, int n, BoatState *
     for (int i = 0; i < n; i++) {
         const Rock *k = &rocks[i];
         if (!isfinite(k->x) || !isfinite(k->y) || !(k->r > 0.0f)) continue;
-        double cr = (double)k->r + half;
-        double dx = b->x - k->x, dy = b->y - k->y;
+        double cr = (double)k->r + (double)half;
+        double dx = b->x - (double)k->x, dy = b->y - (double)k->y;
         double dist = hypot(dx, dy);
         if (!(dist < cr)) continue;
         double nx = 1.0, ny = 0.0;
         if (dist > 1e-9) { nx = dx / dist; ny = dy / dist; }
 
         double ch = cos(b->heading), sh = sin(b->heading);
-        double vx = b->u * ch - b->v * sh, vy = b->u * sh + b->v * ch;
+        double vx = (double)b->u * ch - (double)b->v * sh, vy = (double)b->u * sh + (double)b->v * ch;
         double inward = -(vx * nx + vy * ny);
-        b->x = k->x + nx * cr;
-        b->y = k->y + ny * cr;
+        b->x = (double)k->x + nx * cr;
+        b->y = (double)k->y + ny * cr;
         if (inward <= 0.0) continue;                 /* already leaving, or sliding along */
 
         float eff = (float)inward * (1.0f + HEAVE_GAIN * hv);
         HitKind kind = eff < c.rock_bump_speed ? HIT_BUMP
                      : eff < c.rock_wreck_speed ? HIT_STRIKE : HIT_WRECK;
         float damp = kind == HIT_BUMP ? DAMP_BUMP : kind == HIT_STRIKE ? DAMP_STRIKE : DAMP_WRECK;
-        vx = (vx + inward * nx) * damp;
-        vy = (vy + inward * ny) * damp;
+        vx = (vx + inward * nx) * (double)damp;
+        vy = (vy + inward * ny) * (double)damp;
         if (kind == HIT_STRIKE) {
             double cross = ch * ny - sh * nx;
             b->heading = wrap_pi(b->heading + (cross >= 0.0 ? STRIKE_KICK : -STRIKE_KICK));

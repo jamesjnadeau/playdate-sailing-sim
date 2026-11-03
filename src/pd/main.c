@@ -41,7 +41,7 @@ static void pf_sys_menu(bool racing, int boat, int preset) {
     boat_item = weather_item = NULL;
     if (!racing) {
         boat_item = pd->system->addOptionsMenuItem("boat", (const char **)assets_boat_names(), assets_boat_count(), menu_boat, NULL);
-        weather_item = pd->system->addOptionsMenuItem("weather", WEATHER_NAMES, WEATHER_PRESETS, menu_weather, NULL);
+        weather_item = pd->system->addOptionsMenuItem("weather", (const char **)WEATHER_NAMES, WEATHER_PRESETS, menu_weather, NULL);
         pd->system->setMenuItemValue(boat_item, boat);
         pd->system->setMenuItemValue(weather_item, preset);
     }

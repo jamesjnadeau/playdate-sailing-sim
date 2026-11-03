@@ -180,7 +180,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;
-    g->t += dt;
+    g->t += (double)dt;
     recentre(g);
     if (g->mode != GAME_RACE) follower_record(&g->follow, &g->b);
 }

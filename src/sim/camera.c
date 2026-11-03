@@ -4,6 +4,7 @@
 
 #define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
 #define MIN_EYE 0.5f          /* m, lowest the trailing eye may be lowered above the sea */
+#define FOLLOW_MIX_S 0.5f     /* s the eye takes to glide between the orbit and straight behind */
 #define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
 /* Reachable orbit angles about the framed one: lo <= 0 keeps the eye MIN_EYE above sea level,
@@ -86,8 +87,13 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
         look = 0.0f;
     }
     if (c->trail) side = 0.0f;
-    c->x = b->x + (double)(fwd_x * xo - fwd_y * side);
-    c->y = b->y + (double)(fwd_y * xo + fwd_x * side);
+    /* buoy-follow keeps the eye behind the boat on its own heading, so the boat stays framed and the
+     * view turns in place to the buoy instead of orbiting round to the far side of the rig */
+    c->follow_mix = approach(c->follow_mix, c->trail && g->ctl.camera_follow ? 1.0f : 0.0f, FOLLOW_MIX_S, dt);
+    float m = c->follow_mix, hx = cosf(b->heading), hy = sinf(b->heading);
+    float ax = fwd_x + (hx - fwd_x) * m, ay = fwd_y + (hy - fwd_y) * m;
+    c->x = b->x + (double)(ax * xo - ay * side);
+    c->y = b->y + (double)(ay * xo + ax * side);
     c->height = eye + k->heave_gain * b->heave;
     if (c->trail && look_tipped_down) {   /* a lowered eye must clear the wave under it, not just mean sea level */
         float sea = sea_height(&g->sea, (float)c->x, (float)c->y, g->t);
@@ -167,7 +173,7 @@ void camera_mark_view(const CameraPose *c, double wx, double wy, float bottom, M
         out->angle = atan2f(dy, dx);
     } else {
         /* behind the camera: the side it is on decides the edge */
-        float rel = wrap_pi((float)(atan2(wy - c->y, wx - c->x) - c->yaw));
+        float rel = wrap_pi(atan2f((float)(wy - c->y), (float)(wx - c->x)) - c->yaw);
         if (rel >= 0) {
             out->x = CAM_W - pad;
             out->angle = 0;

@@ -33,16 +33,16 @@ static void spawn(Journey *j) {
     }
     const float dist = j->min_m + rnd(j) * (j->max_m - j->min_m);
     const JourneyBuoy *old = j->n > 0 ? &j->buoy[0] : NULL;
-    const double d0 = old ? hypot(j->lx - old->x, j->ly - old->y) : 0.0;
+    const float d0 = old ? hypotf((float)(j->lx - old->x), (float)(j->ly - old->y)) : 0.0f;
     float h = j->course;
     bool ok = false;
     for (int i = 0; i < TRIES && !ok; i++) {
         h = wrap_pi(j->course + (rnd(j) * 2.0f - 1.0f) * SPREAD_RAD);
         if (fabsf(wrap_pi(h - j->wind_from)) < j->no_go) continue;   /* into the wind: unreachable */
-        ok = !old || hypot(j->lx + dist * cos(h) - old->x, j->ly + dist * sin(h) - old->y) > d0;
+        ok = !old || hypotf((float)(j->lx - old->x) + dist * cosf(h), (float)(j->ly - old->y) + dist * sinf(h)) > d0;
     }
     if (!ok) {   /* straight away from the oldest, or the nearest heading the wind allows */
-        h = old ? (float)atan2(j->ly - old->y, j->lx - old->x) : j->course;
+        h = old ? atan2f((float)(j->ly - old->y), (float)(j->lx - old->x)) : j->course;
         h = clear_of_wind(j, h);
     }
 
@@ -52,8 +52,8 @@ static void spawn(Journey *j) {
         prev->gate = wrap_pi(j->course - (float)prev->rounding * HALF_PI);   /* 90 deg to its leg, on the turn side */
     }
     JourneyBuoy *b = &j->buoy[j->n++];
-    b->x = j->lx + dist * cos(h);
-    b->y = j->ly + dist * sin(h);
+    b->x = j->lx + (double)(dist * cosf(h));
+    b->y = j->ly + (double)(dist * sinf(h));
     b->gate = wrap_pi(h - HALF_PI);
     b->rounding = ROUND_STARBOARD;   /* provisional, until the next buoy decides it */
     j->lx = b->x;
@@ -89,7 +89,7 @@ void journey_init(Journey *j, float min_m, float max_m, uint32_t seed, double x,
 
 bool journey_update(Journey *j, double x0, double y0, double x1, double y1, float dt, float wind_from) {
     if (isfinite(wind_from)) j->wind_from = wind_from;
-    if (isfinite(dt) && dt > 0.0f) j->t += dt;
+    if (isfinite(dt) && dt > 0.0f) j->t += (double)dt;
     bool hit = false;
     if (j->next < j->n) {
         const JourneyBuoy *b = &j->buoy[j->next];

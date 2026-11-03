@@ -293,7 +293,7 @@ static void load_fields(const JsonNode *obj, void *base, const Field *f, int n,
             if (!isfinite(v)) { wadd(w, "%s: not a finite number", path); break; }
             if (f[i].kind == K_I) v = floorf(v + 0.5f);
             if (v < f[i].mn || v > f[i].mx) {
-                wadd(w, "%s: %g outside [%g, %g], clamped", path, v, f[i].mn, f[i].mx);
+                wadd(w, "%s: %g outside [%g, %g], clamped", path, (double)v, (double)f[i].mn, (double)f[i].mx);
                 v = clampf(v, f[i].mn, f[i].mx);
             }
             if (f[i].kind == K_F) *(float *)p = v; else *(int *)p = (int)v;

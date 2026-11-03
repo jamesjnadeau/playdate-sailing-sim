@@ -299,15 +299,15 @@ __attribute__((unused)) static void draw_sea_flecks(PlaydateAPI *pd, const Game 
     float cx = -wny, cy = wnx;                        /* along the crest line */
     double fx = rcos(c->yaw), fy = rsin(c->yaw);
     float maxd = fminf(vis * 0.8f, FLECK_CELL * FLECK_RADIUS);
-    int ci = (int)floor(c->x / FLECK_CELL), cj = (int)floor(c->y / FLECK_CELL);
+    int ci = (int)floor(c->x / (double)FLECK_CELL), cj = (int)floor(c->y / (double)FLECK_CELL);
 
     for (int dj = -FLECK_RADIUS; dj <= FLECK_RADIUS; dj++) {
         for (int di = -FLECK_RADIUS; di <= FLECK_RADIUS; di++) {
             int32_t gi = ci + di, gj = cj + dj;
             uint32_t h = fleck_hash(gi, gj);
             if ((h & 0xFF) > 90) continue;            /* ~35% of cells get a streak */
-            double wx = (gi + ((h >> 8 & 0xFF) / 256.0f)) * (double)FLECK_CELL;
-            double wy = (gj + ((h >> 16 & 0xFF) / 256.0f)) * (double)FLECK_CELL;
+            double wx = ((double)gi + ((h >> 8 & 0xFF) / 256.0)) * (double)FLECK_CELL;
+            double wy = ((double)gj + ((h >> 16 & 0xFF) / 256.0)) * (double)FLECK_CELL;
             float fwd = (float)((wx - c->x) * fx + (wy - c->y) * fy);
             if (fwd < 1.0f || fwd > maxd) continue;
             float z = sea_view_height(&sv, (float)(wx - c->x), (float)(wy - c->y));
@@ -315,8 +315,8 @@ __attribute__((unused)) static void draw_sea_flecks(PlaydateAPI *pd, const Game 
             bool crest = r > 0.35f, trough = r < -0.55f;
             if (!crest && !trough) continue;
             float len = wl * (0.12f + 0.18f * (float)(h >> 24) / 255.0f) * (0.5f + fminf(fabsf(r), 1.0f));
-            double ax = wx - cx * len * 0.5, ay = wy - cy * len * 0.5;
-            double bx = wx + cx * len * 0.5, by = wy + cy * len * 0.5;
+            double ax = wx - (double)(cx * len * 0.5f), ay = wy - (double)(cy * len * 0.5f);
+            double bx = wx + (double)(cx * len * 0.5f), by = wy + (double)(cy * len * 0.5f);
             float x0, y0, x1, y1;
             if (!camera_project(c, ax, ay, z, &x0, &y0, NULL)) continue;
             if (!camera_project(c, bx, by, z, &x1, &y1, NULL)) continue;
@@ -466,10 +466,10 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
 
     if (sea_style == SEA_TRI) {
         const float L = size, du = L * 0.8660254f;
-        long j0 = (long)floor((s + umin) / du) - 1, j1 = (long)floor((s + umax) / du) + 1;
+        long j0 = (long)floor((s + (double)umin) / (double)du) - 1, j1 = (long)floor((s + (double)umax) / (double)du) + 1;
         const float cu0 = (float)(j0 * (double)du - s);     /* double once, then float steps along the lattice */
         for (long j = j0; j <= j1; j++) {
-            long i0 = (long)floor((s2 + vmin) / L - j * 0.5) - 1, i1 = (long)floor((s2 + vmax) / L - j * 0.5) + 1;
+            long i0 = (long)floor((s2 + (double)vmin) / (double)L - j * 0.5) - 1, i1 = (long)floor((s2 + (double)vmax) / (double)L - j * 0.5) + 1;
             const float cuj = cu0 + (float)(j - j0) * du, cv0 = (float)((i0 + j * 0.5) * (double)L - s2);
             for (long i = i0; i <= i1 && lat.n < LAT_MAX; i++) {
                 float cu[4], cv[4];                   /* P(i,j) P(i+1,j) P(i,j+1) P(i+1,j+1) */
@@ -496,11 +496,11 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
             float cu = R * cosf((float)k * 1.0471976f), cv = R * sinf((float)k * 1.0471976f);
             corner[k].a = cu * na + cv * pa; corner[k].b = cu * nb + cv * pb;
         }
-        long c0 = (long)floor((s + umin) / colw) - 1, c1 = (long)floor((s + umax) / colw) + 1;
+        long c0 = (long)floor((s + (double)umin) / (double)colw) - 1, c1 = (long)floor((s + (double)umax) / (double)colw) + 1;
         const float du0 = (float)(c0 * (double)colw - s);   /* double once, then float steps along the lattice */
         for (long col = c0; col <= c1; col++) {
             double shift = (col & 1) ? 0.5 : 0.0;
-            long r0 = (long)floor((s2 + vmin) / rowh - shift) - 1, r1 = (long)floor((s2 + vmax) / rowh - shift) + 1;
+            long r0 = (long)floor((s2 + (double)vmin) / (double)rowh - shift) - 1, r1 = (long)floor((s2 + (double)vmax) / (double)rowh - shift) + 1;
             const float du = du0 + (float)(col - c0) * colw, dv0 = (float)((r0 + shift) * (double)rowh - s2);
             for (long row = r0; row <= r1 && lat.n < LAT_MAX; row++) {
                 float dv = dv0 + (float)(row - r0) * rowh;
@@ -522,7 +522,7 @@ static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float
     uint16_t order[LAT_MAX];
     sort_far_first(polys, lat.n, order);
     for (int i = 0; i < lat.n; i++) {
-        const CrestBand *p = &polys[order[i]];
+        CrestBand *p = &polys[order[i]];
         pd->graphics->fillPolygon(p->n, p->pts, render_pattern(p->level), kPolygonFillNonZero);
     }
 }
@@ -546,16 +546,16 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
         if (v < vmin) vmin = v;
         if (v > vmax) vmax = v;
     }
-    double s = c->x * wnx + c->y * wny;               /* camera's position along the wave normal */
-    double s2 = c->x * -wny + c->y * wnx;             /* ... and along the crest line */
+    double s = c->x * (double)wnx + c->y * (double)wny;               /* camera's position along the wave normal */
+    double s2 = c->x * (double)-wny + c->y * (double)wnx;             /* ... and along the crest line */
     if (sea_style != SEA_GRID) {
         draw_lattice(pd, c, dfar, half, sgain, vis, na, nb, bw, s, s2, umin, umax, vmin, vmax);
         return;
     }
     int span = (int)ceilf((umax - umin) / bw) + 1;
     if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.4f; }
-    long k0 = (long)floor((s + umin) / bw), k1 = (long)floor((s + umax) / bw);
-    long j0 = (long)floor((s2 + vmin) / vw), j1 = (long)floor((s2 + vmax) / vw);
+    long k0 = (long)floor((s + (double)umin) / (double)bw), k1 = (long)floor((s + (double)umax) / (double)bw);
+    long j0 = (long)floor((s2 + (double)vmin) / (double)vw), j1 = (long)floor((s2 + (double)vmax) / (double)vw);
     if (j1 - j0 > MOGUL_MAX_ACROSS) { long mid = (j0 + j1) / 2; j0 = mid - MOGUL_MAX_ACROSS / 2; j1 = mid + MOGUL_MAX_ACROSS / 2; }
     int nc = 0;
     for (long k = k0; k <= k1; k++) {
@@ -605,7 +605,7 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
     uint16_t order[MOGUL_CELLS_MAX];
     sort_far_first(cells, nc, order);
     for (int i = 0; i < nc; i++) {
-        const CrestBand *p = &cells[order[i]];
+        CrestBand *p = &cells[order[i]];
         pd->graphics->fillPolygon(p->n, p->pts, render_pattern(p->level), kPolygonFillNonZero);
     }
 }
@@ -663,13 +663,13 @@ __attribute__((unused)) static void draw_streaks(PlaydateAPI *pd, const Game *g,
     float ux = wx / sp, uy = wy / sp;
     float vis = fvis(g);
     for (int i = 0; i < STREAKS; i++) {
-        double qx = frand(i, 11) * 120.0 + g->t * wx * 0.6;
-        double qy = frand(i, 12) * 120.0 + g->t * wy * 0.6;
+        double qx = (double)frand(i, 11) * 120.0 + g->t * (double)wx * 0.6;
+        double qy = (double)frand(i, 12) * 120.0 + g->t * (double)wy * 0.6;
         qx = g->b.x + fmod(qx - g->b.x + 60.0, 120.0) - 60.0;
         qy = g->b.y + fmod(qy - g->b.y + 60.0, 120.0) - 60.0;
         float ax, ay, bx, by, da;
         if (!camera_project(c, qx, qy, 0.0f, &ax, &ay, &da)) continue;
-        if (!camera_project(c, qx + ux * 6.0, qy + uy * 6.0, 0.0f, &bx, &by, NULL)) continue;
+        if (!camera_project(c, qx + (double)ux * 6.0, qy + (double)uy * 6.0, 0.0f, &bx, &by, NULL)) continue;
         if (da > vis * 0.8f || da < 1.0f) continue;
         if (fabsf(bx - ax) > 200 || fabsf(by - ay) > 200) continue;
         pd->graphics->drawLine((int)ax, (int)ay, (int)bx, (int)by, 1, kColorWhite);
@@ -695,7 +695,7 @@ __attribute__((unused)) static void draw_rocks(PlaydateAPI *pd, const Game *g, c
         const Rock *r = &g->rocks[order[k]];
         float d = depth[order[k]];
         if (d > vis) continue;
-        float h = sea_view_height(&sv, (float)(r->x - sv_ox), (float)(r->y - sv_oy));
+        float h = sea_view_height(&sv, (float)((double)r->x - sv_ox), (float)((double)r->y - sv_oy));
         float bx, by, tx, ty;
         float top = r->awash ? 0.15f * r->r : 0.7f * r->r;
         if (!camera_project(c, r->x, r->y, h, &bx, &by, NULL)) continue;
@@ -708,7 +708,7 @@ __attribute__((unused)) static void draw_rocks(PlaydateAPI *pd, const Game *g, c
         if (!r->awash) {
             int pts[2 * 9];
             for (int s = 0; s < 9; s++) {
-                float a = PI_D * (float)s / 8.0f;
+                float a = (float)PI_D * (float)s / 8.0f;
                 pts[2 * s] = (int)(bx - hw * cosf(a));
                 pts[2 * s + 1] = (int)(by - rh * sinf(a));
             }
@@ -718,7 +718,7 @@ __attribute__((unused)) static void draw_rocks(PlaydateAPI *pd, const Game *g, c
         int rings = r->awash ? 3 : 1;
         for (int q = 0; q < rings; q++) {
             float w = hw * (1.0f + 0.25f * (float)q) + 2.0f;
-            float jit = sinf(g->t * 4.0f + q * 2.0f + r->x) * 2.0f;
+            float jit = sinf((float)(g->t * 4.0 + q * 2.0 + (double)r->x)) * 2.0f;
             int ww = (int)(2 * w), hh = (int)fmaxf(rh * 0.5f, 3.0f) + q * 2;
             pd->graphics->drawEllipse((int)(bx - w), (int)(by - hh / 2 + jit), ww, hh, 1, 0, 0, kColorWhite);
         }
@@ -1008,7 +1008,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             float v = (float)q / (float)mw;
             float chord = hypotf(ex - lx, ey);
             float bulge = s->camber * chord * 4.0f * v * (1.0f - v);
-            float flut = lufft > 0.1f ? sinf(k->g->t * s->flutter_hz * 6.2832f + u * 3.0f + v * 5.0f) * 0.1f * lufft * chord * v : 0.0f;
+            float flut = lufft > 0.1f ? sinf((float)(k->g->t * (double)s->flutter_hz * 6.2832 + (double)u * 3.0 + (double)v * 5.0)) * 0.1f * lufft * chord * v : 0.0f;
             float x = lx + (ex - lx) * v;
             float y = ey * v + side * bulge + flut;
             if (s->shape == 2) {                          /* a spinnaker balloons out ahead of its chord */
@@ -1521,7 +1521,7 @@ static void turn_arrow_head(PlaydateAPI *pd, const Game *g, const CameraPose *c,
     if (!gate_pt(g, c, t, px, py, h, &tip_x, &tip_y)) return;
     for (int k = 0; k < 2; k++) {
         float bh = h + (k ? -ARROW_HEAD_M : ARROW_HEAD_M) * 0.6f;
-        if (!gate_pt(g, c, t, px - ux * ARROW_HEAD_M, py - uy * ARROW_HEAD_M, bh, &wx[k], &wy[k])) return;
+        if (!gate_pt(g, c, t, px - ux * (double)ARROW_HEAD_M, py - uy * (double)ARROW_HEAD_M, bh, &wx[k], &wy[k])) return;
         gate_stroke(pd, tip_x, tip_y, wx[k], wy[k]);
     }
 }
@@ -1542,15 +1542,15 @@ static void draw_turn_arrow(PlaydateAPI *pd, const Game *g, const CameraPose *c,
             float u = fminf((s + e * GATE_DASH_M) / arc_len, 1.0f);
             float a = a0 + turn * sweep * u;
             float h = GATE_HEIGHT_M * (2.0f - u * u);
-            ok = gate_pt(g, c, t, mx + rcos(a) * ARROW_RADIUS_M, my + rsin(a) * ARROW_RADIUS_M, h, &sx[e], &sy[e]);
+            ok = gate_pt(g, c, t, mx + (double)(rcos(a) * ARROW_RADIUS_M), my + (double)(rsin(a) * ARROW_RADIUS_M), h, &sx[e], &sy[e]);
         }
         if (ok) gate_stroke(pd, sx[0], sy[0], sx[1], sy[1]);
     }
     /* head at the gate end: along the tangent of travel at the tip */
-    const double tipx = mx + rcos(mk->gate) * ARROW_RADIUS_M, tipy = my + rsin(mk->gate) * ARROW_RADIUS_M;
+    const double tipx = mx + (double)(rcos(mk->gate) * ARROW_RADIUS_M), tipy = my + (double)(rsin(mk->gate) * ARROW_RADIUS_M);
     turn_arrow_head(pd, g, c, t, tipx, tipy, -turn * rsin(mk->gate), turn * rcos(mk->gate), GATE_HEIGHT_M);
     /* head at the start: along the travel direction there too, so both heads point the same way round */
-    const double sx0 = mx + rcos(a0) * ARROW_RADIUS_M, sy0 = my + rsin(a0) * ARROW_RADIUS_M;
+    const double sx0 = mx + (double)(rcos(a0) * ARROW_RADIUS_M), sy0 = my + (double)(rsin(a0) * ARROW_RADIUS_M);
     turn_arrow_head(pd, g, c, t, sx0, sy0, -turn * rsin(a0), turn * rcos(a0), GATE_HEIGHT_M * 2.0f);
 }
 
@@ -1564,7 +1564,7 @@ static void draw_gate(PlaydateAPI *pd, const Game *g, const CameraPose *c, doubl
         float sx[2], sy[2];
         bool ok = true;
         for (int e = 0; e < 2 && ok; e++)
-            ok = gate_pt(g, c, t, mx + dx * (s + e * GATE_DASH_M), my + dy * (s + e * GATE_DASH_M),
+            ok = gate_pt(g, c, t, mx + dx * (double)(s + e * GATE_DASH_M), my + dy * (double)(s + e * GATE_DASH_M),
                          GATE_HEIGHT_M, &sx[e], &sy[e]);
         if (ok) gate_stroke(pd, sx[0], sy[0], sx[1], sy[1]);
     }
@@ -1635,7 +1635,7 @@ static void draw_ghost_pose(PlaydateAPI *pd, const Game *g, const CameraPose *c,
     BoatState gb = g->b;
     gb.x = p->x;
     gb.y = p->y;
-    if (hypot(gb.x - c->x, gb.y - c->y) > wx(g)->visibility) return;
+    if (hypot((double)gb.x - c->x, (double)gb.y - c->y) > (double)wx(g)->visibility) return;
     gb.heading = p->heading;
     gb.heel = p->heel;
     gb.wheel = p->wheel;

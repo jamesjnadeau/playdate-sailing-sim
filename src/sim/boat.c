@@ -1,5 +1,6 @@
 #include "boat.h"
 #include "engine.h"
+#include "hullgeom.h"
 #include <math.h>
 #include <string.h>
 
@@ -49,6 +50,7 @@ static float foil_cd(float cd0, float cl, float ar) { return cd0 + cl * cl / ((f
 
 void boat_init(BoatState *b, const BoatCfg *c) {
     memset(b, 0, sizeof *b);
+    b->immersion[0] = b->immersion[1] = 1.0f;
     for (int i = 0; i < c->sail_count && i < BOAT_MAX_SAILS; i++) {
         const SailCfg *s = &c->sails[i];
         b->trims[i] = clampf(deg2rad(30.0f), deg2rad(s->trim_min_deg), deg2rad(s->trim_max_deg));
@@ -133,6 +135,15 @@ void boat_step(BoatState *b, const BoatCfg *c, const Wind *w, const BoatInputs *
     float wall = HULL_WALL_K * fmaxf(speed_u / h->hull_speed - 0.9f, 0.0f);
     float drag = (resist(&h->resistance, speed_u) + wall) * (1.0f + h->heel_drag * b->heel * b->heel)
                * (1.0f + fmaxf(wf->drag_mult, -0.5f));
+    if (h->hulls == 2) {
+        /* a catamaran's windward hull lifting clear of the sea sheds part of the resistance */
+        cat_immersion(b->heel, h->hull_spacing, h->draft, wf->sea_port, wf->sea_stbd,
+                      &b->immersion[0], &b->immersion[1]);
+        float windward = b->heel >= 0 ? b->immersion[0] : b->immersion[1];
+        drag *= 1.0f - h->fly_drag * (1.0f - windward);
+    } else {
+        b->immersion[0] = b->immersion[1] = 1.0f;
+    }
     float fx_hull = u >= 0 ? -drag : drag;
     float fy_hull = -0.5f * RHO_W * (h->length * 0.1f) * v * fabsf(v);
 

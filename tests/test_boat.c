@@ -317,6 +317,56 @@ static void test_deeper_clr_heels_more(void) {
     T_ASSERT(fabsf(deep.b.heel) > fabsf(shallow.b.heel) + D(0.5f));
 }
 
+static void cat_cfg(BoatCfg *c) {
+    boatcfg_default(c);
+    c->hull.hulls = 2;
+    c->hull.beam = 2.41f;
+    c->hull.hull_spacing = 1.95f;
+    c->hull.draft = 0.25f;
+    c->hull.fly_drag = 0.3f;
+    c->hull.heel_drag = 0;
+}
+
+/* A catamaran sim with the sails stowed and no autopilot. */
+static void cat_sim(Sim *s, float wind_ms, float u0) {
+    sim_init(s, 90, wind_ms, u0);
+    cat_cfg(&s->cfg);
+    boat_init(&s->b, &s->cfg);
+    s->b.heading = (float)M_PI - D(90);
+    s->b.u = u0;
+    boat_inputs_init(&s->in, &s->cfg);
+    for (int i = 0; i < BOAT_MAX_SAILS; i++) { s->b.hoists[i] = 0; s->in.hoist_target[i] = 0; }
+    s->autopilot = 0; s->autotrim = 0;
+}
+
+static void test_monohull_immersion_is_full(void) {
+    Sim s; sim_init(&s, 90, 6, 3);
+    for (int i = 0; i < (int)(5.0f / DT); i++) {
+        sim_step(&s);
+        T_ASSERT(s.b.immersion[0] == 1.0f && s.b.immersion[1] == 1.0f);
+    }
+}
+
+static void test_cat_immersion_tracks_heel(void) {
+    Sim s; cat_sim(&s, 0, 0);
+    s.b.heel = D(15);
+    sim_step(&s);
+    T_ASSERT(s.b.immersion[0] == 0.0f);    /* port, windward, clear of the sea */
+    T_ASSERT(s.b.immersion[1] > 0.95f);    /* starboard, leeward, still down */
+}
+
+static void test_flying_hull_has_less_drag(void) {
+    Sim a, b;
+    cat_sim(&a, 0, 4.0f);
+    cat_sim(&b, 0, 4.0f);
+    b.b.heel = D(15);
+    sim_step(&a);
+    sim_step(&b);
+    T_ASSERT(b.b.u > a.b.u);
+    float ratio = (4.0f - b.b.u) / (4.0f - a.b.u);
+    T_ASSERT(fabsf(ratio - (1.0f - a.cfg.hull.fly_drag)) < 0.02f);
+}
+
 int main(void) {
     T_RUN(test_upwind_angle);
     T_RUN(test_boom_eases_across_on_gybe);
@@ -333,6 +383,9 @@ int main(void) {
     T_RUN(test_far_from_origin_still_moves);
     T_RUN(test_anchor_stops_the_boat);
     T_RUN(test_deeper_clr_heels_more);
+    T_RUN(test_monohull_immersion_is_full);
+    T_RUN(test_cat_immersion_tracks_heel);
+    T_RUN(test_flying_hull_has_less_drag);
     T_RUN(test_longship_runs_downwind);
     T_RUN(test_longship_beam_reach);
     T_RUN(test_longship_cannot_point_close);

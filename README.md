@@ -44,7 +44,7 @@ make                    # build only
 | W A S D (or the arrow keys) | d-pad |
 | V | A |
 | C | B |
-| Move the mouse up and down | Crank (click the view first to lock the pointer; the wheel works too) |
+| Move the mouse (up or left, down or right) | Crank: left turns it the same way as up, right as down (click the view first to lock the pointer; the wheel works too) |
 | Backspace | System menu: boat, weather, go back, mouse sensitivity and direction |
 
 In the main menu the mouse works too: point at a row to select it, click to choose it, and click the button hints along the bottom. **About** in that bar opens a page rendered from [`web/www/about.md`](web/www/about.md); edit the Markdown to change it.

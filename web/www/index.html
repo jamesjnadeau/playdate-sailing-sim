@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crank Sail</title>
+  <meta name="description" content="A sailing simulator: the Playdate game's own physics in the browser, with a 3D view.">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="view" aria-label="The sea and your boat"></canvas>
+  <div id="hud" hidden></div>
+  <div id="menu" hidden></div>
+  <div id="sysmenu" hidden></div>
+  <div id="lock-hint">Click the view to use the mouse as the crank · <span class="key">Esc</span> menu</div>
+  <div id="status">Loading…</div>
+  <noscript><div id="status">Crank Sail needs JavaScript and WebGL.</div></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

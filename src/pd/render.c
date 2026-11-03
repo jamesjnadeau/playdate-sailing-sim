@@ -924,10 +924,10 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
     float lufft = b->luff[i];
     int mw = s->mesh_w < 1 ? 1 : s->mesh_w > 12 ? 12 : s->mesh_w;
     int mh = s->mesh_h < 1 ? 1 : s->mesh_h > 16 ? 16 : s->mesh_h;
-    float px[17][13], py[17][13];
-    HgPt wp[17][13];                                      /* heading-frame position of each mesh point */
-    float dw[17][13];                                     /* height above the sea: < 0 is under water */
-    bool ok[17][13];
+    static float px[17][13], py[17][13];
+    static HgPt wp[17][13];                                      /* heading-frame position of each mesh point */
+    static float dw[17][13];                                     /* height above the sea: < 0 is under water */
+    static bool ok[17][13];
     float lo = 1e9f;
     for (int a = 0; a <= mh; a++) {
         float u = (float)a / (float)mh;
@@ -968,13 +968,14 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             dw[a][q] = lo > 1.0f ? 1.0f : wp[a][q].z - rel_surface(k->g, wp[a][q].f, wp[a][q].l);
 
     /* outline: luff up, head across, leech down, foot back */
-    HgPt op[2 * 17 + 2]; float od[2 * 17 + 2]; int on0 = 0;
+    static HgPt op[2 * 17 + 2]; static float od[2 * 17 + 2]; int on0 = 0;
     for (int a = 0; a <= mh; a++) { op[on0] = wp[a][0]; od[on0++] = dw[a][0]; }
     for (int a = mh; a >= 0; a--) { op[on0] = wp[a][mw]; od[on0++] = dw[a][mw]; }
-    HgPt cl[2 * (2 * 17 + 2)]; bool cut[2 * (2 * 17 + 2)];
+    static HgPt cl[2 * (2 * 17 + 2)]; static bool cut[2 * (2 * 17 + 2)];
     int cn = hull_clip_above(op, od, on0, cl, cut, 2 * (2 * 17 + 2));
-    int outline[2 * 2 * (2 * 17 + 2)], on = 0;
-    bool foam[2 * (2 * 17 + 2)];
+    static int outline[2 * 2 * (2 * 17 + 2)];
+    int on = 0;
+    static bool foam[2 * (2 * 17 + 2)];
     for (int i = 0; i < cn; i++) {
         float sx, sy;
         if (!rel_pt(k, cl[i].f, cl[i].l, cl[i].z, &sx, &sy)) continue;

@@ -13,7 +13,7 @@
 
 #define MAX_TRACKS 32
 
-static const char *const BOATS[] = { "sunfish", "dinghy", "j24" };
+static const char *const BOATS[] = { "sunfish", "dinghy", "j24", "hobie16" };
 #define N_BOATS ((int)(sizeof BOATS / sizeof *BOATS))
 
 static Game game;

@@ -167,6 +167,15 @@ static void test_j24_json(void) {
     T_ASSERT(c.sails[1].shape == 1);
 }
 
+static void test_hobie16_json(void) {
+    BoatCfg c; load_boat("../boats/hobie16.json", &c);
+    T_ASSERT(c.hull.hulls == 2);
+    T_ASSERT(c.boat_class == 0);
+    float lift_deg = asinf(c.hull.draft / c.hull.hull_spacing) * 57.29578f;   /* heel that clears a hull */
+    T_ASSERT(lift_deg > 5.0f && lift_deg < 10.0f);
+    for (int i = 0; i < c.sail_count; i++) T_ASSERT(c.sails[i].reef_levels == 0);
+}
+
 static void test_tp52_json(void) {
     BoatCfg c; load_boat("../boats/tp52.json", &c);
     T_ASSERT(c.hull.length >= 15.8f);
@@ -362,6 +371,7 @@ int main(void) {
     T_RUN(test_out_of_range_clamps_and_warns);
     T_RUN(test_wrong_type_and_missing_group);
     T_RUN(test_sail_counts);
+    T_RUN(test_hobie16_json);
     T_RUN(test_tables);
     T_RUN(test_garbage_buffer_gives_default);
     T_RUN(test_j24_json);

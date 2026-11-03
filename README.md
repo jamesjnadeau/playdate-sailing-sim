@@ -15,10 +15,10 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 
 | Input | Action |
 | --- | --- |
-| Up | Helm: crank turns the wheel; press again to recentre the camera |
+| Up | Helm: crank turns the wheel; press again to recentre the camera and stop following the buoy |
 | Right | Trim: crank sheets the sail (press again for the next sail) |
 | Left | Hoist: crank raises or lowers the sail |
-| Down | Look: crank swings the camera round the boat; tap again to raise/lower it; hold to recentre |
+| Down | Look: crank swings the camera round the boat; tap again to raise/lower it; hold to follow the next buoy (hold again to go back behind); turning the crank stops following |
 | A | Toggle autopilot (crank to nudge the heading) |
 | B | Toggle auto trim; stops the engine instead while it runs |
 | Hold B | Start the engine (1 knot, pushes along the rudder) |

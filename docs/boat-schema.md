@@ -18,7 +18,7 @@ ignored (default kept) with a warning.
 | `sails[]` (1-8) | `name area luff foot ce_x ce_z trim_min_deg trim_max_deg reef_levels reef_frac cl cd luff_aoa_deg luff_drag flutter_hz slot_gain awa_min_deg awa_max_deg shape mesh_w mesh_h camber shade tack_x tack_z` |
 | `controls` | `wheel_turns crank_gain_wheel/trim/hoist/camera rudder_rate_deg trim_rate_deg hoist_rate weather_helm anchor_time camera_hold_s autopilot_no_go_deg autopilot_crank_deg autopilot_kp autopilot_kd engine_hold_s autotrim_smooth_s autotrim_heel_deg autotrim_hoist_min` |
 | `look` | `hull_width freeboard mast_x mast_height forestay_x shroud_width wheel_style panel_compass hull_shade cockpit_x0 cockpit_x1 cockpit_w0 cockpit_w1 cockpit_depth wake_fade_m` |
-| `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate` |
+| `camera` | `height x_offset far_height frame_margin horizon_y trail_dist heel_bias roll_limit_deg roll_smooth pitch_smooth heave_gain pitch_gain pitch_range_deg return_rate buoy_swing_s` |
 
 `foils.rudder_min_flow` (m/s, 0-5, default 0.15 × `hull.hull_speed`): the least water speed the rudder sees, so a slow or stalled boat can still steer out of irons. Rudder lift holds its stall peak past `rudder_stall_deg`, so more wheel is never less force. While the floor supplies most of the flow (boat slower than half of `rudder_min_flow`) with the helm clearly turned, the HUD shows a "RUDDER ASSIST: LOW SPEED" banner.
 
@@ -43,8 +43,9 @@ Final field ranges for the sail entries, with the camera and control fields most
 | `look.wake_fade_m` | 0-20 | m astern of the transom, at full speed, where the wake lines start to split in the middle and shrink away at both ends (>= 9 never splits, 0 splits from the transom) |
 | `camera.horizon_y` | 0-200 | trailing view: pin the horizon to this screen row (0 = off, frame by masthead). Tall rigs pitch the camera down; this keeps the horizon high, at the cost of the masthead sitting nearer the top or cropping |
 | `camera.trail_dist` | 0-200 | with `horizon_y`: fixed trailing distance behind the boat, m (0 = solve so the stern clears the status bar). Further and lower makes the boat smaller on screen |
-| `controls.camera_hold_s` | 0.1-3 | default 0.75; hold DOWN this long in look mode to recentre the camera |
+| `controls.camera_hold_s` | 0.1-3 | default 0.75; hold DOWN this long in look mode to toggle buoy-follow / behind-follow |
 | `controls.engine_hold_s` | 0.1-5 | default 1.0; hold B this long to start the engine (1 knot, pushing along the rudder) |
+| `camera.buoy_swing_s` | 0-10 | default 2; seconds the camera takes to swing to a new buoy-follow target (0 = instant) |
 | `camera.pitch_range_deg` | 5-80 | default 45; vertical look limit each way. The eye also stays above the water |
 | `camera.roll_limit_deg` | 0-45 | horizon roll cap; deck still tilts by full heel |
 

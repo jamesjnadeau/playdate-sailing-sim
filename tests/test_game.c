@@ -402,6 +402,87 @@ static void test_free_range_unchanged(void) {
     T_NEAR(g.b.y, 0.0, 1e-9);
 }
 
+/* Follow-camera tests: hold DOWN long enough to toggle buoy-follow, then run frames. */
+static void toggle_follow_cam(void) {
+    game_update(&g, BTN_DOWN, BTN_DOWN, 0, 1.0f / 30);
+    for (int i = 1; i < 30; i++) game_update(&g, 0, BTN_DOWN, 0, 1.0f / 30);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
+static float bearing_rel(double mx, double my) {
+    return wrap_pi((float)atan2(my - g.b.y, mx - g.b.x) - g.b.heading);
+}
+
+static float race_mark_rel(int i) {
+    double mx, my;
+    race_mark_local(&g.race, &g.track, i, &mx, &my);
+    return bearing_rel(mx, my);
+}
+
+static void test_follow_camera_faces_next_mark_in_race(void) {
+    race_fresh();
+    toggle_follow_cam();
+    T_ASSERT(g.ctl.camera_follow);
+    idle(3.0f);
+    T_NEAR(g.ctl.camera_yaw, race_mark_rel(0), 0.05);
+    T_ASSERT(fabsf(g.ctl.camera_yaw) > 0.05f);
+}
+
+static void test_follow_camera_swings_to_next_mark_when_one_is_rounded(void) {
+    race_fresh();
+    toggle_follow_cam();
+    idle(3.0f);
+    float before = g.ctl.camera_yaw;
+    g.race.next = 1;
+    T_ASSERT(fabsf(wrap_pi(race_mark_rel(1) - before)) > 0.2f);
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(fabsf(wrap_pi(g.ctl.camera_yaw - before)) < 0.1f);
+    idle(3.0f);
+    T_NEAR(g.ctl.camera_yaw, race_mark_rel(1), 0.05);
+}
+
+static void test_follow_camera_in_journey_uses_next_buoy(void) {
+    fresh(1);
+    game_set_journey(&g);
+    const JourneyBuoy *nb = journey_next(&g.journey);
+    T_ASSERT(nb != NULL);
+    toggle_follow_cam();
+    idle(3.0f);
+    nb = journey_next(&g.journey);
+    T_ASSERT(nb != NULL);
+    T_NEAR(g.ctl.camera_yaw, bearing_rel(nb->x, nb->y), 0.05);
+}
+
+static void test_follow_camera_free_mode_holds_yaw(void) {
+    fresh(1);
+    T_ASSERT(g.mode == GAME_FREE);
+    toggle_follow_cam();
+    T_ASSERT(g.ctl.camera_follow);
+    T_ASSERT(!isfinite(g.ctl.buoy_rel));
+    float y = g.ctl.camera_yaw;
+    idle(2.0f);
+    T_NEAR(g.ctl.camera_yaw, y, 1e-6);
+    T_ASSERT(g.ctl.camera_follow);
+}
+
+static void test_follow_resets_into_a_new_race_then_swings_to_first_mark(void) {
+    race_fresh();
+    toggle_follow_cam();
+    idle(3.0f);
+    track_default(&tr);
+    game_set_track(&g, &tr);                  /* a new race re-initialises the controls */
+    T_ASSERT(!g.ctl.camera_follow);
+    T_NEAR(g.ctl.camera_yaw, 0.0, 1e-6);
+    toggle_follow_cam();
+    float prev = g.ctl.camera_yaw;
+    for (int i = 0; i < 90; i++) {
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        T_ASSERT(fabsf(wrap_pi(g.ctl.camera_yaw - prev)) <= 0.1f);
+        prev = g.ctl.camera_yaw;
+    }
+    T_NEAR(g.ctl.camera_yaw, race_mark_rel(0), 0.05);
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -434,5 +515,10 @@ int main(void) {
     T_RUN(test_preset_change_keeps_track_wind);
     T_RUN(test_recentre_moves_marks_with_boat);
     T_RUN(test_free_range_unchanged);
+    T_RUN(test_follow_camera_faces_next_mark_in_race);
+    T_RUN(test_follow_camera_swings_to_next_mark_when_one_is_rounded);
+    T_RUN(test_follow_camera_in_journey_uses_next_buoy);
+    T_RUN(test_follow_camera_free_mode_holds_yaw);
+    T_RUN(test_follow_resets_into_a_new_race_then_swings_to_first_mark);
     T_DONE();
 }

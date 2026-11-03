@@ -94,12 +94,35 @@ static void recentre(Game *g) {
     if (g->mode == GAME_JOURNEY) journey_shift(&g->journey, dx, dy);
 }
 
+/* Tells the buoy-follow camera where the next buoy lies, relative to the bow; NAN when there is none. */
+static void aim_camera(Game *g) {
+    double mx, my;
+    bool have = false;
+    int id = g->ctl.buoy_id;
+    if (g->mode == GAME_RACE && !g->race.finished && g->race.next < g->track.nmarks) {
+        race_mark_local(&g->race, &g->track, g->race.next, &mx, &my);
+        id = g->race.next;
+        have = true;
+    } else if (g->mode == GAME_JOURNEY) {
+        const JourneyBuoy *nb = journey_next(&g->journey);
+        if (nb) {
+            mx = nb->x;
+            my = nb->y;
+            id = g->journey.passed;
+            have = true;
+        }
+    }
+    g->ctl.buoy_rel = have ? wrap_pi((float)atan2(my - g->b.y, mx - g->b.x) - g->b.heading) : NAN;
+    g->ctl.buoy_id = id;
+}
+
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
     g->last_hit = HIT_NONE;
 
     if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
+        aim_camera(g);
         controls_update(&g->ctl, &g->boat, pressed, held, crank_delta, dt, &g->in);
         autopilot_buttons(&g->ap, pressed, g->b.heading);
         if (g->ap.on && g->ctl.mode == MODE_WHEEL)

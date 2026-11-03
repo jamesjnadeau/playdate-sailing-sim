@@ -214,7 +214,7 @@ static void test_boom_eases_across_on_gybe(void) {
 static void load_longship(Sim *s, float twa_deg, float wind_ms, float u0) {
     static char buf[16384];
     sim_init(s, twa_deg, wind_ms, u0);                      /* zeroes the rest of the Sim */
-    FILE *f = fopen("../boats/longship.json", "rb");
+    FILE *f = fopen("../boats/disabled/longship.json", "rb");
     size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
     if (f) fclose(f);
     T_ASSERT(n > 0 && boatcfg_load(&s->cfg, buf, n, NULL, 0));

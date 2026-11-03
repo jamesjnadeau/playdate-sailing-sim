@@ -132,7 +132,7 @@ static void test_spinnaker_billow_collapses_when_luffing_and_mirrors(void) {
 
 static void test_longship_gybe_is_symmetric(void) {
     static char buf[16384];
-    FILE *f = fopen("../boats/longship.json", "rb");
+    FILE *f = fopen("../boats/disabled/longship.json", "rb");
     size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
     if (f) fclose(f);
     T_ASSERT(n > 0 && boatcfg_load(&cfg, buf, n, NULL, 0));

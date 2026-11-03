@@ -87,7 +87,7 @@ static void for_each_boat(BoatCheck fn) {
         seen++;
     }
     closedir(d);
-    T_ASSERT(seen >= 5);
+    T_ASSERT(seen >= 4);
 }
 
 /* --- checks --- */

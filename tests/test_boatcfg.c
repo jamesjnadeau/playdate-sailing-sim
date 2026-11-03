@@ -260,7 +260,7 @@ static void test_boat_class_round_trips(void) {
 }
 
 static void test_longship_json(void) {
-    BoatCfg c; load_boat("../boats/longship.json", &c);
+    BoatCfg c; load_boat("../boats/disabled/longship.json", &c);
     T_ASSERT(c.hull.length >= 11 && c.hull.length <= 13);
     T_ASSERT(c.sail_count == 1);                             /* one square sail */
     T_ASSERT(c.sails[0].shape == 3);
@@ -273,7 +273,7 @@ static void test_longship_json(void) {
 }
 
 static void test_every_boat_has_a_cockpit_inside_the_hull(void) {
-    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json", "../boats/longship.json" };
+    static const char *files[] = { "../boats/dinghy.json", "../boats/sunfish.json", "../boats/j24.json", "../boats/tp52.json", "../boats/disabled/longship.json" };
     for (int i = 0; i < 5; i++) {
         size_t n = 0;
         char *buf = slurp(files[i], &n);

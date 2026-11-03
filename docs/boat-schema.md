@@ -24,7 +24,7 @@ ignored (default kept) with a warning.
 
 `sails`: empty array falls back to the default main+jib; more than 8 keeps the first 8.
 Adding a sail (e.g. a spinnaker) is one more entry. `boats/j24.json` (J/24 keelboat, 7.3 m) is main + jib; `boats/tp52.json` (TP52 racer, 15.9 m) adds a spinnaker (`shape` 2) that only draws
-force for `awa_min_deg` to `awa_max_deg`; `boats/sunfish.json` (the default boat) is a single large lateen mainsail with the mast well forward. `boats/longship.json` is a Viking longship with one square sail; its `boat_class` is 1 (cruiser), so it is offered in free range only. Boat files are read into a 16 KB buffer, so keep them compact.
+force for `awa_min_deg` to `awa_max_deg`; `boats/sunfish.json` (the default boat) is a single large lateen mainsail with the mast well forward. `boats/disabled/longship.json` (parked outside `boats/`, so the game does not offer it) is a Viking longship with one square sail; its `boat_class` is 1 (cruiser), so it is offered in free range only. Boat files are read into a 16 KB buffer, so keep them compact.
 Righting-moment tables should fold in crew weight for big boats (`crew_mass` is capped at 500).
 
 The cockpit is a four-sided well in the deck: `cockpit_x0`/`cockpit_x1` are its aft/forward ends (m forward of the

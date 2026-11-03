@@ -98,7 +98,7 @@ static void test_bad_inputs_ignored(void) {
 
 static void test_longship_squares_up_on_a_run(void) {
     static char buf[16384];
-    FILE *f = fopen("../boats/longship.json", "rb");
+    FILE *f = fopen("../boats/disabled/longship.json", "rb");
     size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
     if (f) fclose(f);
     T_ASSERT(n > 0 && boatcfg_load(&cfg, buf, n, NULL, 0));

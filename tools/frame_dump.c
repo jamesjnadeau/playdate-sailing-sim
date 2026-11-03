@@ -166,7 +166,7 @@ static void forced_heel(const char *tag, float deg, float yaw) {
 static void longship_scene(const char *tag, float twa_deg, float trim_deg, float secs) {
     BoatCfg bc; WeatherCfg wc; WorldCfg wo;
     boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
-    FILE *jf = fopen("boats/longship.json", "rb");
+    FILE *jf = fopen("boats/disabled/longship.json", "rb");
     if (jf) { static char buf[16384]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
               char w[128]; boatcfg_load(&bc, buf, n, w, sizeof w); }
     game_init(&g, &bc, &wc, &wo, WEATHER_SUNNY, 1);

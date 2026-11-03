@@ -237,6 +237,20 @@ static void test_file_name_truncates(void) {
     T_ASSERT(strlen(b) < sizeof b);
 }
 
+static void test_decode_for_passes_over_a_ghost_from_other_conditions(void) {
+    Ghost gh, back;
+    ghost_init(&gh, store, GHOST_MAX_SAMPLES);
+    sail(&gh, 8.0);
+    const size_t n = ghost_encode(&gh, file, sizeof file);
+    ghost_init(&back, store2, GHOST_MAX_SAMPLES);
+    T_ASSERT(ghost_decode_for(&back, file, n, gh.seed, gh.track_hash, gh.boat_hash, gh.preset));
+    T_ASSERT(back.n == gh.n);
+    T_ASSERT(!ghost_decode_for(&back, file, n, gh.seed, gh.track_hash, gh.boat_hash + 1, gh.preset));
+    T_ASSERT(back.n == 0 && !ghost_usable(&back));
+    T_ASSERT(!ghost_decode_for(&back, file, n - 1, gh.seed, gh.track_hash, gh.boat_hash, gh.preset));
+    T_ASSERT(back.n == 0);
+}
+
 int main(void) {
     T_RUN(test_file_name_keeps_letters_and_digits);
     T_RUN(test_file_name_truncates);
@@ -252,6 +266,7 @@ int main(void) {
     T_RUN(test_peek_reads_the_finish_time_from_the_header);
     T_RUN(test_matches_rejects_other_conditions);
     T_RUN(test_decode_rejects_malformed);
+    T_RUN(test_decode_for_passes_over_a_ghost_from_other_conditions);
     T_RUN(test_decode_rejects_nonfinite_position);
     T_RUN(test_begin_clears_the_previous_run);
     T_RUN(test_capacity_of_twenty_minutes);

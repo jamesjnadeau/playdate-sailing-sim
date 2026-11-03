@@ -5,7 +5,6 @@
 
 #define BASELINE_DT (1.0f / 30.0f)
 #define BASELINE_BEAR_OFF_RAD (10.0f * (float)M_PI / 180.0f)
-#define BASELINE_MIN_CLEAR_M 15.0f
 
 /* How a tack is made. A tack that works in one wind and boat can stall in another, so each run tries these
  * and keeps the fastest that stays clear of the buoys. */
@@ -67,10 +66,10 @@ static BaselineResult sail(Game *g, Ghost *gh, const char *boat_name, const Tack
         }
         game_update(g, 0, 0, 0.0f, BASELINE_DT);
         ghost_record(gh, g);
-        /* Clearance counts only against the mark being sailed to; a course may pass another mark on the way. */
-        if (g->race.next < g->track.nmarks) {
+        /* Clearance counts against every buoy, not only the one being sailed to. */
+        for (int k = 0; k < g->track.nmarks; k++) {
             double mx, my;
-            race_mark_local(&g->race, &g->track, g->race.next, &mx, &my);
+            race_mark_local(&g->race, &g->track, k, &mx, &my);
             const float d = (float)hypot(mx - g->b.x, my - g->b.y);
             if (d < r.min_mark_m) r.min_mark_m = d;
         }

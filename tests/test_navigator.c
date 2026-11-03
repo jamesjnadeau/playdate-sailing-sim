@@ -1,4 +1,5 @@
 #include "t.h"
+#include <math.h>
 #include "navigator.h"
 #include "mathx.h"
 
@@ -110,6 +111,23 @@ static void test_advances_with_next(void) {
     T_NEAR(h2, PI_F / 2, 1e-3);
 }
 
+/* A reach with another buoy sitting on the line to the corner: the heading bends so the boat passes it clear. */
+static void test_reach_bends_around_a_buoy_ahead(void) {
+    track_default(&tr);
+    tr.nmarks = 2;
+    tr.start_x = 0; tr.start_y = 0;
+    tr.marks[0].x = 200; tr.marks[0].y = 0; tr.marks[0].gate = PI_F; tr.marks[0].rounding = ROUND_PORT;
+    tr.marks[1].x = 100; tr.marks[1].y = -11; tr.marks[1].gate = 0; tr.marks[1].rounding = ROUND_PORT;
+    NavState s; nav_init(&s);
+    const float wind = PI_F / 2, no_go = deg2rad(40);
+    const float h = nav_heading(&s, &tr, 0, 0, 0, 0, 0, wind, no_go);
+    const double miss = fabs(cos(h) * -11.0 - sin(h) * 100.0);
+    T_ASSERT(miss >= NAV_CLEAR_M);
+    tr.nmarks = 1;
+    const float straight = nav_heading(&s, &tr, 0, 0, 0, 0, 0, wind, no_go);
+    T_ASSERT(fabsf(h - straight) > deg2rad(3));
+}
+
 int main(void) {
     T_RUN(test_aim_point_is_20m_along_gate);
     T_RUN(test_approach_is_abeam_not_through_the_mark);
@@ -117,5 +135,6 @@ int main(void) {
     T_RUN(test_beat_tacks_off_a_collision_course);
     T_RUN(test_tacks_only_beyond_corridor);
     T_RUN(test_advances_with_next);
+    T_RUN(test_reach_bends_around_a_buoy_ahead);
     return T_DONE();
 }

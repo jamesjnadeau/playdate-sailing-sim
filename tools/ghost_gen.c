@@ -4,14 +4,13 @@
  *
  * Writes ghost_<course>_<boat>_<weather>.bin for the boats below in the default weather, and prints
  * "<course> <boat> <seconds> <closest mark in m>" per file. Exits 1 if a run does not finish or passes a
- * buoy closer than 15 m, naming the course and boat. */
+ * buoy closer than BASELINE_MIN_CLEAR_M, naming the course and boat. */
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "baseline.h"
 
-#define MIN_CLEAR_M 15.0f
 #define MAX_TRACKS 32
 
 static const char *const BOATS[] = { "sunfish", "dinghy", "j24" };
@@ -93,7 +92,7 @@ int main(int argc, char **argv) {
 
             const BaselineResult r = baseline_sail(&game, &ghost, BOATS[b]);
             printf("%s %s %.1f %.1f\n", names[c], BOATS[b], r.time, r.min_mark_m);
-            if (!r.finished || r.min_mark_m < MIN_CLEAR_M || !ghost_usable(&ghost)) {
+            if (!r.finished || r.min_mark_m < BASELINE_MIN_CLEAR_M || !ghost_usable(&ghost)) {
                 fprintf(stderr, "ghost_gen: %s with %s %s (closest mark %.1f m)\n", names[c], BOATS[b],
                         r.finished ? "passes a buoy too close" : "did not finish", r.min_mark_m);
                 bad = 1;

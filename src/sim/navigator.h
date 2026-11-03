@@ -10,6 +10,7 @@
  * it has strayed from the leg or the tack would carry it past the buoy too close. */
 #define NAV_AIM_OFFSET_M 20.0f
 #define NAV_APPROACH_OFFSET_M 22.0f
+#define NAV_APPROACH_MAX_M 60.0f   /* the corner moves out this far to clear another buoy */
 #define NAV_SWITCH_ALONG_M 15.0f
 #define NAV_CLEAR_M 18.0f   /* a close-hauled tack that would pass the buoy closer than this is swapped */
 #define NAV_UPWIND_MARGIN_RAD (10.0f * 0.017453292519943295f)

@@ -3,6 +3,11 @@
 #include <stdbool.h>
 #include "ghost.h"
 
+/* A ghost must stay at least this far from every buoy centre, a few boat lengths clear of the buoy. The navigator
+ * aims much wider of the mark being sailed to; this floor is for buoys the boat is merely passing, such as a
+ * finish mark beside the start that a first tack cannot always avoid. */
+#define BASELINE_MIN_CLEAR_M 7.0f
+
 typedef struct {
     bool finished;       /* every mark rounded, race.finished */
     double time;         /* race.t at the finish, else the time reached */

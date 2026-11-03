@@ -87,8 +87,8 @@ static void test_all_courses_all_boats_finish(void) {
             load(TRACKS[t], BOATS[b]);
             const BaselineResult r = baseline_sail(&g, &gh, BOATS[b]);
             printf("  %-18s %-8s %7.1f s  closest %5.1f m%s\n", TRACKS[t], BOATS[b], r.time, r.min_mark_m,
-                   r.finished && r.min_mark_m >= 15.0f ? "" : "   <-- FAIL");
-            if (!r.finished || r.min_mark_m < 15.0f) bad++;
+                   r.finished && r.min_mark_m >= BASELINE_MIN_CLEAR_M ? "" : "   <-- FAIL");
+            if (!r.finished || r.min_mark_m < BASELINE_MIN_CLEAR_M) bad++;
         }
     T_ASSERT(bad == 0);
 }

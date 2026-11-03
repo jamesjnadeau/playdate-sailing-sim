@@ -87,6 +87,10 @@ bool ghost_time_at_progress(Ghost *gh, float p, double *t);
 size_t ghost_encoded_size(const Ghost *gh);
 size_t ghost_encode(const Ghost *gh, uint8_t *out, size_t n);
 bool ghost_decode(Ghost *gh, const uint8_t *in, size_t n);
+/* decode, but only accepts a ghost sailed under these conditions; otherwise the ghost is left empty and false is
+   returned, so a stale file can be passed over for another. */
+bool ghost_decode_for(Ghost *gh, const uint8_t *in, size_t n, uint32_t seed, uint32_t track_hash, uint32_t boat_hash,
+                      int preset);
 /* Reads just the finish time from the start of a file image (at least GHOST_HEADER_BYTES), for menus that
    list which boats have a ghost. False when it is not a ghost file. */
 bool ghost_peek_time(const uint8_t *in, size_t n, double *time);

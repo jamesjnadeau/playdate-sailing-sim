@@ -334,6 +334,13 @@ bool ghost_decode(Ghost *gh, const uint8_t *in, size_t n) {
     return true;
 }
 
+bool ghost_decode_for(Ghost *gh, const uint8_t *in, size_t n, uint32_t seed, uint32_t track_hash, uint32_t boat_hash,
+                      int preset) {
+    if (ghost_decode(gh, in, n) && ghost_matches(gh, seed, track_hash, boat_hash, preset)) return true;
+    ghost_clear(gh);
+    return false;
+}
+
 bool ghost_peek_time(const uint8_t *in, size_t n, double *time) {
     if (n < GHOST_HEADER_BYTES || get32(in) != MAGIC || get16(in + 4) != VERSION || get32(in + 32) < 2) return false;
     const double t = getd(in + 24);

@@ -148,10 +148,20 @@ static void side_views(void) {
     }
 }
 
+/* FRAME_BOAT=path.json: pin that boat (instead of the default) at 0, 5 and 20 degrees of heel and stop. */
+static const char *boat_path;
+static void load_boat(BoatCfg *bc) {
+    FILE *jf = boat_path ? fopen(boat_path, "rb") : NULL;
+    if (!jf) { if (boat_path) perror(boat_path); return; }
+    static char buf[16384]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
+    char w[128]; boatcfg_load(bc, buf, n, w, sizeof w);
+}
+
 /* Boat pinned at a heel angle (deg, + = starboard rail down) so the extreme-heel look can be checked. */
 static void forced_heel(const char *tag, float deg, float yaw) {
     BoatCfg bc; WeatherCfg wc; WorldCfg wo;
     boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
+    load_boat(&bc);
     game_init(&g, &bc, &wc, &wo, WEATHER_CHOPPY, 1);
     memset(&cp, 0, sizeof cp); cp.trail = true;
     g.ctl.camera_yaw = yaw;
@@ -191,6 +201,15 @@ int main(void) {
     gfx.drawText = s_drawText; gfx.setDrawMode = s_setDrawMode;
     memset(&api, 0, sizeof api);
     api.graphics = &gfx;
+    boat_path = getenv("FRAME_BOAT");
+    if (boat_path) {
+        forced_heel("boat_heel0", 0, 0);
+        forced_heel("boat_heel5", 5, 0);
+        forced_heel("boat_heel20", 20, 0);
+        forced_heel("boat_heel20_quarter", 20, 0.7854f);
+        forced_heel("boat_heel-20", -20, 0);
+        return 0;
+    }
     run(WEATHER_SUNNY, true, 20, "sunny_trail");
     run(WEATHER_CHOPPY, true, 30, "choppy_trail");
     run(WEATHER_HURRICANE, true, 30, "hurr_trail");

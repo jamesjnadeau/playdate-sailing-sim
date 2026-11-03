@@ -1492,25 +1492,22 @@ static void draw_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_buoys(pd, dm, n, g->journey.next);
 }
 
-/* The ghost's pose stands in for the boat while its hull and rig are drawn; the player's state is put back after. */
-static void draw_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh) {
-    GhostPose p;
-    if (!ghost_pose_at(gh, g->race.t, &p)) return;
+/* A ghost's pose (local frame) stands in for the boat while its hull and rig are drawn; the player's state is put back after. */
+static void draw_ghost_pose(PlaydateAPI *pd, const Game *g, const CameraPose *c, const FollowPose *p) {
     BoatState gb = g->b;
-    gb.x = p.x - g->race.ox;
-    gb.y = p.y - g->race.oy;
+    gb.x = p->x;
+    gb.y = p->y;
     if (hypot(gb.x - c->x, gb.y - c->y) > wx(g)->visibility) return;
-    gb.heading = p.heading;
-    gb.heel = p.heel;
-    gb.wheel = p.wheel;
-    gb.u = p.speed;
+    gb.heading = p->heading;
+    gb.heel = p->heel;
+    gb.wheel = p->wheel;
+    gb.u = p->u;
     gb.v = gb.r = gb.pitch = 0.0f;
     gb.heave = sea_view_height(&sv, (float)(gb.x - sv_ox), (float)(gb.y - sv_oy));
     for (int i = 0; i < BOAT_MAX_SAILS; i++) {
-        const bool have = i < GHOST_SAILS;
-        gb.trims[i] = have ? p.trim[i] : 0.0f;
-        gb.hoists[i] = have ? p.hoist[i] : 0.0f;
-        gb.swing[i] = have ? p.swing[i] : -1.0f;
+        gb.trims[i] = p->trims[i];
+        gb.hoists[i] = p->hoists[i];
+        gb.swing[i] = p->swing[i];
         gb.luff[i] = 0.0f;
     }
     boat_apparent_wind(&gb, &g->wind, &gb.awa, &gb.aws);
@@ -1528,6 +1525,25 @@ static void draw_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghos
     mg->b = keep;
 }
 
+static void draw_ghost(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh) {
+    GhostPose p;
+    if (!ghost_pose_at(gh, g->race.t, &p)) return;
+    FollowPose fp;
+    fp.x = p.x - g->race.ox;
+    fp.y = p.y - g->race.oy;
+    fp.heading = p.heading;
+    fp.heel = p.heel;
+    fp.wheel = p.wheel;
+    fp.u = p.speed;
+    for (int i = 0; i < BOAT_MAX_SAILS; i++) {
+        const bool have = i < GHOST_SAILS;
+        fp.trims[i] = have ? p.trim[i] : 0.0f;
+        fp.hoists[i] = have ? p.hoist[i] : 0.0f;
+        fp.swing[i] = have ? p.swing[i] : -1.0f;
+    }
+    draw_ghost_pose(pd, g, c, &fp);
+}
+
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *ghost) {
     pd->graphics->clear(kColorWhite);
     haze = wx(g)->sky_horizon;
@@ -1540,6 +1556,10 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_rain(pd, g, c);
     draw_spray(pd, g, c);
     if (ghost && g->mode == GAME_RACE) draw_ghost(pd, g, c, ghost);
+    FollowPose follow_pose;
+    if (g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose) &&
+        !follower_near_eye(&follow_pose, c->x, c->y, FOLLOW_EYE_MIN_M))
+        draw_ghost_pose(pd, g, c, &follow_pose);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */
     bool rig_behind = !deck_faces_eye(g, c);

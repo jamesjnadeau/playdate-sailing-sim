@@ -129,7 +129,7 @@ export class MenuView {
     if (a) html += `<button class="hint" data-press="${BTN.A}">${k(keys.A, 'a')} ${a}</button>`;
     if (b) html += `<button class="hint" data-press="${BTN.B}">${k(keys.B, 'b')} ${b}</button>`;
     html += '<span class="grow"></span>';
-    if (dpad) html += `<span class="hint">${k(crank ? 'Wheel' : keys.updown, 'd')} ${dpad}</span>`;
+    if (dpad) html += `<span class="hint">${k(crank ? (keys.wheel || 'Wheel') : keys.updown, 'd')} ${dpad}</span>`;
     html += '<button class="hint about" data-about>About</button>';
     this.hints.innerHTML = html;
   }

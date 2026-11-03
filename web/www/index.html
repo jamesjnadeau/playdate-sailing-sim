@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Crank Sail</title>
   <meta name="description" content="A sailing simulator: the Playdate game's own physics in the browser, with a 3D view.">
   <link rel="stylesheet" href="style.css">
@@ -15,8 +17,10 @@
   <div id="hud" hidden></div>
   <div id="menu" hidden></div>
   <div id="sysmenu" hidden></div>
+  <div id="touch" hidden></div>
+  <div id="rotate"><div>↻</div>Turn your phone sideways to sail</div>
   <div id="about" hidden></div>
-  <div id="lock-hint">Click the view to use the mouse as the crank · <span class="key">Backspace</span> menu</div>
+  <div id="lock-hint"><span class="mouse-only">Click the view to use the mouse as the crank · <span class="key">Backspace</span> menu</span><span class="touch-only">Drag up and down on the view to turn the crank</span></div>
   <div id="status">Loading…</div>
   <noscript><div id="status">Crank Sail needs JavaScript and WebGL.</div></noscript>
   <script type="module" src="js/main.js"></script>

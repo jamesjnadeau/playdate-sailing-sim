@@ -49,6 +49,8 @@ make                    # build only
 
 In the main menu the mouse works too: point at a row to select it, click to choose it, and click the button hints along the bottom. **About** in that bar opens a page rendered from [`web/www/about.md`](web/www/about.md); edit the Markdown to change it.
 
+On a phone or tablet held sideways the page shows touch controls instead: a d-pad bottom left (press it and slide your thumb round to change direction), B and A bottom right, ☰ top right for the system menu, and dragging a finger up and down anywhere else on the view turns the crank. A thumb can stay on the d-pad while the other finger cranks.
+
 Best times and ghosts are saved in the browser (IndexedDB). On the web, rocks are drawn; the Playdate renderer leaves them out.
 
 You need [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (`source emsdk_env.sh` so `emcc` is on `PATH`):

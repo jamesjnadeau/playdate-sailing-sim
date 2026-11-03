@@ -171,7 +171,7 @@ static void test_full_lock_heads_up_from_beam_reach(void) { for_each_boat(check_
 
 static void test_tp52_choppy(void) {
     BoatCfg c;
-    T_ASSERT(load_boat("tp52.json", &c));
+    T_ASSERT(load_boat("disabled/tp52.json", &c));
     head_up_checks("tp52 choppy tack", &c, 45.0f, true, true, 10.0f);
     head_up_checks("tp52 choppy beam reach", &c, 90.0f, false, true, 10.0f);
 }
@@ -185,7 +185,7 @@ static void test_balance_helpers_survive_odd_boats(void) {
     T_ASSERT(!balance_is_fore_and_aft(&c));
     T_ASSERT(!balance_weather_helm_deg(&c, &deg));
     T_ASSERT(deg == 123);
-    T_ASSERT(load_boat("tp52.json", &c));
+    T_ASSERT(load_boat("disabled/tp52.json", &c));
     int keep = -1;
     for (int i = 0; i < c.sail_count; i++) if (c.sails[i].shape == 2) keep = i;
     T_ASSERT(keep >= 0);
@@ -242,7 +242,7 @@ static void test_steering_astern_unchanged(void) { for_each_boat(check_astern); 
 
 static void test_rudder_assist_reports_flow_floor(void) {
     BoatCfg c;
-    T_ASSERT(load_boat("tp52.json", &c));
+    T_ASSERT(load_boat("disabled/tp52.json", &c));
     Run r;
     run_init(&r, &c, 90, 0.0f);
     r.at.on = false;

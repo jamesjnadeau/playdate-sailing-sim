@@ -1,6 +1,6 @@
 # CrankSail
 
-A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, or a TP52 around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
+A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, or a Reynolds 33 catamaran around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
 
 ## Features
 

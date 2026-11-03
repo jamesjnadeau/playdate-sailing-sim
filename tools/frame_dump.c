@@ -95,7 +95,7 @@ static void dump(const char *name) {
 static Game g;
 static CameraPose cp;
 
-static void shoot(const char *name) { render_frame(&api, &g, &cp); dump(name); }
+static void shoot(const char *name) { render_frame(&api, &g, &cp, NULL); dump(name); }
 
 static void run(int preset, bool trail, float secs, const char *tag) {
     BoatCfg bc; WeatherCfg wc; WorldCfg wo;

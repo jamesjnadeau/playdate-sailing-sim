@@ -11,6 +11,7 @@ void autotrim_init(Autotrim *at) { memset(at, 0, sizeof *at); }
 void autotrim_toggle(Autotrim *at) {
     at->on = !at->on;
     at->primed = false;
+    at->ease = 0.0f;
 }
 
 /* Angle of attack (rad) where lift peaks, i.e. the first lobe of the CL curve. Past it the model has
@@ -61,11 +62,24 @@ void autotrim_update(Autotrim *at, const BoatCfg *cfg, const BoatState *b, BoatI
     if (at->heel > limit) dh = -k->hoist_rate * 0.5f * dt;
     else if (at->heel < limit * HEEL_RELEASE) dh = k->hoist_rate * 0.5f * dt;
 
+    /* a catamaran's sail that cannot reef eases the sheet instead; one ease shared by all such sails */
+    bool cat = cfg->hull.hulls == 2;
+    float de = 0;
+    if (at->heel > limit) de = deg2rad(k->trim_rate_deg) * 0.5f * dt;
+    else if (at->heel < limit * HEEL_RELEASE) de = -deg2rad(k->trim_rate_deg) * 0.5f * dt;
+    if (cat) at->ease = fmaxf(0.0f, at->ease + de);
+
+    float headroom = 0;   /* most trim any eased sail can still let out, so ease can't wind up past it */
     int n = cfg->sail_count < BOAT_MAX_SAILS ? cfg->sail_count : BOAT_MAX_SAILS;
     for (int i = 0; i < n; i++) {
         if (in->hoist_target[i] <= 0.01f) continue;   /* stowed: not ours to raise */
-        in->hoist_target[i] = clampf(in->hoist_target[i] + dh, k->autotrim_hoist_min, 1.0f);
+        bool ease = cat && cfg->sails[i].reef_levels == 0;
+        if (!ease) in->hoist_target[i] = clampf(in->hoist_target[i] + dh, k->autotrim_hoist_min, 1.0f);
         float t = autotrim_best_trim(&cfg->sails[i], awa, at->aws, at->heel);
-        if (t >= 0) in->trim_target[i] = t;
+        if (t < 0) continue;
+        float mx = deg2rad(cfg->sails[i].trim_max_deg);
+        in->trim_target[i] = ease ? fminf(t + at->ease, mx) : t;
+        if (ease) headroom = fmaxf(headroom, mx - t);
     }
+    if (cat) at->ease = fminf(at->ease, headroom);
 }

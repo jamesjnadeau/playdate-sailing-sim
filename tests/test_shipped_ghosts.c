@@ -20,7 +20,7 @@ static const char *const TRACKS[] = {
     "trapezoid_45_100", "trapezoid_60_67", "trapezoid_70_50", "triangle_45", "triangle_45_stbd",
     "triangle_60", "triangle_60_stbd", "two_buoys", "windward_leeward",
 };
-static const char *const BOATS[] = { "sunfish", "dinghy", "j24" };
+static const char *const BOATS[] = { "sunfish", "dinghy", "j24", "hobie16" };
 #define N_TRACKS ((int)(sizeof TRACKS / sizeof *TRACKS))
 #define N_BOATS ((int)(sizeof BOATS / sizeof *BOATS))
 

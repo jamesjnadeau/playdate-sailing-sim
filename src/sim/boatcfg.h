@@ -27,6 +27,10 @@ typedef struct {
     float heel_inertia, heel_damping;
     Table righting;          /* heel deg -> righting moment N.m */
     float capsize_deg;
+    int hulls;               /* 1 monohull, 2 catamaran */
+    float hull_spacing;      /* m between the two hull centrelines (hulls == 2) */
+    float draft;             /* m, a hull's depth below the waterline at rest */
+    float fly_drag;          /* fraction of resistance removed when the windward hull is clear */
 } HullCfg;
 
 typedef struct {

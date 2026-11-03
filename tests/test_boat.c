@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "boat.h"
+#include "autotrim.h"
 #include <math.h>
 
 #define D(x) deg2rad(x)
@@ -317,6 +318,151 @@ static void test_deeper_clr_heels_more(void) {
     T_ASSERT(fabsf(deep.b.heel) > fabsf(shallow.b.heel) + D(0.5f));
 }
 
+static void cat_cfg(BoatCfg *c) {
+    boatcfg_default(c);
+    c->hull.hulls = 2;
+    c->hull.beam = 2.41f;
+    c->hull.hull_spacing = 1.95f;
+    c->hull.draft = 0.25f;
+    c->hull.fly_drag = 0.3f;
+    c->hull.heel_drag = 0;
+}
+
+/* A catamaran sim with the sails stowed and no autopilot. */
+static void cat_sim(Sim *s, float wind_ms, float u0) {
+    sim_init(s, 90, wind_ms, u0);
+    cat_cfg(&s->cfg);
+    boat_init(&s->b, &s->cfg);
+    s->b.heading = (float)M_PI - D(90);
+    s->b.u = u0;
+    boat_inputs_init(&s->in, &s->cfg);
+    for (int i = 0; i < BOAT_MAX_SAILS; i++) { s->b.hoists[i] = 0; s->in.hoist_target[i] = 0; }
+    s->autopilot = 0; s->autotrim = 0;
+}
+
+static void test_monohull_immersion_is_full(void) {
+    Sim s; sim_init(&s, 90, 6, 3);
+    for (int i = 0; i < (int)(5.0f / DT); i++) {
+        sim_step(&s);
+        T_ASSERT(s.b.immersion[0] == 1.0f && s.b.immersion[1] == 1.0f);
+    }
+}
+
+static void test_cat_immersion_tracks_heel(void) {
+    Sim s; cat_sim(&s, 0, 0);
+    s.b.heel = D(15);
+    sim_step(&s);
+    T_ASSERT(s.b.immersion[0] == 0.0f);    /* port, windward, clear of the sea */
+    T_ASSERT(s.b.immersion[1] > 0.95f);    /* starboard, leeward, still down */
+}
+
+static void test_flying_hull_has_less_drag(void) {
+    Sim a, b;
+    cat_sim(&a, 0, 4.0f);
+    cat_sim(&b, 0, 4.0f);
+    b.b.heel = D(15);
+    sim_step(&a);
+    sim_step(&b);
+    T_ASSERT(b.b.u > a.b.u);
+    float ratio = (4.0f - b.b.u) / (4.0f - a.b.u);
+    T_ASSERT(fabsf(ratio - (1.0f - a.cfg.hull.fly_drag)) < 0.02f);
+}
+
+/* The Hobie 16 file with a sim around it: sails up, heading held, trims where the caller sets them. */
+static void hobie_sim(Sim *s, float twa_deg, float wind_ms, float u0) {
+    sim_init(s, twa_deg, wind_ms, u0);
+    static char buf[16384];
+    FILE *f = fopen("../boats/hobie16.json", "rb");
+    size_t n = f ? fread(buf, 1, sizeof buf, f) : 0;
+    if (f) fclose(f);
+    T_ASSERT(n > 0 && boatcfg_load(&s->cfg, buf, n, NULL, 0));
+    boat_init(&s->b, &s->cfg);
+    s->b.heading = (float)M_PI - D(twa_deg);
+    s->b.u = u0;
+    boat_inputs_init(&s->in, &s->cfg);
+    s->autopilot = 1; s->autotrim = 1; s->target = s->b.heading;
+}
+
+/* Starts the Hobie's sails at the best-drive trim for the apparent wind it sees (the trim_min stop when a sail makes
+ * no drive). Auto-trim then eases them from there. */
+static void hobie_start_at_best_trim(Sim *s) {
+    float awa, aws;
+    boat_apparent_wind(&s->b, &s->w, &awa, &aws);
+    for (int i = 0; i < s->cfg.sail_count; i++) {
+        float t = autotrim_best_trim(&s->cfg.sails[i], awa, aws, 0);
+        if (t < 0) t = D(s->cfg.sails[i].trim_min_deg);
+        s->in.trim_target[i] = t;
+        s->b.trims[i] = t;
+    }
+}
+
+/* Beam reach in a fresh breeze: the windward hull lifts, the boat does not capsize and is faster than without the
+ * drag relief. tack = +1 for wind on starboard (heel < 0 puts the starboard hull to leeward). */
+static float hobie_fly(float twa_deg, float fly_drag, float *mean_imm_windward, float *min_heel, float *max_heel) {
+    Sim s; hobie_sim(&s, twa_deg, 7.0f, 3.0f);
+    s.cfg.hull.fly_drag = fly_drag;
+    hobie_start_at_best_trim(&s);
+    float sum = 0, mn = 1e9f, mx = -1e9f;
+    int cnt = 0;
+    for (int i = 0; i < (int)(40.0f / DT); i++) {
+        sim_step(&s);
+        T_ASSERT(fabsf(s.b.heel) < D(s.cfg.hull.capsize_deg));
+        if (s.t > 30.0f) {
+            float ah = fabsf(s.b.heel);
+            mn = fminf(mn, ah); mx = fmaxf(mx, ah);
+            sum += s.b.heel >= 0 ? s.b.immersion[0] : s.b.immersion[1];
+            cnt++;
+        }
+    }
+    *mean_imm_windward = sum / (float)cnt; *min_heel = mn; *max_heel = mx;
+    return s.b.u;
+}
+
+static void test_hobie_flies_a_hull_on_a_beam_reach(void) {
+    float imm, lo, hi, imm0, lo0, hi0;
+    float u = hobie_fly(90, 0.3f, &imm, &lo, &hi);
+    float u0 = hobie_fly(90, 0.0f, &imm0, &lo0, &hi0);
+    T_ASSERT(lo > D(3) && hi < D(40));   /* heeled but nowhere near over */
+    T_ASSERT(imm < 0.5f);
+    T_ASSERT(u > 1.003f * u0);   /* a flown hull sheds drag: faster, though only slightly at this speed */
+}
+
+/* Each tack lifts its own windward hull: heel < 0 (wind on starboard) lifts the starboard hull, immersion[1], and
+ * heel > 0 lifts the port one, immersion[0]. The lee hull stays down. */
+static void hobie_tack(float twa_deg, float sign, int windward, int lee) {
+    Sim s; hobie_sim(&s, twa_deg, 7.0f, 3.0f);
+    hobie_start_at_best_trim(&s);
+    float sw = 0, sl = 0;
+    int cnt = 0;
+    for (int i = 0; i < (int)(40.0f / DT); i++) {
+        sim_step(&s);
+        T_ASSERT(fabsf(s.b.heel) < D(s.cfg.hull.capsize_deg));
+        if (s.t > 30.0f) {
+            T_ASSERT(s.b.heel * sign > 0);
+            sw += s.b.immersion[windward]; sl += s.b.immersion[lee]; cnt++;
+        }
+    }
+    T_ASSERT(sl / (float)cnt > 0.9f);
+    T_ASSERT(sw / (float)cnt < 0.5f);
+}
+
+static void test_hobie_flies_a_hull_on_the_other_tack(void) {
+    hobie_tack(90, -1.0f, 1, 0);     /* wind on starboard: heel < 0, starboard hull up */
+    hobie_tack(-90, 1.0f, 0, 1);     /* mirror: heel > 0, port hull up */
+}
+
+static void test_hobie_capsizes_when_sheeted_hard_in_a_gale(void) {
+    Sim s; hobie_sim(&s, 90, 14.0f, 3.0f);
+    s.autotrim = 0;     /* otherwise auto-trim overwrites the hard sheet */
+    for (int i = 0; i < s.cfg.sail_count; i++) { s.in.trim_target[i] = D(s.cfg.sails[i].trim_min_deg); s.b.trims[i] = D(s.cfg.sails[i].trim_min_deg); }
+    float maxheel = 0;
+    for (int i = 0; i < (int)(20.0f / DT); i++) {
+        sim_step(&s);
+        maxheel = fmaxf(maxheel, fabsf(s.b.heel));
+    }
+    T_ASSERT(maxheel > D(s.cfg.hull.capsize_deg));
+}
+
 int main(void) {
     T_RUN(test_upwind_angle);
     T_RUN(test_boom_eases_across_on_gybe);
@@ -333,6 +479,12 @@ int main(void) {
     T_RUN(test_far_from_origin_still_moves);
     T_RUN(test_anchor_stops_the_boat);
     T_RUN(test_deeper_clr_heels_more);
+    T_RUN(test_monohull_immersion_is_full);
+    T_RUN(test_cat_immersion_tracks_heel);
+    T_RUN(test_flying_hull_has_less_drag);
+    T_RUN(test_hobie_flies_a_hull_on_a_beam_reach);
+    T_RUN(test_hobie_flies_a_hull_on_the_other_tack);
+    T_RUN(test_hobie_capsizes_when_sheeted_hard_in_a_gale);
     T_RUN(test_longship_runs_downwind);
     T_RUN(test_longship_beam_reach);
     T_RUN(test_longship_cannot_point_close);

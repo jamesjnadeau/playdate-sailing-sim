@@ -28,4 +28,23 @@ typedef struct { float f, l, z; } HgPt;   /* forward, starboard, up: heading fra
  * that lie on the surface. Returns the number of points written. */
 int hull_clip_above(const HgPt *in, const float *d, int n, HgPt *out, bool *cut, int max);
 
+/* Catamaran heel: the boat rolls about the keel line of its leeward hull, not about the centreline.
+ * Lateral position (boat frame, + starboard) of that line: +spacing/2 when heel > 0 (starboard hull
+ * leeward), -spacing/2 when heel < 0, and 0 when upright or spacing <= 0. */
+float hull_pivot(float heel, float spacing);
+
+/* Rotates the boat-frame point (y, z) by heel about the point (pivot, 0). *l is the heeled lateral
+ * offset (+ starboard), *up the height above the mean waterline. With pivot 0 this is the plain
+ * rotation about the origin used for a monohull. */
+void hull_heel_about(float heel, float pivot, float y, float z, float *l, float *up);
+
+/* Fraction of each hull's draft under the sea, 0..1 (clamped), for a boat heeling about
+ * hull_pivot. sea_port / sea_stbd are the sea heights relative to the mean waterline under each
+ * hull centre (y = -/+ spacing/2). Non-finite inputs give 1 for both hulls. */
+void cat_immersion(float heel, float spacing, float draft, float sea_port, float sea_stbd, float *port, float *stbd);
+
+/* Should a catamaran hull draw wet (waterline, foam, wake, topsides cut by the sea), given the
+ * immersion the physics stored for it? False only when the physics holds it fully clear (<= 0). */
+bool hull_draws_wet(float immersion);
+
 #endif

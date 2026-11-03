@@ -167,6 +167,15 @@ static void test_j24_json(void) {
     T_ASSERT(c.sails[1].shape == 1);
 }
 
+static void test_hobie16_json(void) {
+    BoatCfg c; load_boat("../boats/hobie16.json", &c);
+    T_ASSERT(c.hull.hulls == 2);
+    T_ASSERT(c.boat_class == 0);
+    float lift_deg = asinf(c.hull.draft / c.hull.hull_spacing) * 57.29578f;   /* heel that clears a hull */
+    T_ASSERT(lift_deg > 5.0f && lift_deg < 10.0f);
+    for (int i = 0; i < c.sail_count; i++) T_ASSERT(c.sails[i].reef_levels == 0);
+}
+
 static void test_tp52_json(void) {
     BoatCfg c; load_boat("../boats/tp52.json", &c);
     T_ASSERT(c.hull.length >= 15.8f);
@@ -319,6 +328,38 @@ static void test_buoy_swing_loads_and_clamps(void) {
     T_NEAR(c.camera.buoy_swing_s, 0.0, 1e-6);
 }
 
+static void test_cat_fields_default(void) {
+    BoatCfg c; boatcfg_default(&c);
+    T_ASSERT(c.hull.hulls == 1);
+    T_NEAR(c.hull.hull_spacing, 0.0f, 1e-6f);
+    T_NEAR(c.hull.draft, 0.3f, 1e-6f);
+    T_NEAR(c.hull.fly_drag, 0.3f, 1e-6f);
+}
+static void test_cat_fields_load_and_clamp(void) {
+    const char *s = "{\"hull\":{\"hulls\":2,\"beam\":2.41,\"hull_spacing\":1.95,\"draft\":0.25,\"fly_drag\":0.4}}";
+    BoatCfg c; char w[W];
+    T_ASSERT(boatcfg_load(&c, s, strlen(s), w, W));
+    T_ASSERT(c.hull.hulls == 2);
+    T_NEAR(c.hull.hull_spacing, 1.95f, 1e-5f);
+    T_NEAR(c.hull.draft, 0.25f, 1e-5f);
+    T_NEAR(c.hull.fly_drag, 0.4f, 1e-5f);
+    const char *bad = "{\"hull\":{\"hulls\":5,\"draft\":0.0,\"fly_drag\":2}}";
+    T_ASSERT(!boatcfg_load(&c, bad, strlen(bad), w, W));
+    T_ASSERT(c.hull.hulls == 2);
+    T_NEAR(c.hull.draft, 0.05f, 1e-6f);
+    T_NEAR(c.hull.fly_drag, 1.0f, 1e-6f);
+}
+/* two hulls need room between them and must fit inside the overall beam */
+static void test_cat_spacing_sanitised(void) {
+    const char *s = "{\"hull\":{\"hulls\":2,\"beam\":2.0,\"hull_spacing\":0}}";
+    BoatCfg c; char w[W];
+    T_ASSERT(!boatcfg_load(&c, s, strlen(s), w, W) && strstr(w, "hull_spacing"));
+    T_ASSERT(c.hull.hull_spacing > 0 && c.hull.hull_spacing < c.hull.beam);
+    const char *wide = "{\"hull\":{\"hulls\":2,\"beam\":2.0,\"hull_spacing\":3}}";
+    T_ASSERT(!boatcfg_load(&c, wide, strlen(wide), w, W) && strstr(w, "hull_spacing"));
+    T_ASSERT(c.hull.hull_spacing < c.hull.beam);
+}
+
 int main(void) {
     T_RUN(test_default_is_sane);
     T_RUN(test_buoy_swing_default_is_2);
@@ -330,6 +371,7 @@ int main(void) {
     T_RUN(test_out_of_range_clamps_and_warns);
     T_RUN(test_wrong_type_and_missing_group);
     T_RUN(test_sail_counts);
+    T_RUN(test_hobie16_json);
     T_RUN(test_tables);
     T_RUN(test_garbage_buffer_gives_default);
     T_RUN(test_j24_json);
@@ -342,6 +384,9 @@ int main(void) {
     T_RUN(test_boat_class_out_of_range_clamps);
     T_RUN(test_boat_class_round_trips);
     T_RUN(test_longship_json);
+    T_RUN(test_cat_fields_default);
+    T_RUN(test_cat_fields_load_and_clamp);
+    T_RUN(test_cat_spacing_sanitised);
     T_RUN(test_every_boat_has_a_cockpit_inside_the_hull);
     return T_DONE();
 }

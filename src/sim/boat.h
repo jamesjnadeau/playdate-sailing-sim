@@ -34,6 +34,7 @@ typedef struct {
     float rudder_assist;         /* 0..1: how much of the rudder's flow is the rudder_min_flow floor, not real water speed */
     float helm_load;             /* rudder side force, N (+ pushes stern to starboard) */
     float pitch, heave;          /* copied from WaveForces */
+    float immersion[2];          /* port, starboard: 0 clear of the sea .. 1 at rest draft */
 } BoatState;
 
 typedef struct {
@@ -51,6 +52,7 @@ typedef struct {
     float yaw;                   /* N.m */
     float heel;                  /* N.m */
     float pitch, heave;          /* camera only */
+    float sea_port, sea_stbd;    /* sea height under each hull centre relative to heave, m (cats) */
 } WaveForces;
 
 void boat_init(BoatState *b, const BoatCfg *cfg);

@@ -96,6 +96,83 @@ static void test_bad_inputs_ignored(void) {
     T_ASSERT(isfinite(in.trim_target[0]) && isfinite(at.aws));
 }
 
+static void make_cat(void) {
+    fresh();
+    cfg.hull.hulls = 2;
+    cfg.hull.hull_spacing = 0.8f * cfg.hull.beam;
+    for (int i = 0; i < cfg.sail_count; i++) cfg.sails[i].reef_levels = 0;
+    boat_init(&b, &cfg);
+    boat_inputs_init(&in, &cfg);
+    autotrim_init(&at);
+    engage();
+    b.awa = deg2rad(60); b.aws = 12;
+}
+static void test_cat_eases_instead_of_reefing(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);   /* 3 s */
+    T_ASSERT(at.ease > 0);
+    for (int i = 0; i < cfg.sail_count; i++) {
+        if (in.hoist_target[i] <= 0.01f) continue;
+        T_NEAR(in.hoist_target[i], 1.0f, 1e-6);
+        float best = autotrim_best_trim(&cfg.sails[i], b.awa, b.aws, at.heel);
+        float mx = deg2rad(cfg.sails[i].trim_max_deg);
+        T_NEAR(in.trim_target[i], fminf(best + at.ease, mx), 1e-5);
+        /* ease after 3 s = 60 deg/s * 0.5 * 3 s = 90 deg, so it is > 5 deg past best unless trim_max clamps it */
+        T_ASSERT(in.trim_target[i] > best + deg2rad(5) || in.trim_target[i] >= mx - 1e-5f);
+    }
+}
+static void test_toggle_clears_ease(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    T_ASSERT(at.ease > 0);
+    autotrim_toggle(&at);
+    autotrim_toggle(&at);
+    T_NEAR(at.ease, 0.0f, 0.0f);
+}
+static void test_cat_sheets_back_in(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    b.heel = 0;
+    /* filtered heel (4 s) falls under the release band at 4.2 s; ease is capped at ~40 deg (60 - best)
+       and unwinds at 30 deg/s from then, so it hits 0 at ~5.5 s: 6 s, not 5 s */
+    for (int i = 0; i < 60; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    T_NEAR(at.ease, 0, 1e-6);
+    for (int i = 0; i < cfg.sail_count; i++) {
+        if (in.hoist_target[i] <= 0.01f) continue;
+        float best = autotrim_best_trim(&cfg.sails[i], b.awa, b.aws, at.heel);
+        T_NEAR(in.trim_target[i], best, 1e-3);
+    }
+}
+static void test_cat_ease_is_bounded(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 600; i++) autotrim_update(&at, &cfg, &b, &in, DT);   /* 60 s */
+    float best = autotrim_best_trim(&cfg.sails[0], b.awa, b.aws, at.heel);
+    T_ASSERT(at.ease <= deg2rad(cfg.sails[0].trim_max_deg) - best + 1e-5f);
+}
+static void test_monohull_without_reefs_still_reefs(void) {
+    fresh();
+    for (int i = 0; i < cfg.sail_count; i++) cfg.sails[i].reef_levels = 0;
+    engage();
+    b.awa = deg2rad(60); b.aws = 12; b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    T_ASSERT(in.hoist_target[0] < 1.0f);
+    T_NEAR(at.ease, 0, 1e-9);
+}
+static void test_cat_ease_leaves_stowed_sail(void) {
+    make_cat();
+    int sp = cfg.sail_count - 1;
+    in.hoist_target[sp] = 0;
+    float t = in.trim_target[sp];
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    T_ASSERT(in.hoist_target[sp] == 0);
+    T_ASSERT(in.trim_target[sp] == t);
+}
+
 static void test_longship_squares_up_on_a_run(void) {
     static char buf[16384];
     FILE *f = fopen("../boats/disabled/longship.json", "rb");
@@ -119,5 +196,11 @@ int main(void) {
     T_RUN(test_heel_reefs_then_recovers);
     T_RUN(test_bad_inputs_ignored);
     T_RUN(test_longship_squares_up_on_a_run);
+    T_RUN(test_cat_ease_leaves_stowed_sail);
+    T_RUN(test_monohull_without_reefs_still_reefs);
+    T_RUN(test_cat_sheets_back_in);
+    T_RUN(test_cat_ease_is_bounded);
+    T_RUN(test_cat_eases_instead_of_reefing);
+    T_RUN(test_toggle_clears_ease);
     return T_DONE();
 }

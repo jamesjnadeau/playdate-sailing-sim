@@ -169,6 +169,51 @@ static void test_bad_input_stays_finite(void) {
     T_ASSERT(isfinite(sea_height(&s, NAN, 0, 0)));
 }
 
+/* A diagonal sea so the surface tilts across a boat heading along +x. */
+static Sea tilted(float amp) {
+    Sea s = single(amp);
+    s.c[0].n = 64;                              /* wavelength 16 m across the boat */
+    s.slam_gain = 0.0f;
+    return s;
+}
+
+/* Sea height at the starboard (+1) or port (-1) hull centre; heading 0 puts starboard on +y. */
+static float sea_height_at_offset(const Sea *s, double x, double y, float t, float off) {
+    return sea_height(s, (float)x, (float)(y + off), t);
+}
+
+/* A cat samples under its hulls, not at the overall beam. */
+static void test_cat_sea_heights_under_each_hull(void) {
+    Sea s = tilted(0.6f);
+    BoatCfg cfg; boatcfg_default(&cfg);
+    cfg.hull.hulls = 2; cfg.hull.beam = 2.41f; cfg.hull.hull_spacing = 1.95f;
+    BoatState b = boat_at(2.0, 1.0, 0.0f, 1.0f);
+    float t = 0.7f;
+    WaveForces f = sea_hull_forces(&s, &b, &cfg, t);
+    T_ASSERT(isfinite(f.sea_port) && isfinite(f.sea_stbd));
+    T_ASSERT(f.sea_stbd != f.sea_port);
+    /* within one sample of the true surface at y = +-0.975 */
+    T_NEAR(f.sea_stbd, sea_height_at_offset(&s, 2.0, 1.0, t, +0.975f) - f.heave, 0.02f);
+    T_NEAR(f.sea_port, sea_height_at_offset(&s, 2.0, 1.0, t, -0.975f) - f.heave, 0.02f);
+}
+
+/* The default dinghy's wave forces are bit-identical to those before hulls were added. */
+static void test_monohull_wave_forces_unchanged(void) {
+    Sea s = tilted(0.6f);
+    s.slam_gain = 1.0f;
+    BoatCfg cfg; boatcfg_default(&cfg);
+    BoatState b = boat_at(1.0, -2.0, 0.4f, 2.5f);
+    WaveForces f = sea_hull_forces(&s, &b, &cfg, 1.3f);
+    /* captured with %a from sea_hull_forces before the catamaran change */
+    T_ASSERT(f.drag_mult == 0x1.b00002p-1f);
+    T_ASSERT(f.surge == 0x1.6bf196p+7f);
+    T_ASSERT(f.yaw == -0x1.99c172p+2f);
+    T_ASSERT(f.heel == 0x1.d959c8p+2f);
+    T_ASSERT(f.pitch == -0x1.3a1822p-3f);
+    T_ASSERT(f.heave == -0x1.e4578p-3f);
+    
+}
+
 int main(void) {
     setup();
     T_RUN(test_height_amplitude_matches_preset);
@@ -180,5 +225,7 @@ int main(void) {
     T_RUN(test_surf_down_face_positive_beam_on_zero);
     T_RUN(test_far_from_origin_is_finite_and_equivalent);
     T_RUN(test_bad_input_stays_finite);
+    T_RUN(test_cat_sea_heights_under_each_hull);
+    T_RUN(test_monohull_wave_forces_unchanged);
     T_DONE();
 }

@@ -69,6 +69,21 @@ test('mouse down turns the crank clockwise, scaled and invertible', () => {
   assert.equal(inv.take().crank, 0);
 });
 
+test('mouse left turns the crank as up does, right as down', () => {
+  const i = new Input({ degPerPx: 1 });
+  i.mouseMove(0, -6);
+  assert.equal(i.take().crank, -6);
+  i.mouseMove(-6, 0);
+  assert.equal(i.take().crank, -6);
+  i.mouseMove(2, 5);
+  assert.equal(i.take().crank, 7);
+  const inv = new Input({ degPerPx: 1, invert: true });
+  inv.mouseMove(0, -3);
+  assert.equal(inv.take().crank, 3);
+  inv.mouseMove(NaN, 4);
+  assert.equal(inv.take().crank, -4);
+});
+
 test('wheel notches step the crank', () => {
   const i = new Input({ degPerWheel: 10 });
   i.wheel(120);

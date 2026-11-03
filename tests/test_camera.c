@@ -294,37 +294,40 @@ static void test_near_pitch_looks_up_and_down(void) {
     T_NEAR(cp.height, h0, 1e-4);
 }
 
-static void test_follow_puts_the_eye_over_the_rudder_and_turns_in_place(void) {
+static void test_follow_keeps_the_eye_behind_the_boat_and_turns_in_place(void) {
     fresh();
     cp.trail = true;
     g.b.heading = 0.3f;
+    settle();
+    float back = (float)hypot(cp.x - g.b.x, cp.y - g.b.y);   /* the framed distance */
     g.ctl.camera_follow = true;
     g.ctl.camera_yaw = 1.0f;
     settle();
-    float stern = fminf(bc.foils.rudder_x, -0.5f * bc.hull.length);
-    T_NEAR(cp.x, g.b.x + cosf(0.3f) * stern, 1e-3);
-    T_NEAR(cp.y, g.b.y + sinf(0.3f) * stern, 1e-3);
+    T_NEAR(cp.x, g.b.x - cosf(0.3f) * back, 1e-3);
+    T_NEAR(cp.y, g.b.y - sinf(0.3f) * back, 1e-3);
     T_NEAR(cp.yaw, 1.3f, 1e-3);
     g.ctl.camera_yaw = -0.8f;   /* turning the view never moves the eye */
     settle();
-    T_NEAR(cp.x, g.b.x + cosf(0.3f) * stern, 1e-3);
-    T_NEAR(cp.y, g.b.y + sinf(0.3f) * stern, 1e-3);
+    T_NEAR(cp.x, g.b.x - cosf(0.3f) * back, 1e-3);
+    T_NEAR(cp.y, g.b.y - sinf(0.3f) * back, 1e-3);
 }
 
-static void test_follow_glides_the_eye_to_the_rudder(void) {
+static void test_follow_glides_the_eye_without_a_jump(void) {
     fresh();
     cp.trail = true;
     g.b.heading = 0;
+    g.ctl.camera_yaw = 1.0f;
     settle();
-    float x0 = (float)cp.x;
+    double x0 = cp.x, y0 = cp.y;
     g.ctl.camera_follow = true;
     camera_update(&cp, &g, &bc, 1.0f / 30);
-    T_ASSERT(fabsf((float)cp.x - x0) < 0.5f * fabsf(x0 - (float)g.b.x));   /* not a jump */
+    T_ASSERT(hypot(cp.x - x0, cp.y - y0) < 0.3 * hypot(x0 - g.b.x, y0 - g.b.y));
     settle();
-    T_ASSERT(cp.x > x0);   /* ended nearer the boat than the trailing orbit */
+    T_ASSERT(fabs(cp.y - g.b.y) < 1e-3);   /* now straight behind */
     g.ctl.camera_follow = false;
     settle();
-    T_NEAR(cp.x, x0, 1e-3);   /* and back out again when follow ends */
+    T_NEAR(cp.x, x0, 1e-3);   /* and back out to the orbit when follow ends */
+    T_NEAR(cp.y, y0, 1e-3);
 }
 
 int main(void) {
@@ -351,7 +354,7 @@ int main(void) {
     T_RUN(test_horizon_y_pins_horizon_and_stern);
     T_RUN(test_horizon_y_too_low_stays_finite);
     T_RUN(test_trail_dist_overrides_solved_distance);
-    T_RUN(test_follow_puts_the_eye_over_the_rudder_and_turns_in_place);
-    T_RUN(test_follow_glides_the_eye_to_the_rudder);
+    T_RUN(test_follow_keeps_the_eye_behind_the_boat_and_turns_in_place);
+    T_RUN(test_follow_glides_the_eye_without_a_jump);
     T_DONE();
 }

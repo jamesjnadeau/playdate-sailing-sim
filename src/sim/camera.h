@@ -18,7 +18,7 @@ typedef struct {
     bool trail;                   /* trailing view (set by the caller; survives updates) */
     float yaw, pitch, roll;       /* what the view uses: roll is limited, smoothed */
     float deck_roll, deck_pitch, deck_bob;   /* unlimited, for the deck / HUD drawing */
-    float follow_mix;             /* 0..1: how far the trailing eye has moved from its orbit to over the rudder */
+    float follow_mix;             /* 0..1: how far the trailing eye has moved from its orbit to straight behind the boat */
 } CameraPose;
 
 /* Smooths toward the boat; dt is clamped like the game's, non-finite counts as 1/30. */

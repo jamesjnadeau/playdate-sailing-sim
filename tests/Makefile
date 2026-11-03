@@ -11,6 +11,9 @@ MAKEFLAGS += -j$(shell nproc 2>/dev/null || echo 4) --output-sync=target
 
 vpath %.c ../src/sim ../src/pd
 
+# the generated shard list below must not become the default goal
+.DEFAULT_GOAL := test
+
 # test_baseline is one long process, so it runs as one target per race (plus its other tests, "core").
 # The races come from the binary itself, which writes them to build/baseline_shards.mk.
 ifneq ($(filter-out clean bench,$(or $(MAKECMDGOALS),test)),)

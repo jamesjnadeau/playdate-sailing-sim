@@ -127,15 +127,22 @@ static void test_cat_sheets_back_in(void) {
     b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
     for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
     b.heel = 0;
-    /* the heel filter (4 s) keeps filtered heel over the limit ~2.8 s and above the release band ~4.2 s,
-       so ease keeps growing then unwinds at 30 deg/s: 5 s is not enough, 15 s is */
-    for (int i = 0; i < 150; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    /* filtered heel (4 s) falls under the release band at 4.2 s; ease is capped at ~40 deg (60 - best)
+       and unwinds at 30 deg/s from then, so it hits 0 at ~5.5 s: 6 s, not 5 s */
+    for (int i = 0; i < 60; i++) autotrim_update(&at, &cfg, &b, &in, DT);
     T_NEAR(at.ease, 0, 1e-6);
     for (int i = 0; i < cfg.sail_count; i++) {
         if (in.hoist_target[i] <= 0.01f) continue;
         float best = autotrim_best_trim(&cfg.sails[i], b.awa, b.aws, at.heel);
         T_NEAR(in.trim_target[i], best, 1e-3);
     }
+}
+static void test_cat_ease_is_bounded(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 600; i++) autotrim_update(&at, &cfg, &b, &in, DT);   /* 60 s */
+    float best = autotrim_best_trim(&cfg.sails[0], b.awa, b.aws, at.heel);
+    T_ASSERT(at.ease <= deg2rad(cfg.sails[0].trim_max_deg) - best + 1e-5f);
 }
 static void test_monohull_without_reefs_still_reefs(void) {
     fresh();
@@ -183,6 +190,7 @@ int main(void) {
     T_RUN(test_cat_ease_leaves_stowed_sail);
     T_RUN(test_monohull_without_reefs_still_reefs);
     T_RUN(test_cat_sheets_back_in);
+    T_RUN(test_cat_ease_is_bounded);
     T_RUN(test_cat_eases_instead_of_reefing);
     return T_DONE();
 }

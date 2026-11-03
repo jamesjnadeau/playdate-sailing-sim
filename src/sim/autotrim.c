@@ -68,12 +68,17 @@ void autotrim_update(Autotrim *at, const BoatCfg *cfg, const BoatState *b, BoatI
     else if (at->heel < limit * HEEL_RELEASE) de = -deg2rad(k->trim_rate_deg) * 0.5f * dt;
     if (cat) at->ease = fmaxf(0.0f, at->ease + de);
 
+    float headroom = 0;   /* most trim any eased sail can still let out, so ease can't wind up past it */
     int n = cfg->sail_count < BOAT_MAX_SAILS ? cfg->sail_count : BOAT_MAX_SAILS;
     for (int i = 0; i < n; i++) {
         if (in->hoist_target[i] <= 0.01f) continue;   /* stowed: not ours to raise */
         bool ease = cat && cfg->sails[i].reef_levels == 0;
         if (!ease) in->hoist_target[i] = clampf(in->hoist_target[i] + dh, k->autotrim_hoist_min, 1.0f);
         float t = autotrim_best_trim(&cfg->sails[i], awa, at->aws, at->heel);
-        if (t >= 0) in->trim_target[i] = ease ? fminf(t + at->ease, deg2rad(cfg->sails[i].trim_max_deg)) : t;
+        if (t < 0) continue;
+        float mx = deg2rad(cfg->sails[i].trim_max_deg);
+        in->trim_target[i] = ease ? fminf(t + at->ease, mx) : t;
+        if (ease) headroom = fmaxf(headroom, mx - t);
     }
+    if (cat) at->ease = fminf(at->ease, headroom);
 }

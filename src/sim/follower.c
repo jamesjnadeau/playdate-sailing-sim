@@ -91,3 +91,8 @@ void follower_shift(Follower *f, double dx, double dy) {
         s->p.y -= dy;
     }
 }
+
+bool follower_near_eye(const FollowPose *p, double cam_x, double cam_y, float min_m) {
+    double d = hypot(p->x - cam_x, p->y - cam_y);
+    return !isfinite(d) || d < min_m;
+}

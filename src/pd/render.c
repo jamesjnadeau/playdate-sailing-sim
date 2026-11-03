@@ -1557,7 +1557,8 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_spray(pd, g, c);
     if (ghost && g->mode == GAME_RACE) draw_ghost(pd, g, c, ghost);
     FollowPose follow_pose;
-    if (g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose))
+    if (g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose) &&
+        !follower_near_eye(&follow_pose, c->x, c->y, FOLLOW_EYE_MIN_M))
         draw_ghost_pose(pd, g, c, &follow_pose);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */

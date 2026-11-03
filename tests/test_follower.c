@@ -121,6 +121,17 @@ static void test_shift_moves_the_trail(void) {
     T_NEAR(f.smp[f.head].p.y, 40.0, 1e-9);
 }
 
+static void test_too_close_to_the_camera(void) {
+    FollowPose p;
+    memset(&p, 0, sizeof p);
+    p.x = 8.0;
+    T_ASSERT(follower_near_eye(&p, 0.0, 0.0, FOLLOW_EYE_MIN_M));
+    p.x = 25.0;
+    T_ASSERT(!follower_near_eye(&p, 0.0, 0.0, FOLLOW_EYE_MIN_M));
+    p.x = NAN;
+    T_ASSERT(follower_near_eye(&p, 0.0, 0.0, FOLLOW_EYE_MIN_M));
+}
+
 static Game g;
 static BoatCfg bc;
 static WeatherCfg wcfg;
@@ -222,6 +233,7 @@ int main(void) {
     T_RUN(test_ring_wraps);
     T_RUN(test_at_rest_stays_put);
     T_RUN(test_shift_moves_the_trail);
+    T_RUN(test_too_close_to_the_camera);
     T_RUN(test_journey_records_and_ghost_appears);
     T_RUN(test_free_range_records);
     T_RUN(test_race_records_nothing);

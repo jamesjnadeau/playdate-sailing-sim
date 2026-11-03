@@ -1,0 +1,13 @@
+# Free range: sail well over 30 m under the autopilot, then look aft with the camera crank to find the ghost
+wait 2
+press A
+wait 5
+hold A 20
+wait 700
+snap trailing_ahead
+press down
+crank 14 for 20
+wait 2
+snap trailing_ghost
+state
+end

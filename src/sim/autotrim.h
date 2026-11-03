@@ -16,6 +16,7 @@ typedef struct {
     float aws;             /* filtered apparent wind speed, m/s */
     float heel;            /* filtered |heel|, rad */
     bool primed;           /* filters hold real data */
+    float ease;            /* rad let out past the best trim while over the heel limit (cats without reefs) */
 } Autotrim;
 
 void autotrim_init(Autotrim *at);

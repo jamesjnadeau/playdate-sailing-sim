@@ -31,6 +31,7 @@ static void reset(Game *g) {
         g->b.heading = g->track.start_heading;
     }
     race_init(&g->race);
+    follower_clear(&g->follow);
     start_weather(g);
     if (g->mode == GAME_JOURNEY)
         journey_init(&g->journey, g->world.journey_min_m, g->world.journey_max_m, g->seed,
@@ -92,6 +93,7 @@ static void recentre(Game *g) {
     g->b.y -= dy;
     if (g->mode == GAME_RACE) race_shift(&g->race, dx, dy);   /* marks move with the boat */
     if (g->mode == GAME_JOURNEY) journey_shift(&g->journey, dx, dy);
+    follower_shift(&g->follow, dx, dy);
 }
 
 /* Tells the buoy-follow camera where the next buoy lies, relative to the bow; NAN when there is none. */
@@ -180,4 +182,5 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         g->run = RUN_CAPSIZED;
     g->t += dt;
     recentre(g);
+    if (g->mode != GAME_RACE) follower_record(&g->follow, &g->b);
 }

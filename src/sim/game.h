@@ -6,6 +6,7 @@
 #include "autotrim.h"
 #include "boatcfg.h"
 #include "engine.h"
+#include "follower.h"
 #include "controls.h"
 #include "journey.h"
 #include "race.h"
@@ -46,6 +47,7 @@ typedef struct {
     int substeps;           /* substeps run by the last update */
     Race race;
     Journey journey;        /* used when mode == GAME_JOURNEY */
+    Follower follow;        /* player's recent track, for the trailing ghost (free range and journey) */
     uint32_t praise_rng;    /* picks each praise message */
     int praise;             /* index of the message on screen, see praise.h */
     float praise_left;      /* s the message stays on screen; 0 when none */

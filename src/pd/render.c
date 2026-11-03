@@ -1124,7 +1124,7 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         for (int sd = -1; sd <= 1; sd += 2)
             if (boat_pt(&k, lk->mast_x, sd * lk->shroud_width, lk->freeboard, &sx2, &sy2))
                 pd->graphics->drawLine((int)sx1, (int)sy1, (int)sx2, (int)sy2, 1, ink());
-        /* masthead ribbon streams away from the apparent wind (awa: 0 = from the bow, + = from starboard) */
+        /* masthead ribbon (disabled): streams away from the apparent wind (awa: 0 = from the bow, + = from starboard)
         const BoatState *bs = &g->b;
         float wx = -cosf(bs->awa), wy = -sinf(bs->awa);
         float len = 0.5f + 0.1f * fminf(bs->aws, 12.0f);
@@ -1138,6 +1138,7 @@ static void draw_rig(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
             pd->graphics->drawLine((int)px, (int)py, (int)ex, (int)ey, seg < 3 ? 3 : 2, ink());
             px = ex; py = ey;
         }
+        */
     }
 }
 

@@ -15,6 +15,7 @@
 #define SKY_BANDS 6
 #define DECK_ROWS 4
 #define DECK_COLS 14
+#define CLOUD_NEAR 1000.0f   /* m; clouds sit 3000 m out, so a nearer depth is off to the side and would draw huge */
 #define STREAKS 24
 #define PI_D 3.14159265358979323846
 
@@ -172,7 +173,8 @@ static void draw_sky(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
                 float az = ((float)i + frand(k, 41)) * 2.0f * (float)PI_D / DECK_COLS
                          + (float)g->t * p->cloud_speed * (0.002f + 0.001f * (float)row);
                 float sx, sy, d;
-                if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z * (0.8f + 0.4f * frand(k, 42)), &sx, &sy, &d))
+                if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z * (0.8f + 0.4f * frand(k, 42)), &sx, &sy, &d)
+                    || d < CLOUD_NEAR)
                     continue;
                 float pw = (900.0f + 500.0f * frand(k, 43)) * p->cloud_size * CAM_FOCAL / d, ph = pw * 0.3f;
                 if (sx + pw < 0 || sx - pw > CAM_W || sy - ph > CAM_H) continue;
@@ -186,9 +188,9 @@ static void draw_sky(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         float z = 150.0f + 350.0f * frand(i, 3);
         float w = (250.0f + 400.0f * frand(i, 4)) * p->cloud_size;
         float sx, sy, d;
-        if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z, &sx, &sy, &d)) continue;
+        if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z, &sx, &sy, &d) || d < CLOUD_NEAR) continue;
         float pw = w * CAM_FOCAL / d, ph = pw * 0.22f;
-        if (sx + pw < 0 || sx - pw > CAM_W) continue;
+        if (sx + pw < 0 || sx - pw > CAM_W || sy - ph > CAM_H) continue;
         pd->graphics->fillEllipse((int)(sx - pw / 2), (int)(sy - ph / 2), (int)pw, (int)ph, 0, 0, col);
         pd->graphics->fillEllipse((int)(sx - pw / 4), (int)(sy - ph * 0.85f), (int)(pw * 0.5f), (int)(ph * 0.9f), 0, 0, col);
     }

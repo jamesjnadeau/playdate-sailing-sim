@@ -24,13 +24,25 @@ static void test_aim_point_is_20m_along_gate(void) {
     T_NEAR(x, 10, 1e-3); T_NEAR(y, 25, 1e-3);
 }
 
-static void test_reach_leg_heads_straight(void) {
+/* Mark at the origin, gate ray pointing west (the way the boat is sailing), rounded to port: the boat must
+ * come in on the left of the ray, which is south here, and cross the ray 20 m out. */
+static void run_mark_track(void) {
     track_default(&tr);
     tr.nmarks = 1;
-    tr.marks[0].x = 100; tr.marks[0].y = 0; tr.marks[0].gate = PI_F;   /* aim point (80, 0) */
+    tr.start_x = 100; tr.start_y = 0;
+    tr.marks[0].x = 0; tr.marks[0].y = 0; tr.marks[0].gate = PI_F; tr.marks[0].rounding = ROUND_PORT;
+}
+
+static void test_approach_is_abeam_not_through_the_mark(void) {
+    run_mark_track();
     NavState s; nav_init(&s);
-    const float h = nav_heading(&s, &tr, 0, 0, 0, 0, 0, PI_F / 2, deg2rad(40));
-    T_NEAR(h, 0, 1e-3);
+    const float wind = -PI_F / 2, no_go = deg2rad(40);
+    /* far away: head for the corner 20 m past the mark and NAV_APPROACH_OFFSET_M to the port-rounding side */
+    const float h = nav_heading(&s, &tr, 0, 100, 0, 0, 0, wind, no_go);
+    T_NEAR(h, atan2f(-NAV_APPROACH_OFFSET_M, -100 - NAV_AIM_OFFSET_M), 1e-3);
+    /* once far enough along the ray, cross it at the aim point (-20, 0) */
+    const float h2 = nav_heading(&s, &tr, 0, -(NAV_SWITCH_ALONG_M + 1), -NAV_APPROACH_OFFSET_M, 0, 0, wind, no_go);
+    T_NEAR(h2, atan2f(NAV_APPROACH_OFFSET_M, -NAV_AIM_OFFSET_M + NAV_SWITCH_ALONG_M + 1), 1e-3);
 }
 
 static void test_upwind_leg_holds_close_hauled(void) {
@@ -64,6 +76,23 @@ static void test_tacks_only_beyond_corridor(void) {
     T_ASSERT(at > corridor && at <= corridor + 1.5);
 }
 
+/* Wind from +x, windward mark at (100, 0) rounded to port with its ray pointing upwind. */
+static void test_beat_tacks_off_a_collision_course(void) {
+    track_default(&tr);
+    tr.nmarks = 1;
+    tr.start_x = -30; tr.start_y = 20;
+    tr.marks[0].x = 100; tr.marks[0].y = 0; tr.marks[0].gate = 0; tr.marks[0].rounding = ROUND_PORT;
+    const float wind = 0, no_go = deg2rad(40);
+    const float limit = no_go + NAV_UPWIND_MARGIN_RAD;
+    NavState s; nav_init(&s);
+    s.side = -1;   /* sailing south-east, away from the corner on the north side */
+    /* far from the mark that tack misses it by more than the clearance, so it holds */
+    T_NEAR(nav_heading(&s, &tr, 0, 30, 15, 0, 0, wind, no_go), -limit, 1e-4);
+    /* closer in, that tack would pass the buoy: tack away from it */
+    T_NEAR(nav_heading(&s, &tr, 0, 80, 12, 0, 0, wind, no_go), limit, 1e-4);
+    T_ASSERT(s.side == 1);
+}
+
 static void test_advances_with_next(void) {
     track_default(&tr);
     tr.nmarks = 2;
@@ -83,8 +112,9 @@ static void test_advances_with_next(void) {
 
 int main(void) {
     T_RUN(test_aim_point_is_20m_along_gate);
-    T_RUN(test_reach_leg_heads_straight);
+    T_RUN(test_approach_is_abeam_not_through_the_mark);
     T_RUN(test_upwind_leg_holds_close_hauled);
+    T_RUN(test_beat_tacks_off_a_collision_course);
     T_RUN(test_tacks_only_beyond_corridor);
     T_RUN(test_advances_with_next);
     return T_DONE();

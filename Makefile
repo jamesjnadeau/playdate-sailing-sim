@@ -53,3 +53,10 @@ $(OBJDIR)/pdex.${DYLIB_EXT} $(OBJS): $(OBJDIR)/.variant
 
 # common.mk applies UDEFS to the device objects only; the simulator dylib is one gcc call.
 DYLIB_FLAGS += $(UDEFS)
+
+# Regenerate the baseline ghosts the game ships (run again after changing a track, boat, weather or the ghost format).
+.PHONY: ghosts
+ghosts:
+	mkdir -p build ghosts
+	cc -std=gnu99 -O1 -ffp-contract=off -Isrc/sim -o build/ghost_gen tools/ghost_gen.c $(wildcard src/sim/*.c) src/pd/scenario.c -lm
+	build/ghost_gen . ghosts

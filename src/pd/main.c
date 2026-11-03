@@ -99,12 +99,21 @@ static void ghost_storage(bool want) {
     }
 }
 
+/* The player's saved ghost, else the baseline shipped in the pdx under the same name. */
+static SDFile *ghost_open(const char *name) {
+    SDFile *f = pd->file->open(name, kFileReadData);
+    if (f) return f;
+    char bundled[112];
+    snprintf(bundled, sizeof bundled, "ghosts/%s", name);
+    return pd->file->open(bundled, kFileRead);
+}
+
 static void ghost_load(void) {
     char path[96];
     ghost_clear(&ghost_best);
     if (!ghost_best.s) return;
     ghost_path(path, sizeof path, game.track.name, assets_boat_names()[boat_index]);
-    SDFile *f = pd->file->open(path, kFileReadData);
+    SDFile *f = ghost_open(path);
     if (!f) return;
     uint8_t *io = pd->system->realloc(NULL, GHOST_FILE_MAX);
     if (io) {
@@ -139,7 +148,7 @@ static void boat_best_refresh(void) {
         char path[96];
         uint8_t hdr[GHOST_HEADER_BYTES];
         ghost_path(path, sizeof path, tracks[menu.track].name, names[i]);
-        SDFile *f = pd->file->open(path, kFileReadData);
+        SDFile *f = ghost_open(path);
         if (!f) continue;
         const int n = pd->file->read(f, hdr, sizeof hdr);
         pd->file->close(f);

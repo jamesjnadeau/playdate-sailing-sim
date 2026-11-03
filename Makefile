@@ -42,7 +42,7 @@ ULIBS = --specs=nosys.specs
 
 # Runtime configs ship inside the .pdx as plain files the game reads at start
 # and when the boat changes.
-STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks && cp -r boats config tracks Source/)
+STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks Source/ghosts && mkdir -p ghosts && cp -r boats config tracks ghosts Source/)
 
 include $(SDK)/C_API/buildsupport/common.mk
 

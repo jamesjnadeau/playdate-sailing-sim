@@ -1366,9 +1366,10 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
             q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
         }
         int top = m;
+        bool wet[N];                      /* per waterline point: the sea meets the side there */
         for (int i = N - 1; i >= 0 && ok; i--) {
             float x, y, z;
-            side_wl(g, sgn, (float)i / (N - 1), 1.0f, &x, &y, &z);
+            wet[m - top] = side_wl(g, sgn, (float)i / (N - 1), 1.0f, &x, &y, &z);
             if (z < fb - 1e-3f) dry = true;
             ok = boat_pt(&k, x, y, z, &sx, &sy);
             q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
@@ -1377,8 +1378,8 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         pd->graphics->fillPolygon(m, q, side_col, kPolygonFillNonZero);
         for (int i = 0; i + 1 < top; i++)   /* gunwale */
             pd->graphics->drawLine(q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 1, ink());
-        for (int i = top; i + 1 < m; i++)   /* waterline: foam */
-            foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 4.0f, 5);
+        for (int i = top; i + 1 < m; i++)   /* waterline: foam, only where the sea meets the side (not along a lifted keel) */
+            if (wet[i - top] && wet[i + 1 - top]) foam_stroke(pd, q[2 * i], q[2 * i + 1], q[2 * i + 2], q[2 * i + 3], 4.0f, 5);
         pd->graphics->drawLine(q[0], q[1], q[2 * (m - 1)], q[2 * (m - 1) + 1], 1, ink());                  /* stem */
         pd->graphics->drawLine(q[2 * (top - 1)], q[2 * (top - 1) + 1], q[2 * top], q[2 * top + 1], 1, ink());   /* stern */
     }
@@ -1386,8 +1387,8 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         float wt = hb * table_eval(lk->hull_width.p, lk->hull_width.n, 1.0f);
         float xs = -0.5f * L;
         float xp, yp, zp, xq, yq, zq, l, z;
-        side_wl(g, -1, 1.0f, 1.0f, &xp, &yp, &zp);
-        side_wl(g, 1, 1.0f, 1.0f, &xq, &yq, &zq);
+        bool wet = side_wl(g, -1, 1.0f, 1.0f, &xp, &yp, &zp);
+        wet = side_wl(g, 1, 1.0f, 1.0f, &xq, &yq, &zq) && wet;
         HgPt tr[4];
         heel_xf(g, cur_hull_y - wt, fb, &l, &z); tr[0] = (HgPt){ xs, l, z };
         heel_xf(g, cur_hull_y + wt, fb, &l, &z);  tr[1] = (HgPt){ xs, l, z };
@@ -1395,7 +1396,7 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         heel_xf(g, yp, zp, &l, &z);  tr[3] = (HgPt){ xs, l, z };
         draw_panel(pd, &k, tr, 4, side_col, 1);
         float ax, ay, bx, by;
-        if (hidden == 0 && rel_pt(&k, xs, tr[2].l, tr[2].z, &ax, &ay) && rel_pt(&k, xs, tr[3].l, tr[3].z, &bx, &by))
+        if (wet && hidden == 0 && rel_pt(&k, xs, tr[2].l, tr[2].z, &ax, &ay) && rel_pt(&k, xs, tr[3].l, tr[3].z, &bx, &by))
             foam_stroke(pd, (int)ax, (int)ay, (int)bx, (int)by, 4.0f, 5);
     }
     if (up) {

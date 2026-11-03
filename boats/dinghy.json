@@ -1,5 +1,6 @@
 {
   "world_units_per_metre": 10,
+  "boat_class": 0,
   "hull": {
     "length": 4,
     "beam": 1.5,
@@ -9,12 +10,17 @@
     "hull_speed": 3.2,
     "resistance": [[0, 0], [1, 8], [2, 35], [3, 90], [4, 220], [6, 700]],
     "heel_drag": 0.5,
+    "clr_depth": 0.4,
     "yaw_inertia": 90,
     "yaw_damping": 120,
     "heel_inertia": 140,
     "heel_damping": 180,
     "righting": [[0, 0], [10, 390], [25, 780], [45, 960], [70, 675], [90, 0]],
-    "capsize_deg": 70
+    "capsize_deg": 70,
+    "hulls": 1,
+    "hull_spacing": 0,
+    "draft": 0.3,
+    "fly_drag": 0.3
   },
   "foils": {
     "board_area": 0.14,
@@ -26,7 +32,8 @@
     "rudder_max_deg": 35,
     "rudder_lift_slope": 4,
     "rudder_stall_deg": 16,
-    "rudder_x": -2
+    "rudder_x": -2,
+    "rudder_min_flow": 0.48000002
   },
   "controls": {
     "wheel_turns": 2,
@@ -39,10 +46,12 @@
     "hoist_rate": 0.25,
     "weather_helm": 0.5,
     "anchor_time": 2.5,
+    "camera_hold_s": 0.75,
     "autopilot_no_go_deg": 45,
     "autopilot_crank_deg": 10,
     "autopilot_kp": 2,
     "autopilot_kd": 1,
+    "engine_hold_s": 1,
     "autotrim_smooth_s": 4,
     "autotrim_heel_deg": 25,
     "autotrim_hoist_min": 0.3
@@ -61,20 +70,25 @@
     "cockpit_x1": 0.2,
     "cockpit_w0": 0.4,
     "cockpit_w1": 0.5,
-    "cockpit_depth": 0.25
+    "cockpit_depth": 0.25,
+    "wake_fade_m": 4
   },
   "camera": {
     "height": 1.2,
     "x_offset": -2.7,
     "heel_bias": 0.25,
     "frame_margin": 20,
+    "horizon_y": 0,
+    "trail_dist": 0,
     "far_height": 2.5,
     "roll_limit_deg": 10,
     "roll_smooth": 0.4,
     "pitch_smooth": 0.3,
     "heave_gain": 0.3,
     "pitch_gain": 0.4,
-    "return_rate": 90
+    "pitch_range_deg": 45,
+    "return_rate": 90,
+    "buoy_swing_s": 2
   },
   "sails": [
     {

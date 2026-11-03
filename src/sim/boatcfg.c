@@ -52,6 +52,10 @@ static const Field HULL_F[] = {
     FF(HullCfg, heel_damping, 180, 0, 1e5f),
     FT(HullCfg, righting, RIGHTING),
     FF(HullCfg, capsize_deg, 70, 20, 120),
+    FI(HullCfg, hulls, 1, 1, 2),
+    FF(HullCfg, hull_spacing, 0, 0, 20),
+    FF(HullCfg, draft, 0.3f, 0.05f, 3),
+    FF(HullCfg, fly_drag, 0.3f, 0, 1),
 };
 
 static const Field FOIL_F[] = {
@@ -357,6 +361,16 @@ bool boatcfg_load(BoatCfg *out, const char *buf, size_t len, char *warn, size_t 
         if (!gn) continue;
         if (!json_is_object(gn)) { wadd(&w, "%s: expected object", GROUPS[g].name); continue; }
         load_fields(gn, (char *)out + GROUPS[g].off, GROUPS[g].f, GROUPS[g].n, GROUPS[g].name, &w);
+    }
+    /* two hulls need room between them and must fit inside the overall beam */
+    if (out->hull.hulls == 2) {
+        float lo = 0.2f * out->hull.beam, hi = 0.9f * out->hull.beam;
+        float sp = out->hull.hull_spacing;
+        if (sp < lo || sp > hi) {
+            out->hull.hull_spacing = sp < lo ? lo : hi;
+            wadd(&w, "hull.hull_spacing: %g outside [%g, %g] for beam %g, clamped to %g",
+                 (double)sp, (double)lo, (double)hi, (double)out->hull.beam, (double)out->hull.hull_spacing);
+        }
     }
     /* an omitted rudder_min_flow follows the loaded hull speed rather than the dinghy's */
     const JsonNode *fn = json_get(root, "foils");

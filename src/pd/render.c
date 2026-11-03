@@ -13,6 +13,8 @@
 #define CLOUDS 32
 #define RAIN_MAX 70
 #define SKY_BANDS 6
+#define DECK_ROWS 4
+#define DECK_COLS 14
 #define STREAKS 24
 #define PI_D 3.14159265358979323846
 
@@ -157,7 +159,28 @@ static void draw_sky(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         }
     }
     int n = iroundf(p->cloud_cover * CLOUDS);
-    LCDColor col = render_pattern(iroundf(flash ? p->cloud_shade * 0.4f : p->cloud_shade));
+    float shade = flash ? p->cloud_shade * 0.4f : p->cloud_shade;
+    LCDColor col = render_pattern(iroundf(shade));
+    if (p->cloud_cover > 0.9f) {
+        /* overcast: rows of billows from the horizon to the top of the screen, each with a darker belly */
+        int bl = iroundf(shade) + 4;
+        LCDColor belly = render_pattern(bl > 15 ? 15 : bl);
+        for (int row = DECK_ROWS - 1; row >= 0; row--) {   /* high rows first, the low ones overlap them */
+            float z = 250.0f + 600.0f * (float)(row * row);
+            for (int i = 0; i < DECK_COLS; i++) {
+                uint32_t k = (uint32_t)(row * DECK_COLS + i);
+                float az = ((float)i + frand(k, 41)) * 2.0f * (float)PI_D / DECK_COLS
+                         + (float)g->t * p->cloud_speed * (0.002f + 0.001f * (float)row);
+                float sx, sy, d;
+                if (!camera_project_rel(c, 3000.0f * rcos(az), 3000.0f * rsin(az), z * (0.8f + 0.4f * frand(k, 42)), &sx, &sy, &d))
+                    continue;
+                float pw = (900.0f + 500.0f * frand(k, 43)) * p->cloud_size * CAM_FOCAL / d, ph = pw * 0.3f;
+                if (sx + pw < 0 || sx - pw > CAM_W || sy - ph > CAM_H) continue;
+                pd->graphics->fillEllipse((int)(sx - pw / 2), (int)(sy - ph / 2), (int)pw, (int)ph, 0, 0, belly);
+                pd->graphics->fillEllipse((int)(sx - pw * 0.45f), (int)(sy - ph * 0.62f), (int)(pw * 0.9f), (int)(ph * 0.85f), 0, 0, col);
+            }
+        }
+    }
     for (int i = 0; i < n; i++) {
         float az = frand(i, 1) * 2.0f * (float)PI_D + (float)g->t * p->cloud_speed * (0.002f + 0.004f * frand(i, 2));
         float z = 150.0f + 350.0f * frand(i, 3);

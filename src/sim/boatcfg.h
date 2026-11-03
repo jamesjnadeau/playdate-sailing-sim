@@ -89,6 +89,7 @@ typedef struct {
     float roll_limit_deg, roll_smooth, pitch_smooth;
     float heave_gain, pitch_gain;   /* share of the wave heave / pitch the camera follows (the boat keeps all of it) */
     float pitch_range_deg, return_rate;
+    float buoy_swing_s;             /* s the camera takes to swing to a new buoy-follow target; 0 = immediate */
 } CameraCfg;
 
 /* Boat class: racers can enter a race; cruisers are free range only. */

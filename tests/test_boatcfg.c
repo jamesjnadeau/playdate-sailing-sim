@@ -303,8 +303,26 @@ static void test_rudder_min_flow_default_and_clamp(void) {
     T_NEAR(c.foils.rudder_min_flow, 0.3f, 1e-6f);
 }
 
+static void test_buoy_swing_default_is_2(void) {
+    BoatCfg c; boatcfg_default(&c);
+    T_NEAR(c.camera.buoy_swing_s, 2.0, 1e-6);
+}
+
+static void test_buoy_swing_loads_and_clamps(void) {
+    BoatCfg c; char warn[W];
+    T_ASSERT(load(&c, "{\"camera\":{\"buoy_swing_s\":3}}", warn));
+    T_NEAR(c.camera.buoy_swing_s, 3.0, 1e-6);
+    T_ASSERT(!load(&c, "{\"camera\":{\"buoy_swing_s\":99}}", warn));
+    T_NEAR(c.camera.buoy_swing_s, 10.0, 1e-6);
+    T_ASSERT(strstr(warn, "buoy_swing_s") != NULL);
+    T_ASSERT(load(&c, "{\"camera\":{\"buoy_swing_s\":0}}", warn));
+    T_NEAR(c.camera.buoy_swing_s, 0.0, 1e-6);
+}
+
 int main(void) {
     T_RUN(test_default_is_sane);
+    T_RUN(test_buoy_swing_default_is_2);
+    T_RUN(test_buoy_swing_loads_and_clamps);
     T_RUN(test_rudder_min_flow_default_and_clamp);
     T_RUN(test_dinghy_json_reproduces_default);
     T_RUN(test_to_json_round_trips);

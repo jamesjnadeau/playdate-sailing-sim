@@ -6,6 +6,7 @@
 #include "besttimes.h"
 #include "camera.h"
 #include "game.h"
+#include "ghost.h"
 #include "helptext.h"
 #include "menu.h"
 #include "praise.h"
@@ -40,6 +41,9 @@ static Track tracks[TRACKS_MAX];
 static int ntracks;
 static BestTimes best;
 static bool finish_recorded;   /* this race's time has been offered to `best` */
+static GhostSample ghost_best_store[GHOST_MAX_SAMPLES], ghost_run_store[GHOST_MAX_SAMPLES];
+static uint8_t ghost_io[GHOST_FILE_MAX];
+static Ghost ghost_best, ghost_run;   /* the personal best on this course, and the run being sailed */
 static HelpLine help[HELP_ROWS_MAX];
 static int nhelp;
 
@@ -69,6 +73,50 @@ static void best_save(void) {
     if (!f) return;
     pd->file->write(f, buf, (unsigned int)n);
     pd->file->close(f);
+}
+
+/* ghost_<course>.bin, the course name cut down to letters and digits */
+static void ghost_path(char *out, size_t n, const char *course) {
+    size_t k = (size_t)snprintf(out, n, "ghost_");
+    for (; *course && k + 5 < n; course++)
+        if ((*course >= 'a' && *course <= 'z') || (*course >= 'A' && *course <= 'Z') || (*course >= '0' && *course <= '9')) out[k++] = *course;
+    snprintf(out + k, n - k, ".bin");
+}
+
+static uint32_t ghost_boat_hash(void) { return ghost_hash_str(assets_boat_names()[boat_index]); }
+
+static void ghost_load(void) {
+    char path[64];
+    ghost_clear(&ghost_best);
+    ghost_path(path, sizeof path, game.track.name);
+    SDFile *f = pd->file->open(path, kFileReadData);
+    if (!f) return;
+    const int n = pd->file->read(f, ghost_io, sizeof ghost_io);
+    pd->file->close(f);
+    if (n > 0 && !ghost_decode(&ghost_best, ghost_io, (size_t)n)) ghost_clear(&ghost_best);
+}
+
+static void ghost_save(const Ghost *gh) {
+    char path[64];
+    const size_t n = ghost_encode(gh, ghost_io, sizeof ghost_io);
+    if (n == 0) return;
+    ghost_path(path, sizeof path, game.track.name);
+    SDFile *f = pd->file->open(path, kFileWrite);
+    if (!f) return;
+    pd->file->write(f, ghost_io, (unsigned int)n);
+    pd->file->close(f);
+}
+
+/* The ghost to race, or NULL when there is none or it was sailed in other conditions. */
+static Ghost *ghost_opponent(void) {
+    if (game.mode != GAME_RACE) return NULL;
+    return ghost_matches(&ghost_best, game.seed, ghost_track_hash(&game.track), ghost_boat_hash(), game.preset) ? &ghost_best : NULL;
+}
+
+/* A race attempt starts (or restarts): the course's own seed, so wind and sea repeat, and a fresh recording. */
+static void race_attempt(void) {
+    game_restart(&game, ghost_seed(game.track.name));
+    ghost_begin(&ghost_run, &game, ghost_track_hash(&game.track), ghost_boat_hash());
 }
 
 static uint32_t fresh_seed(void) {
@@ -228,6 +276,8 @@ static int update(void *ud) {
             if (new_boat) begin(true);
             else game_set_preset(&game, preset_index);
             game_set_track(&game, &tracks[menu.track]);
+            ghost_load();
+            race_attempt();
             sys_menu_build(true);
             camera_snap();
             app = APP_PLAY;
@@ -263,7 +313,7 @@ static int update(void *ud) {
             return 1;
         }
         if (!(pushed & kButtonB)) {
-            render_frame(pd, &game, &cam);
+            render_frame(pd, &game, &cam, ghost_opponent());
             hud_back_confirm(pd);
 #ifdef SCENARIO
             scenario_frame_done(pd, &game, "play");
@@ -285,15 +335,25 @@ static int update(void *ud) {
     /* A restarts once the run is over; while sailing A toggles the autopilot, a quick press of B
        the autotrim, and holding B starts the engine. */
     if (game.run != RUN_SAILING && (pushed & kButtonA)) {
-        game_restart(&game, fresh_seed());
+        if (game.mode == GAME_RACE) race_attempt();
+        else game_restart(&game, fresh_seed());
         pushed = 0;
         dt = 1.0f / 30;
     }
     game_update(&game, (uint32_t)pushed, (uint32_t)cur, crank, dt);
+    if (game.mode == GAME_RACE) ghost_record(&ghost_run, &game);
     if (game.mode == GAME_RACE && game.race.finished) {
         if (!finish_recorded) {
             finish_recorded = true;
-            if (besttimes_record(&best, game.track.name, game.race.t)) best_save();
+            if (besttimes_record(&best, game.track.name, game.race.t)) {
+                best_save();
+                if (ghost_finish(&ghost_run, &game)) {
+                    ghost_save(&ghost_run);
+                    const Ghost keep = ghost_run;   /* the new best is the one on show next time; the old storage records */
+                    ghost_run = ghost_best;
+                    ghost_best = keep;
+                }
+            }
         }
     } else {
         finish_recorded = false;
@@ -302,7 +362,7 @@ static int update(void *ud) {
     if (game.mode == GAME_JOURNEY) journey_cull(&game, &cam);
     audio_update(&game, dt);
 
-    render_frame(pd, &game, &cam);
+    render_frame(pd, &game, &cam, ghost_opponent());
     if (warn_left > 0.0f) {
         warn_left -= dt;
         /* below the HUD bar, on white, clipped to one screen-width line */
@@ -341,6 +401,8 @@ int eventHandler(PlaydateAPI *playdate, PDSystemEvent event, uint32_t arg) {
         pd = playdate;
         ntracks = tracks_load_all(pd, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
         best_load();
+        ghost_init(&ghost_best, ghost_best_store, GHOST_MAX_SAMPLES);
+        ghost_init(&ghost_run, ghost_run_store, GHOST_MAX_SAMPLES);
         assets_scan_boats(pd);
         assets_boat_raceable(pd, boat_raceable);
         sys_menu_build(false);

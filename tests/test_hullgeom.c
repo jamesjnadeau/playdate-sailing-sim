@@ -114,6 +114,17 @@ static void test_wave_under_windward_hull_reimmerses(void) {
     float p, s; cat_immersion(deg2rad(12), 1.95f, 0.25f, 0.45f, 0, &p, &s);
     T_ASSERT(p > 0.5f);
 }
+/* the render draws a hull wet exactly when the physics' stored immersion says so */
+static void test_render_gate_follows_stored_immersion(void) {
+    float p, s;
+    cat_immersion(deg2rad(7.8f), 1.95f, 0.25f, 0, 0, &p, &s);    /* port flying */
+    T_ASSERT(!hull_draws_wet(p)); T_ASSERT(hull_draws_wet(s));
+    cat_immersion(deg2rad(7.0f), 1.95f, 0.25f, 0, 0, &p, &s);    /* just wet */
+    T_ASSERT(hull_draws_wet(p));
+    cat_immersion(deg2rad(-7.8f), 1.95f, 0.25f, 0, 0, &p, &s);   /* starboard flying */
+    T_ASSERT(hull_draws_wet(p)); T_ASSERT(!hull_draws_wet(s));
+    T_ASSERT(hull_draws_wet(NAN));
+}
 static void test_pivot_continuous_through_upright(void) {
     float l1, u1, l2, u2;
     hull_heel_about(1e-4f, hull_pivot(1e-4f, 1.95f), -0.975f, 0.2f, &l1, &u1);
@@ -146,6 +157,7 @@ int main(void) {
     T_RUN(test_windward_hull_lifts_off_near_7_deg);
     T_RUN(test_immersion_mirrors_with_heel);
     T_RUN(test_wave_under_windward_hull_reimmerses);
+    T_RUN(test_render_gate_follows_stored_immersion);
     T_RUN(test_pivot_continuous_through_upright);
     T_RUN(test_pivot_zero_matches_origin_rotation);
     T_RUN(test_immersion_degenerate_inputs_finite);

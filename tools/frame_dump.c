@@ -8,6 +8,7 @@
 #include "game.h"
 #include "camera.h"
 #include "render.h"
+#include "hullgeom.h"
 
 #define W 400
 #define H 240
@@ -152,9 +153,10 @@ static void side_views(void) {
 static const char *boat_path;
 static void load_boat(BoatCfg *bc) {
     FILE *jf = boat_path ? fopen(boat_path, "rb") : NULL;
-    if (!jf) { if (boat_path) perror(boat_path); return; }
+    if (!jf) { if (boat_path) { perror(boat_path); exit(1); } return; }
     static char buf[16384]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
-    char w[128]; boatcfg_load(bc, buf, n, w, sizeof w);
+    char w[128];
+    if (!boatcfg_load(bc, buf, n, w, sizeof w)) { fprintf(stderr, "%s: boatcfg_load failed: %s\n", boat_path, w); exit(1); }
 }
 
 /* Boat pinned at a heel angle (deg, + = starboard rail down) so the extreme-heel look can be checked. */
@@ -167,6 +169,8 @@ static void forced_heel(const char *tag, float deg, float yaw) {
     g.ctl.camera_yaw = yaw;
     for (int i = 0; i < 150; i++) { game_update(&g, 0, 0, 0, 1.0f / 30); camera_update(&cp, &g, &g.boat, 1.0f / 30); }
     g.b.heel = deg * 0.0174533f; g.b.heel_rate = 0;
+    if (g.boat.hull.hulls == 2)   /* the render reads the physics' stored immersion, which the pinned heel has not yet refreshed */
+        cat_immersion(g.b.heel, g.boat.hull.hull_spacing, g.boat.hull.draft, 0.0f, 0.0f, &g.b.immersion[0], &g.b.immersion[1]);
     camera_update(&cp, &g, &g.boat, 1.0f / 30);
     shoot(tag);
 }

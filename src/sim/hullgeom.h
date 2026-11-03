@@ -43,4 +43,8 @@ void hull_heel_about(float heel, float pivot, float y, float z, float *l, float 
  * hull centre (y = -/+ spacing/2). Non-finite inputs give 1 for both hulls. */
 void cat_immersion(float heel, float spacing, float draft, float sea_port, float sea_stbd, float *port, float *stbd);
 
+/* Should a catamaran hull draw wet (waterline, foam, wake, topsides cut by the sea), given the
+ * immersion the physics stored for it? False only when the physics holds it fully clear (<= 0). */
+bool hull_draws_wet(float immersion);
+
 #endif

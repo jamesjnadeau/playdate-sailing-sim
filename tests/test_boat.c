@@ -453,6 +453,7 @@ static void test_hobie_flies_a_hull_on_the_other_tack(void) {
 
 static void test_hobie_capsizes_when_sheeted_hard_in_a_gale(void) {
     Sim s; hobie_sim(&s, 90, 14.0f, 3.0f);
+    s.autotrim = 0;     /* otherwise auto-trim overwrites the hard sheet */
     for (int i = 0; i < s.cfg.sail_count; i++) { s.in.trim_target[i] = D(s.cfg.sails[i].trim_min_deg); s.b.trims[i] = D(s.cfg.sails[i].trim_min_deg); }
     float maxheel = 0;
     for (int i = 0; i < (int)(20.0f / DT); i++) {

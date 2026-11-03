@@ -764,13 +764,18 @@ static const float HULL_KEEL = -0.3f, HULL_TUCK = 0.45f;   /* topsides tuck to 4
 /* The hull being drawn: its lateral centre in the boat frame (0 on a monohull) and its gunwale
  * half-width. A catamaran draws its two hulls one after the other, each set by set_hull. */
 static float cur_hull_y, cur_hull_hb;
+/* true when the physics holds the live catamaran hull being drawn fully clear of the sea (stored
+ * immersion 0): it draws with full topsides and no waterline, foam or wake. Never set for ghosts. */
+static bool cur_hull_clear;
 
 /* i: -1 port hull, +1 starboard hull, 0 the monohull (or the default, whole-beam values) */
 static void set_hull(const Game *g, int i) {
     const HullCfg *h = &g->boat.hull;
-    if (i == 0) { cur_hull_y = 0.0f; cur_hull_hb = 0.5f * h->beam; return; }
+    cur_hull_y = 0.0f; cur_hull_hb = 0.5f * h->beam; cur_hull_clear = false;
+    if (i == 0) return;
     cur_hull_y = 0.5f * h->hull_spacing * (float)i;
     cur_hull_hb = 0.5f * (h->beam - h->hull_spacing);
+    cur_hull_clear = h->hulls == 2 && !ghost_pass && !hull_draws_wet(g->b.immersion[i > 0]);
 }
 
 /* heading-frame point (fwd, stbd, up from the mean waterline; heel already applied) -> screen */
@@ -829,6 +834,10 @@ static bool side_wl(const Game *g, int sgn, float u, float wscale, float *x, flo
     float w = cur_hull_hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * wscale;
     *x = g->boat.hull.length * (0.5f - u);
     float surf = rel_surface(g, *x, cur_hull_y + sgn * w);
+    if (cur_hull_clear) {                 /* the physics has this hull clear: full topsides, whatever the waves do here */
+        *z = cat_side_z(g, w, sgn, lk->freeboard, keel, -1e3f, y);
+        return false;
+    }
     for (int it = 0; it < 3; it++) {      /* the surface depends on where the cut lands, which depends on the surface */
         *z = cat ? cat_side_z(g, w, sgn, lk->freeboard, keel, surf, y)
                  : hull_side_z(w, sgn, lk->freeboard, keel, HULL_TUCK, g->b.heel, surf, y);
@@ -884,16 +893,13 @@ static void waterline_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c, 
     /* waterline ring: a band hugging the heeled hull where it meets the sea, denser on the buried (leeward) side */
     Ctx hk = { pd, g, c };
     float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
-    /* a catamaran hull's burial is how deep it sits, from the same sea samples the physics uses; one
-     * that is clear of the sea has no ring and no wake */
+    /* a catamaran hull's burial is how deep it sits, from the immersion the physics stored this step
+     * (the live boat only: ghosts never reach here). One the physics holds clear has no ring, foam or wake. */
     const bool cat = g->boat.hull.hulls == 2;
-    float imm = 1.0f;
-    if (cat) {
-        const HullCfg *h = &g->boat.hull;
-        float ip, is;
-        cat_immersion(b->heel, h->hull_spacing, h->draft, rel_surface(g, 0.0f, -0.5f * h->hull_spacing),
-                      rel_surface(g, 0.0f, 0.5f * h->hull_spacing), &ip, &is);
-        imm = hi == 0 ? ip : is;
+    float imm = cat ? b->immersion[hi] : 1.0f;
+    if (cat && !hull_draws_wet(imm)) {
+        bury_sm[hi][0] = bury_sm[hi][1] = 0.25f;
+        return;
     }
     int hidden = far_side(g, c);                             /* its ring is behind the hull */
     const double last_t = wl_last_t;

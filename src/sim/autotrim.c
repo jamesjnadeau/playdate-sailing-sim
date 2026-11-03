@@ -11,6 +11,7 @@ void autotrim_init(Autotrim *at) { memset(at, 0, sizeof *at); }
 void autotrim_toggle(Autotrim *at) {
     at->on = !at->on;
     at->primed = false;
+    at->ease = 0.0f;
 }
 
 /* Angle of attack (rad) where lift peaks, i.e. the first lobe of the CL curve. Past it the model has

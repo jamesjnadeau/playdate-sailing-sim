@@ -122,6 +122,15 @@ static void test_cat_eases_instead_of_reefing(void) {
         T_ASSERT(in.trim_target[i] > best + deg2rad(5) || in.trim_target[i] >= mx - 1e-5f);
     }
 }
+static void test_toggle_clears_ease(void) {
+    make_cat();
+    b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
+    for (int i = 0; i < 30; i++) autotrim_update(&at, &cfg, &b, &in, DT);
+    T_ASSERT(at.ease > 0);
+    autotrim_toggle(&at);
+    autotrim_toggle(&at);
+    T_NEAR(at.ease, 0.0f, 0.0f);
+}
 static void test_cat_sheets_back_in(void) {
     make_cat();
     b.heel = 2 * deg2rad(cfg.controls.autotrim_heel_deg);
@@ -192,5 +201,6 @@ int main(void) {
     T_RUN(test_cat_sheets_back_in);
     T_RUN(test_cat_ease_is_bounded);
     T_RUN(test_cat_eases_instead_of_reefing);
+    T_RUN(test_toggle_clears_ease);
     return T_DONE();
 }

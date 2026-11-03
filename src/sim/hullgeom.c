@@ -74,3 +74,5 @@ void cat_immersion(float heel, float spacing, float draft, float sea_port, float
     *port = immersion_of(sea_port, up_p, draft);
     *stbd = immersion_of(sea_stbd, up_s, draft);
 }
+
+bool hull_draws_wet(float immersion) { return !(immersion <= 0.0f); }

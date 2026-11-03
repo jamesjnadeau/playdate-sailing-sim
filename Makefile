@@ -12,13 +12,13 @@ ifeq ($(SDK),)
 $(error SDK path not found; set ENV value PLAYDATE_SDK_PATH)
 endif
 
-VPATH += src/pd:src/sim
+VPATH += src/pd:src/app:src/sim
 
-SRC = src/pd/main.c src/pd/assets.c src/pd/render.c src/pd/hud.c \
-      src/pd/tracks.c src/pd/menu_draw.c src/pd/audio.c \
-      $(wildcard src/sim/*.c)
+SRC = src/pd/main.c src/pd/render.c src/pd/hud.c \
+      src/pd/menu_draw.c src/pd/audio.c \
+      $(wildcard src/app/*.c) $(wildcard src/sim/*.c)
 
-UINCDIR = src/sim src/pd
+UINCDIR = src/sim src/app src/pd
 UASRC =
 UDEFS =
 

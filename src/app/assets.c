@@ -9,9 +9,9 @@ static void collect_boat(const char *name, void *ud) {
     boatlist_add(&boats, name);
 }
 
-void assets_scan_boats(PlaydateAPI *pd) {
+void assets_scan_boats(const Platform *p) {
     boatlist_init(&boats);
-    pd->file->listfiles("boats", collect_boat, NULL, 0);
+    p->listfiles("boats", collect_boat, NULL);
     boatlist_finish(&boats);
 }
 
@@ -30,31 +30,31 @@ static void addmsg(char *warn, size_t cap, const char *fmt, const char *a, const
 }
 
 /* Returns bytes read, or -1 when the file cannot be opened or is too large. */
-static int read_file(PlaydateAPI *pd, const char *path) {
-    SDFile *f = pd->file->open(path, kFileRead);
+static int read_file(const Platform *p, const char *path) {
+    void *f = p->open(path, PLAT_READ);
     if (!f) return -1;
-    int n = pd->file->read(f, filebuf, FILE_MAX - 1);
-    int more = pd->file->read(f, filebuf + n, 1);
-    pd->file->close(f);
+    int n = p->read(f, filebuf, FILE_MAX - 1);
+    int more = p->read(f, filebuf + n, 1);
+    p->close(f);
     if (n < 0 || more > 0) return -1;
     filebuf[n] = 0;
     return n;
 }
 
-int assets_read_file(PlaydateAPI *pd, const char *path, char **buf) {
-    int n = read_file(pd, path);
+int assets_read_file(const Platform *p, const char *path, char **buf) {
+    int n = read_file(p, path);
     *buf = filebuf;
     return n;
 }
 
-void assets_boat_raceable(PlaydateAPI *pd, bool out[BOATLIST_MAX]) {
+void assets_boat_raceable(const Platform *p, bool out[BOATLIST_MAX]) {
     char path[96], msg[160];
     BoatCfg boat;
     for (int i = 0; i < boats.count; i++) {
         /* Reading or parsing failure leaves boatcfg_default, which is a racer. */
         boatcfg_default(&boat);
         snprintf(path, sizeof path, "boats/%s.json", boats.name[i]);
-        int n = read_file(pd, path);
+        int n = read_file(p, path);
         if (n >= 0) {
             msg[0] = 0;
             boatcfg_load(&boat, filebuf, (size_t)n, msg, sizeof msg);
@@ -63,7 +63,7 @@ void assets_boat_raceable(PlaydateAPI *pd, bool out[BOATLIST_MAX]) {
     }
 }
 
-bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *weather,
+bool assets_load(const Platform *p, int boat_index, BoatCfg *boat, WeatherCfg *weather,
                  WorldCfg *world, char *warn, size_t warnlen) {
     char path[96], msg[160];
     warn[0] = 0;
@@ -73,21 +73,21 @@ bool assets_load(PlaydateAPI *pd, int boat_index, BoatCfg *boat, WeatherCfg *wea
     world_default(world);
 
     snprintf(path, sizeof path, "boats/%s.json", boats.name[boat_index]);
-    int n = read_file(pd, path);
+    int n = read_file(p, path);
     if (n < 0) addmsg(warn, warnlen, "%s: %s", path, "missing or too large, using built-in boat");
     else {
         msg[0] = 0;
         if (!boatcfg_load(boat, filebuf, (size_t)n, msg, sizeof msg)) addmsg(warn, warnlen, "%s: %s", path, msg);
     }
 
-    n = read_file(pd, "config/weather.json");
+    n = read_file(p, "config/weather.json");
     if (n < 0) addmsg(warn, warnlen, "%s: %s", "config/weather.json", "missing, using built-in weather");
     else {
         msg[0] = 0;
         if (!weather_load(weather, filebuf, (size_t)n, msg, sizeof msg)) addmsg(warn, warnlen, "%s: %s", "weather", msg);
     }
 
-    n = read_file(pd, "config/world.json");
+    n = read_file(p, "config/world.json");
     if (n < 0) addmsg(warn, warnlen, "%s: %s", "config/world.json", "missing, using built-in world");
     else {
         msg[0] = 0;

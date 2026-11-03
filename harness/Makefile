@@ -29,12 +29,12 @@ $(error SDK path not found; set ENV value PLAYDATE_SDK_PATH)
 endif
 
 BUILD  := build
-SRC    := $(ROOT)/src/pd/main.c $(ROOT)/src/pd/assets.c $(ROOT)/src/pd/render.c $(ROOT)/src/pd/hud.c \
-          $(ROOT)/src/pd/tracks.c $(ROOT)/src/pd/menu_draw.c $(ROOT)/src/pd/audio.c $(ROOT)/src/pd/scenario.c \
+SRC    := $(ROOT)/src/pd/main.c $(ROOT)/src/pd/render.c $(ROOT)/src/pd/hud.c \
+          $(wildcard $(ROOT)/src/app/*.c) $(ROOT)/src/pd/menu_draw.c $(ROOT)/src/pd/audio.c $(ROOT)/src/pd/scenario.c \
           $(ROOT)/src/pd/scenario_io.c $(wildcard $(ROOT)/src/sim/*.c) pdstub.c host_main.c
 # -ffp-contract=off keeps float results identical across compilers and CPUs
 CFLAGS := -std=gnu99 -O1 -Wall -Wextra -DSCENARIO -DTARGET_SIMULATOR=1 -DTARGET_EXTENSION=1 -ffp-contract=off \
-          -I. -I$(SDK)/C_API -I$(ROOT)/src/sim -I$(ROOT)/src/pd
+          -I. -I$(SDK)/C_API -I$(ROOT)/src/sim -I$(ROOT)/src/app -I$(ROOT)/src/pd
 SCEN   ?= smoke
 # typo is a deliberate parse failure, so it stays out of run-all and the goldens
 SCENS  := $(filter-out typo,$(basename $(notdir $(wildcard $(ROOT)/tests/scenarios/*.txt))))

@@ -28,12 +28,12 @@ static void addwarn(char *warn, size_t cap, const char *path, const char *msg) {
     snprintf(warn + n, cap - n, "%s: %s", path, msg);
 }
 
-int tracks_load_all(PlaydateAPI *pd, Track *out, int max, char *warn, size_t warnlen) {
+int tracks_load_all(const Platform *p, Track *out, int max, char *warn, size_t warnlen) {
     NameList nl;
     nl.n = 0;
     if (warnlen) warn[0] = 0;
     if (max > TRACKS_MAX) max = TRACKS_MAX;
-    pd->file->listfiles("tracks", collect, &nl, 0);
+    p->listfiles("tracks", collect, &nl);
     qsort(nl.names, (size_t)nl.n, sizeof nl.names[0], by_name);
 
     int count = 0;
@@ -41,7 +41,7 @@ int tracks_load_all(PlaydateAPI *pd, Track *out, int max, char *warn, size_t war
         char path[96], msg[160];
         snprintf(path, sizeof path, "tracks/%s", nl.names[i]);
         char *buf = NULL;
-        int n = assets_read_file(pd, path, &buf);
+        int n = assets_read_file(p, path, &buf);
         if (n < 0) {
             addwarn(warn, warnlen, path, "missing or too large, skipped");
             continue;

@@ -51,8 +51,8 @@ void follower_record(Follower *f, const BoatState *b) {
 }
 
 static void lerp_pose(FollowPose *o, const FollowPose *a, const FollowPose *b, float t) {
-    o->x = a->x + (b->x - a->x) * t;
-    o->y = a->y + (b->y - a->y) * t;
+    o->x = a->x + (double)((float)(b->x - a->x) * t);
+    o->y = a->y + (double)((float)(b->y - a->y) * t);
     o->heading = wrap_pi(a->heading + wrap_pi(b->heading - a->heading) * t);
     o->heel = a->heel + (b->heel - a->heel) * t;
     o->wheel = a->wheel + (b->wheel - a->wheel) * t;
@@ -68,8 +68,8 @@ bool follower_pose(const Follower *f, float behind_m, FollowPose *out) {
     if (f->n < 2 || !isfinite(behind_m) || behind_m < 0) return false;
     const FollowSample *newest = &f->smp[f->head];
     const FollowSample *oldest = &f->smp[wrap_idx(f->head - f->n + 1)];
-    if (newest->s - oldest->s < behind_m) return false;
-    double target = newest->s - behind_m;
+    if (newest->s - oldest->s < (double)behind_m) return false;
+    double target = newest->s - (double)behind_m;
     int hi = f->head;
     for (int k = 0; k < f->n - 2; k++) {
         int lo = wrap_idx(hi - 1);
@@ -93,6 +93,6 @@ void follower_shift(Follower *f, double dx, double dy) {
 }
 
 bool follower_near_eye(const FollowPose *p, double cam_x, double cam_y, float min_m) {
-    double d = hypot(p->x - cam_x, p->y - cam_y);
+    const float d = hypotf((float)(p->x - cam_x), (float)(p->y - cam_y));
     return !isfinite(d) || d < min_m;
 }

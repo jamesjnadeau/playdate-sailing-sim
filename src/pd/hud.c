@@ -82,15 +82,15 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     if (hud_shows_nav(mode)) {
         /* speed, heading and heel in fixed-width cells separated by 1px lines; the AWS number sits by the dial */
-        snprintf(line, sizeof line, "%.1fkn", fabsf(b->u) * 1.94384f);
+        snprintf(line, sizeof line, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
         text(pd, line, HUD_MODE_W + HUD_PAD, ty);
         pd->graphics->drawLine(HUD_SPEED_END, top, HUD_SPEED_END, CAM_H - 1, 1, kColorWhite);
         snprintf(line, sizeof line, "HDG %03d", hud_heading_deg(b->heading));
         text(pd, line, HUD_SPEED_END + HUD_PAD, ty);
         pd->graphics->drawLine(HUD_HDG_END, top, HUD_HDG_END, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "HEEL %+.0f", b->heel * 57.29578f);
+        snprintf(line, sizeof line, "HEEL %+.0f", (double)(b->heel * 57.29578f));
         text(pd, line, HUD_HDG_END + HUD_PAD, ty);
-        snprintf(line, sizeof line, "%.0f", b->aws);
+        snprintf(line, sizeof line, "%.0f", (double)b->aws);
         text(pd, line, CAM_W - 12 - 8 - 26, ty);
     } else if (mode == MODE_TRIM || mode == MODE_HOIST) {
         /* selected sail: its name, then the trim or hoist bar */
@@ -314,8 +314,10 @@ static void draw_course_map(PlaydateAPI *pd, const Game *g) {
     const float bx = (float)(g->b.x + r->ox), by = (float)(g->b.y + r->oy);   /* boat, track frame */
     float lo_x = tr->start_x, hi_x = lo_x, lo_y = tr->start_y, hi_y = lo_y;
 #define EXT(X, Y) do { float _x = (X), _y = (Y); \
-        if (_x < lo_x) lo_x = _x; if (_x > hi_x) hi_x = _x; \
-        if (_y < lo_y) lo_y = _y; if (_y > hi_y) hi_y = _y; } while (0)
+        if (_x < lo_x) lo_x = _x; \
+        if (_x > hi_x) hi_x = _x; \
+        if (_y < lo_y) lo_y = _y; \
+        if (_y > hi_y) hi_y = _y; } while (0)
     for (int i = 0; i < tr->nmarks; i++) EXT(tr->marks[i].x, tr->marks[i].y);
     EXT(bx, by);
 #undef EXT

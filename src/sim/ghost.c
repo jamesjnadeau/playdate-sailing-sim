@@ -59,13 +59,13 @@ float ghost_progress(const Game *g) {
     double mx, my, px, py;
     race_mark_local(r, t, r->next, &mx, &my);
     if (r->next == 0) {
-        px = t->start_x - r->ox;
-        py = t->start_y - r->oy;
+        px = (double)t->start_x - r->ox;
+        py = (double)t->start_y - r->oy;
     } else {
         race_mark_local(r, t, r->next - 1, &px, &py);
     }
-    const double leg = hypot(mx - px, my - py), d = hypot(mx - g->b.x, my - g->b.y);
-    const float frac = leg > 1e-3 ? clampf((float)(1.0 - d / leg), 0.0f, 1.0f) : 0.0f;
+    const float leg = hypotf((float)(mx - px), (float)(my - py)), d = hypotf((float)(mx - g->b.x), (float)(my - g->b.y));
+    const float frac = leg > 1e-3f ? clampf(1.0f - d / leg, 0.0f, 1.0f) : 0.0f;
     return (float)r->next + frac;
 }
 
@@ -91,8 +91,8 @@ static void pose_of_game(const Game *g, GhostPose *p) {
 
 static void pose_lerp(const GhostPose *a, const GhostPose *b, float f, GhostPose *o) {
     f = clampf(f, 0.0f, 1.0f);
-    o->x = a->x + (b->x - a->x) * f;
-    o->y = a->y + (b->y - a->y) * f;
+    o->x = a->x + (double)((float)(b->x - a->x) * f);
+    o->y = a->y + (double)((float)(b->y - a->y) * f);
     o->heading = wrap_pi(a->heading + wrap_pi(b->heading - a->heading) * f);
     o->heel = a->heel + (b->heel - a->heel) * f;
     o->wheel = a->wheel + (b->wheel - a->wheel) * f;
@@ -246,7 +246,7 @@ bool ghost_time_at_progress(Ghost *gh, float p, double *t) {
         return true;
     }
     const float p0 = (float)gh->s[i].progress / PROGRESS_SCALE, p1 = (float)gh->s[i + 1].progress / PROGRESS_SCALE;
-    const double f = p1 > p0 ? clampf((p - p0) / (p1 - p0), 0.0f, 1.0f) : 0.0;
+    const double f = p1 > p0 ? (double)clampf((p - p0) / (p1 - p0), 0.0f, 1.0f) : 0.0;
     *t = t0 + (sample_time(gh, i + 1) - t0) * f;
     return true;
 }

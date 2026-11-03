@@ -21,9 +21,9 @@ static double height(const Sea *s, double x, double y, double t) {
     double h = 0;
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
-        double ph = TWO_PI * fmod(c->m * xw + c->n * yw, SEA_WRAP) / SEA_WRAP
-                  - fmod((double)c->omega * t, TWO_PI) + c->phase;
-        h += c->amp * cos(ph);
+        double ph = TWO_PI * fmod((double)c->m * xw + (double)c->n * yw, SEA_WRAP) / SEA_WRAP
+                  - fmod((double)c->omega * t, TWO_PI) + (double)c->phase;
+        h += (double)c->amp * cos(ph);
     }
     return h;
 }
@@ -51,7 +51,7 @@ void sea_init(Sea *s, const WeatherPreset *p, uint32_t seed) {
     for (int i = 0; i < s->n; i++) {
         SeaComp *c = &s->c[i];
         float dir = dir0 + deg2rad(spread_deg[i] + (hashf(hash2(2, i, seed)) - 0.5f) * 20.0f);
-        c->omega = (float)(TWO_PI * harmonic[i] / s->period);
+        c->omega = (float)(TWO_PI * harmonic[i] / (double)s->period);
         float k = c->omega * c->omega / (float)G;
         float km = k * (float)SEA_WRAP / (float)TWO_PI;
         c->m = (int)lroundf(km * cosf(dir));
@@ -84,8 +84,8 @@ void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t) {
         const SeaComp *c = &s->c[i];
         v->kx[i] = (float)(TWO_PI * c->m / SEA_WRAP);
         v->ky[i] = (float)(TWO_PI * c->n / SEA_WRAP);
-        v->ph[i] = (float)(TWO_PI * fmod(c->m * xw + c->n * yw, SEA_WRAP) / SEA_WRAP
-                         - fmod((double)c->omega * td, TWO_PI) + c->phase);
+        v->ph[i] = (float)(TWO_PI * fmod((double)c->m * xw + (double)c->n * yw, SEA_WRAP) / SEA_WRAP
+                         - fmod((double)c->omega * td, TWO_PI) + (double)c->phase);
         v->amp[i] = c->amp;
     }
 }
@@ -117,8 +117,8 @@ static void base_phase(const Sea *s, double x, double y, double t, BasePhase *ou
     double xw = fmod(x, SEA_WRAP), yw = fmod(y, SEA_WRAP);
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
-        out->ph[i] = (float)(TWO_PI * fmod(c->m * xw + c->n * yw, SEA_WRAP) / SEA_WRAP
-                           - fmod((double)c->omega * t, TWO_PI) + c->phase);
+        out->ph[i] = (float)(TWO_PI * fmod((double)c->m * xw + (double)c->n * yw, SEA_WRAP) / SEA_WRAP
+                           - fmod((double)c->omega * t, TWO_PI) + (double)c->phase);
     }
 }
 

@@ -82,7 +82,7 @@ static void get_pos(const JsonNode *obj, const char *key, float *dst, const char
     float v;
     if (!get_num(obj, key, &v, where, w)) return;
     if (v < -POS_LIM || v > POS_LIM) {
-        warnf(w, "%s.%s: %g outside +/-%g, clamped", where, key, v, POS_LIM);
+        warnf(w, "%s.%s: %g outside +/-%g, clamped", where, key, (double)v, (double)POS_LIM);
         v = clampf(v, -POS_LIM, POS_LIM);
     }
     *dst = v;
@@ -132,7 +132,7 @@ bool track_load(Track *out, const char *buf, size_t len, char *warn, size_t warn
         float kn;
         if (get_num(root, "wind_speed_kn", &kn, "track", &w)) {
             if (kn < WIND_KN_MIN || kn > WIND_KN_MAX) {
-                warnf(&w, "track.wind_speed_kn: %g outside %g..%g, clamped", kn, WIND_KN_MIN, WIND_KN_MAX);
+                warnf(&w, "track.wind_speed_kn: %g outside %g..%g, clamped", (double)kn, (double)WIND_KN_MIN, (double)WIND_KN_MAX);
                 kn = clampf(kn, WIND_KN_MIN, WIND_KN_MAX);
             }
             out->wind_speed = kn / 1.94384f;
@@ -256,7 +256,7 @@ bool gate_crossed(float mx, float my, float gate, int rounding,
     if (!isfinite(mx) || !isfinite(my) || !isfinite(gate) ||
         !isfinite(x0) || !isfinite(y0) || !isfinite(x1) || !isfinite(y1)) return false;
     double dx = cos(gate), dy = sin(gate);
-    double p0x = x0 - mx, p0y = y0 - my, p1x = x1 - mx, p1y = y1 - my;
+    double p0x = x0 - (double)mx, p0y = y0 - (double)my, p1x = x1 - (double)mx, p1y = y1 - (double)my;
     double s0 = cross2(dx, dy, p0x, p0y), s1 = cross2(dx, dy, p1x, p1y);
     bool side = rounding == ROUND_STARBOARD
               ? (s0 < 0.0 && s1 >= 0.0)
@@ -272,12 +272,12 @@ void race_init(Race *r) {
 }
 
 void race_mark_local(const Race *r, const Track *t, int i, double *x, double *y) {
-    *x = t->marks[i].x - r->ox;
-    *y = t->marks[i].y - r->oy;
+    *x = (double)t->marks[i].x - r->ox;
+    *y = (double)t->marks[i].y - r->oy;
 }
 
 bool race_update(Race *r, const Track *t, double x0, double y0, double x1, double y1, float dt) {
-    if (!r->finished && isfinite(dt) && dt > 0.0f) r->t += dt;
+    if (!r->finished && isfinite(dt) && dt > 0.0f) r->t += (double)dt;
     if (r->finished || r->next >= t->nmarks) return false;
     double mx, my;
     race_mark_local(r, t, r->next, &mx, &my);

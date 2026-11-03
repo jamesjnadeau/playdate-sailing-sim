@@ -103,7 +103,7 @@ bool weather_load(WeatherCfg *out, const char *buf, size_t len, char *warn, size
             }
             if (v < FLDS[i].mn || v > FLDS[i].mx) {
                 wadd(warn, warnlen, &wn, &any, "%s.%s: %g outside [%g, %g], clamped",
-                     name, FLDS[i].key, v, FLDS[i].mn, FLDS[i].mx);
+                     name, FLDS[i].key, (double)v, (double)FLDS[i].mn, (double)FLDS[i].mx);
                 v = clampf(v, FLDS[i].mn, FLDS[i].mx);
             }
             *dst = v;
@@ -122,7 +122,7 @@ static const float D_K[3]    = { 0.5f, 0.3f, 0.2f };      /* share of the rate c
 
 static float speed_noise(const Wind *w) {
     float n = 0;
-    for (int i = 0; i < 3; i++) n += W_AMP[i] * sinf((float)fmod(W_FREQ[i] * w->t, 2 * PI_F) + w->phase[i]);
+    for (int i = 0; i < 3; i++) n += W_AMP[i] * sinf((float)fmod((double)W_FREQ[i] * w->t, (double)(2 * PI_F)) + w->phase[i]);
     return n;
 }
 
@@ -130,13 +130,13 @@ static float speed_noise(const Wind *w) {
 static float dir_offset(const Wind *w, const WeatherPreset *p) {
     float rate = deg2rad(p->shift_rate_deg), off = 0;
     for (int i = 0; i < 3; i++)
-        off += D_K[i] * rate / D_FREQ[i] * sinf((float)fmod(D_FREQ[i] * w->t, 2 * PI_F) + w->phase[3 + i]);
+        off += D_K[i] * rate / D_FREQ[i] * sinf((float)fmod((double)D_FREQ[i] * w->t, (double)(2 * PI_F)) + w->phase[3 + i]);
     return off;
 }
 
 static void schedule_gust(Wind *w, const WeatherPreset *p) {
     uint32_t h = hash2((int32_t)w->gust_n++, 77, w->seed);
-    w->next_gust = w->t + p->gust_interval * (0.5f + hashf(h));
+    w->next_gust = w->t + (double)(p->gust_interval * (0.5f + hashf(h)));
     w->gust_len = 4.0f + 6.0f * hashf(hash2(1, (int32_t)w->gust_n, w->seed));
     w->gust_amp = p->gust_speed * (0.5f + 0.5f * hashf(hash2(2, (int32_t)w->gust_n, w->seed)));
     w->gust_t = -1;
@@ -144,8 +144,8 @@ static void schedule_gust(Wind *w, const WeatherPreset *p) {
 
 static void evaluate(Wind *w, const WeatherPreset *p) {
     float g = 0;
-    if (w->gust_t >= 0 && w->gust_t < w->gust_len) {
-        float s = sinf(PI_F * (float)(w->gust_t / w->gust_len));
+    if (w->gust_t >= 0 && w->gust_t < (double)w->gust_len) {
+        float s = sinf(PI_F * (float)(w->gust_t / (double)w->gust_len));
         g = w->gust_amp * s * s;
     }
     float v = w->base + p->wind_var * speed_noise(w) + g;
@@ -166,10 +166,10 @@ void wind_init(Wind *w, const WeatherPreset *p, uint32_t seed) {
 void wind_step(Wind *w, const WeatherPreset *p, float dt) {
     if (!(dt > 0)) dt = 0;
     if (dt > 1.0f) dt = 1.0f;
-    w->t += dt;
+    w->t += (double)dt;
     if (w->gust_t >= 0) {
-        w->gust_t += dt;
-        if (w->gust_t >= w->gust_len) schedule_gust(w, p);
+        w->gust_t += (double)dt;
+        if (w->gust_t >= (double)w->gust_len) schedule_gust(w, p);
     } else if (w->t >= w->next_gust) {
         w->gust_t = 0;
     }

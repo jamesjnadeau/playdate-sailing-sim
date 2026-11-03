@@ -341,3 +341,18 @@ bool ghost_peek_time(const uint8_t *in, size_t n, double *time) {
     *time = t;
     return true;
 }
+
+void ghost_file_name(char *out, size_t n, const char *course, const char *boat, const char *weather) {
+    if (n == 0) return;
+    const char *const parts[3] = { course, boat, weather };
+    size_t k = 0;
+    for (const char *c = "ghost"; *c && k + 1 < n; c++) out[k++] = *c;
+    for (int part = 0; part < 3; part++) {
+        const char *s = parts[part] ? parts[part] : "";
+        if (k + 1 < n) out[k++] = '_';
+        for (; *s && k + 5 < n; s++)
+            if ((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9')) out[k++] = *s;
+    }
+    for (const char *c = ".bin"; *c && k + 1 < n; c++) out[k++] = *c;
+    out[k] = '\0';
+}

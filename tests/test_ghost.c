@@ -225,7 +225,21 @@ static void test_capacity_of_twenty_minutes(void) {
     T_ASSERT(GHOST_FILE_MAX == 40 + 24 * 12002);
 }
 
+static void test_file_name_keeps_letters_and_digits(void) {
+    char b[96];
+    ghost_file_name(b, sizeof b, "Windward-Leeward", "j24", "choppy");
+    T_ASSERT(strcmp(b, "ghost_WindwardLeeward_j24_choppy.bin") == 0);
+}
+
+static void test_file_name_truncates(void) {
+    char b[8];
+    ghost_file_name(b, sizeof b, "Windward-Leeward", "j24", "choppy");
+    T_ASSERT(strlen(b) < sizeof b);
+}
+
 int main(void) {
+    T_RUN(test_file_name_keeps_letters_and_digits);
+    T_RUN(test_file_name_truncates);
     T_RUN(test_seed_is_stable_per_course_and_never_zero);
     T_RUN(test_track_hash_changes_with_course);
     T_RUN(test_progress_runs_from_start_to_nmarks);

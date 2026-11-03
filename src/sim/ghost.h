@@ -59,6 +59,9 @@ uint32_t ghost_hash_str(const char *s);
 uint32_t ghost_track_hash(const Track *t);
 /* The weather seed of every attempt on a course, so the wind and sea repeat. Never 0. */
 uint32_t ghost_seed(const char *course);
+/* ghost_<course>_<boat>_<weather>.bin, each name cut down to letters and digits: one ghost per boat, course and
+   weather. Always NUL-terminated; truncates rather than overflowing. */
+void ghost_file_name(char *out, size_t n, const char *course, const char *boat, const char *weather);
 
 /* Course progress: the next mark's index plus how far along the leg into it, 0..nmarks. */
 float ghost_progress(const Game *g);

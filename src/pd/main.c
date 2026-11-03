@@ -76,16 +76,9 @@ static void best_save(void) {
     pd->file->close(f);
 }
 
-/* ghost_<course>_<boat>.bin, each name cut down to letters and digits: one ghost per boat on a course */
+/* The current weather's ghost for this course and boat. */
 static void ghost_path(char *out, size_t n, const char *course, const char *boat) {
-    size_t k = (size_t)snprintf(out, n, "ghost");
-    for (int part = 0; part < 2; part++) {
-        const char *s = part ? boat : course;
-        if (k + 1 < n) out[k++] = '_';
-        for (; *s && k + 5 < n; s++)
-            if ((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9')) out[k++] = *s;
-    }
-    snprintf(out + k, n - k, ".bin");
+    ghost_file_name(out, n, course, boat, WEATHER_NAMES[preset_index]);
 }
 
 static uint32_t ghost_boat_hash(void) { return ghost_hash_str(assets_boat_names()[boat_index]); }

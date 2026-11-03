@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Sea } from './sea.js';
 import { Sky } from './sky.js';
+import { Spray } from './spray.js';
 import { Boat } from './boat.js';
 import { World } from './world.js';
 import { palette, SUN_DIR } from './weather.js';
@@ -20,7 +21,8 @@ export class View {
     this.camera.up.set(0, 0, 1);
     this.sky = new Sky();
     this.sea = new Sea();
-    this.scene.add(this.sky.dome, this.sky.rain, this.sea.mesh);
+    this.spray = new Spray();
+    this.scene.add(this.sky.dome, this.sky.rain, this.sea.mesh, this.spray.points);
     this.hemi = new THREE.HemisphereLight(0xdfefff, 0x2a4b5e, 0.9);
     this.hemi.up.set(0, 0, 1);
     this.hemi.position.set(0, 0, 1);
@@ -77,7 +79,9 @@ export class View {
     const pal = palette(preset);
     this.poseCamera(f.cam);
     this.sky.update(pal, preset, f.t, dt, f.cam.z, f.wind);
-    this.sea.update(f.sea.k, f.cam.z, pal, preset, f.t, f.cam.x, f.cam.y);
+    this.sea.update(f.sea.k, f.cam.z, pal, preset, f.t, f.cam.x, f.cam.y, f.wind);
+    this.spray.update(f.sea.k, f.cam.x, f.cam.y, f.cam.z, f.t, f.wind,
+      this.camera.projectionMatrix.elements[5] * this.renderer.domElement.height / 2, pal.fog);
     this.scene.fog.color.copy(pal.fog);
     this.scene.fog.near = Math.min(40, preset.visibility * 0.1);
     this.scene.fog.far = preset.visibility * 1.25;
@@ -109,6 +113,7 @@ export class View {
     this.renderer.setClearColor(pal.fog);
     for (const b of [this.boat, this.ghost]) if (b) b.root.visible = false;
     this.world.group.visible = false;
+    this.spray.points.visible = false;
     this.renderer.render(this.scene, this.camera);
     if (this.boat) this.boat.root.visible = true;
     this.world.group.visible = true;

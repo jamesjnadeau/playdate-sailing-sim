@@ -8,10 +8,12 @@ DIST    := dist
 BUILD   := build
 EMCC    ?= emcc
 CC      ?= gcc
+# resolved by the shell: emsdk_env.sh puts the emsdk folder, which holds a node/ directory, on PATH
+NODE    := $(shell command -v node)
 SRC     := $(wildcard $(ROOT)/src/sim/*.c) $(wildcard $(ROOT)/src/app/*.c) $(wildcard src/*.c)
 HDR     := $(wildcard $(ROOT)/src/sim/*.h) $(wildcard $(ROOT)/src/app/*.h) $(wildcard src/*.h)
 INC     := -I$(ROOT)/src/sim -I$(ROOT)/src/app -Isrc
-# -ffp-contract=off as on the host, so the wasm sim matches the native one bit for bit
+# -ffp-contract=off as on the host: no fused multiply-adds, so wasm and native differ only by libm rounding
 CFLAGS  := -std=gnu99 -O2 -Wall -Wextra -ffp-contract=off $(INC)
 EXPORTS := _web_init,_web_step,_web_frame_json,_web_static_json,_web_static_generation,_web_sys_boat,_web_sys_weather,_web_sys_back,_web_playing,_web_take_dirty,_web_audio,_web_audio_on,_web_alloc,_malloc,_free
 LDFLAGS := -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createSim -sALLOW_MEMORY_GROWTH=1 -sENVIRONMENT=web \
@@ -49,14 +51,14 @@ $(BUILD)/parity.js: test/parity.c $(SRC) $(HDR)
 parity: $(BUILD)/parity $(BUILD)/parity.js
 	@mkdir -p $(BUILD)/save-native $(BUILD)/save-wasm
 	$(BUILD)/parity $(ROOT) $(BUILD)/save-native > $(BUILD)/parity-native.txt
-	node $(BUILD)/parity.js $(ROOT) $(BUILD)/save-wasm > $(BUILD)/parity-wasm.txt
+	$(NODE) $(BUILD)/parity.js $(ROOT) $(BUILD)/save-wasm > $(BUILD)/parity-wasm.txt
 	python3 -I test/compare.py $(BUILD)/parity-native.txt $(BUILD)/parity-wasm.txt
 
 jstest:
-	node --test test/*.test.mjs
+	$(NODE) --test test/*.test.mjs
 
 smoke: all
-	node test/smoke.mjs $(DIST)
+	$(NODE) test/smoke.mjs $(DIST)
 
 test: parity jstest smoke
 

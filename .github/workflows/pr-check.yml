@@ -8,8 +8,42 @@ permissions:
 
 env:
   PLAYDATE_SDK_VERSION: "3.1.2"
+  EMSDK_VERSION: "3.1.64"
+  PLAYWRIGHT_VERSION: "1.55.0"
 
 jobs:
+  # The browser build: native vs wasm parity, the input unit tests and a headless smoke test of the page.
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Emscripten
+        id: emsdk
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Install Emscripten
+        if: steps.emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "$EMSDK_VERSION"
+          ~/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      - name: Install Playwright
+        working-directory: web
+        run: |
+          npm install --no-save --no-package-lock "playwright@$PLAYWRIGHT_VERSION"
+          npx playwright install --with-deps chromium
+
+      - name: Web tests
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          make -C web test
+
+
   check:
     runs-on: ubuntu-latest
     steps:

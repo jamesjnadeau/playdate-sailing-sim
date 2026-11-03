@@ -141,8 +141,10 @@ export class Boat {
 
     this.sails = cfg.sails.map((s) => {
       const geo = new THREE.BufferGeometry();
+      // sailcloth lets light through: a share of its own colour as emissive keeps the shaded side from going grey
+      const col = sailColor(s);
       const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-        color: sailColor(s), roughness: 0.85, side: THREE.DoubleSide, ...op,
+        color: col, emissive: col.clone().multiplyScalar(0.32), roughness: 0.8, side: THREE.DoubleSide, ...op,
       }));
       m.visible = false;
       this.content.add(m);

@@ -35,6 +35,36 @@ tools/deploy.sh         # build for hardware and copy it to a connected Playdate
 make                    # build only
 ```
 
+## Web version
+
+`web/` builds the same game for the browser. The simulation (`src/sim/`) and the app flow (`src/app/`: menus, free range, journey, races, ghosts and best times) are the Playdate build's own C, compiled to WebAssembly. Only the drawing differs: a full-colour Three.js view instead of the 1-bit renderer.
+
+| Key | Playdate |
+| --- | --- |
+| W A S D (or the arrow keys) | d-pad |
+| V | A |
+| C | B |
+| Move the mouse up and down | Crank (click the view first to lock the pointer; the wheel works too) |
+| Esc | System menu: boat, weather, go back, mouse sensitivity and direction |
+
+Best times and ghosts are saved in the browser (IndexedDB). On the web, rocks are drawn; the Playdate renderer leaves them out.
+
+You need [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (`source emsdk_env.sh` so `emcc` is on `PATH`):
+
+```bash
+make -C web          # build into web/dist/
+```
+
+```bash
+make -C web serve    # build and serve on http://localhost:8000
+```
+
+```bash
+make -C web test     # native vs wasm parity, input unit tests, headless browser smoke test (needs Playwright)
+```
+
+The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to `main`. In the repository settings, set Pages → Build and deployment → Source to GitHub Actions.
+
 ## Tests
 
 The simulation core in `src/sim/` has no Playdate dependencies and is tested on the host:
@@ -112,7 +142,9 @@ A boat is one JSON file in `boats/`; see [docs/boat-schema.md](docs/boat-schema.
 | Path | Contents |
 | --- | --- |
 | `src/sim/` | Platform-independent simulation: boat, sail, sea, weather, race, menu, controls |
+| `src/app/` | Platform-independent app flow shared by the Playdate and web builds: menus, races, ghosts, best times, config loading |
 | `src/pd/` | Playdate glue: main loop, rendering, HUD, menu drawing |
+| `web/` | Browser build: Emscripten glue (`web/src/`), the Three.js page (`web/www/`) and its tests |
 | `boats/`, `tracks/`, `config/` | JSON and text data copied into the `.pdx` at build time |
 | `tests/` | Host unit tests, scenarios (`tests/scenarios/`) and goldens (`tests/golden/`) |
 | `harness/` | Host scenario harness and golden checks |

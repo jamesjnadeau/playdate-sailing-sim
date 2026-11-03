@@ -170,6 +170,8 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
     float u = fin(b->u), v = fin(b->v);
     float L = fmaxf(cfg->hull.length, 0.5f), beam = fmaxf(cfg->hull.beam, 0.2f);
     float m = cfg->hull.mass + cfg->hull.crew_mass;
+    /* lateral sample width: a cat's hull centres, otherwise the beam */
+    float wid = cfg->hull.hulls == 2 ? fmaxf(cfg->hull.hull_spacing, 0.2f) : beam;
     float fx = fast_cosf((float)hd), fy = fast_sinf((float)hd);
     float vx = u * fx - v * fy, vy = u * fy + v * fx;
     float speed = hypotf(u, v);
@@ -177,15 +179,17 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
     Samples a, a1;
     BasePhase bp;
     base_phase(s, x, y, td, &bp);
-    sample(s, &bp, 0.0f, 0.0f, 0.0f, fx, fy, L, beam, &a);
-    sample(s, &bp, vx * (float)RATE_EPS, vy * (float)RATE_EPS, (float)RATE_EPS, fx, fy, L, beam, &a1);
+    sample(s, &bp, 0.0f, 0.0f, 0.0f, fx, fy, L, wid, &a);
+    sample(s, &bp, vx * (float)RATE_EPS, vy * (float)RATE_EPS, (float)RATE_EPS, fx, fy, L, wid, &a1);
     float mean, slope, mean1, slope1;
     fit(&a, L, &mean, &slope);
     fit(&a1, L, &mean1, &slope1);
     slope = clampf(slope, -SLOPE_MAX, SLOPE_MAX);
-    float cross = clampf((a.h[8] - a.h[7]) / beam, -SLOPE_MAX, SLOPE_MAX);
+    float cross = clampf((a.h[8] - a.h[7]) / wid, -SLOPE_MAX, SLOPE_MAX);
 
     f.heave = mean;
+    f.sea_port = a.h[7] - mean;
+    f.sea_stbd = a.h[8] - mean;
     f.pitch = atanf(slope);
     f.drag_mult = DRAG_K * var * clampf(speed / fmaxf(cfg->hull.hull_speed, 0.1f), 0.0f, 1.2f);
 
@@ -205,5 +209,6 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
 
     f.drag_mult = fin(f.drag_mult); f.surge = fin(f.surge); f.yaw = fin(f.yaw);
     f.heel = fin(f.heel); f.pitch = fin(f.pitch); f.heave = fin(f.heave);
+    f.sea_port = fin(f.sea_port); f.sea_stbd = fin(f.sea_stbd);
     return f;
 }

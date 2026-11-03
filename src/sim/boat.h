@@ -51,6 +51,7 @@ typedef struct {
     float yaw;                   /* N.m */
     float heel;                  /* N.m */
     float pitch, heave;          /* camera only */
+    float sea_port, sea_stbd;    /* sea height under each hull centre relative to heave, m (cats) */
 } WaveForces;
 
 void boat_init(BoatState *b, const BoatCfg *cfg);

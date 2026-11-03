@@ -135,19 +135,29 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
   border-top: 7px solid transparent; border-bottom: 7px solid transparent;
 }
 .menu-list .item.off { opacity: 0.38; }
+.menu-list .item:not(.off) { cursor: pointer; }
+.menu-list .item:not(.sel):not(.off):hover { border-color: var(--line); }
+.menu-list .more, .help-body .more { cursor: pointer; }
 .menu-list .more { text-align: center; color: var(--muted); font-size: 12px; }
 .menu-hints {
   display: flex; align-items: center; gap: 22px; padding: 14px 28px; background: rgba(6, 14, 22, 0.85);
   border-top: 1px solid var(--line); font: 600 13px var(--sans); letter-spacing: 0.08em;
 }
 .menu-hints .grow { flex: 1; }
+.menu-hints .hint { display: inline-flex; align-items: center; gap: 6px; }
+.menu-hints button.hint {
+  font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 4px 8px; margin: -5px -8px; cursor: pointer;
+}
+.menu-hints button.hint:hover, .menu-hints button.hint:focus-visible { background: rgba(255, 255, 255, 0.1); border-color: var(--line); }
+.menu-hints button.about { margin-left: 0; color: var(--accent); text-transform: uppercase; }
 .menu-hints .key.a { background: var(--ink); color: #0b1622; }
 .menu-preview { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
 .pv-head { display: flex; align-items: baseline; justify-content: space-between; }
 .pv-head h2 { margin: 0; font: 800 clamp(24px, 4vw, 38px) var(--sans); }
 .pv-best { font: 600 16px var(--mono); color: var(--muted); }
 .menu-preview canvas {
-  flex: 1; width: 100%; min-height: 240px; background: rgba(8, 30, 48, 0.72); border: 1px solid var(--line); border-radius: 14px;
+  flex: 1; cursor: pointer; width: 100%; min-height: 240px; background: rgba(8, 30, 48, 0.72); border: 1px solid var(--line); border-radius: 14px;
 }
 .pv-info { color: var(--muted); font-size: 15px; }
 .menu-help {
@@ -186,7 +196,35 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
 .sys-panel .range span { font: 13px var(--mono); color: var(--muted); min-width: 64px; text-align: right; }
 .sys-panel .check { justify-content: flex-start; }
 
+/* ---- about ---- */
+#about { position: fixed; inset: 0; z-index: 10; background: rgba(3, 8, 14, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.about-panel {
+  position: relative; width: min(720px, 100%); max-height: 100%; overflow: auto; background: var(--panel-solid);
+  border: 1px solid var(--line); border-radius: 14px; padding: 28px 32px; user-select: text; -webkit-user-select: text;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+.about-close {
+  position: sticky; top: 0; float: right; margin: -12px -16px 0 12px; width: 36px; height: 36px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.08); color: var(--ink); font-size: 16px; cursor: pointer;
+}
+.about-close:hover { background: rgba(255, 255, 255, 0.16); }
+.about-body { font-size: 16px; line-height: 1.6; color: #d6e2ec; }
+.about-body h1 { margin: 0 0 14px; font: 800 clamp(28px, 4vw, 38px)/1.1 var(--sans); color: var(--ink); }
+.about-body h2 { margin: 24px 0 8px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.about-body h3 { margin: 18px 0 6px; font-size: 16px; color: var(--ink); }
+.about-body p { margin: 0 0 12px; }
+.about-body ul, .about-body ol { margin: 0 0 12px; padding-left: 22px; }
+.about-body li { margin: 4px 0; }
+.about-body strong { color: var(--ink); }
+.about-body a { color: #7fd0ff; }
+.about-body code { font: 0.9em var(--mono); padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); }
+.about-body pre { padding: 12px 14px; border-radius: 8px; background: rgba(255, 255, 255, 0.06); overflow: auto; }
+.about-body pre code { padding: 0; background: none; }
+.about-body blockquote { margin: 0 0 12px; padding-left: 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.about-body hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
+
 @media (max-width: 720px) {
+  .about-panel { padding: 22px 18px; }
   :root { --hud-h: 40px; }
   .hud-bar { font-size: 14px; }
   .hud-bar .cell { padding: 0 8px; }

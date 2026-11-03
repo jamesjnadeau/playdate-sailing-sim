@@ -1,5 +1,9 @@
 // The main menu, drawn from the C Menu state (src/sim/menu.c) and driven by the same buttons; the layout
 // follows src/pd/menu_draw.c: a title block on the left, the list on the right, a hint bar along the bottom.
+// The mouse works it too: pointing at a row selects it, clicking chooses it, and the hints are buttons. Those
+// go back to the game as button presses (see menupointer.js), so the C menu stays the one source of truth.
+import { BTN } from '../input.js';
+
 export const SCREEN = { MAIN: 0, TRACKS: 1, PREVIEW: 2, BOATS: 3, WEATHER: 4, HELP: 5 };
 const LIST_VIS = 5, HELP_VIS = 14;
 const PV_LOOP = 240, PV_HOLD = 45;
@@ -8,8 +12,11 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export class MenuView {
-  constructor(root) {
+  // on.point(screen, row, press): select a row, then press (0 for none); on.about(): open the About page.
+  constructor(root, on = {}) {
     this.root = root;
+    this.on = { point: () => {}, about: () => {}, ...on };
+    this.screen = -1;
     root.innerHTML = `
       <div class="menu-card">
         <div class="menu-title"><div class="eyebrow"></div><h1></h1><div class="rule"></div><div class="sub"></div><div class="extra"></div></div>
@@ -25,6 +32,31 @@ export class MenuView {
     this.help = root.querySelector('.menu-help');
     this.hints = root.querySelector('.menu-hints');
     this.last = '';
+
+    const press = (bit) => this.on.point(this.screen, null, bit);
+    // pointermove rather than pointerover: a list redrawn under a still mouse must not grab the selection back
+    // from the keyboard
+    this.list.addEventListener('pointermove', (e) => {
+      const it = e.target.closest('.item');
+      if (it && !it.classList.contains('off') && !it.classList.contains('sel')) this.on.point(this.screen, Number(it.dataset.row), 0);
+    });
+    this.list.addEventListener('click', (e) => {
+      const it = e.target.closest('.item');
+      if (it && !it.classList.contains('off')) this.on.point(this.screen, Number(it.dataset.row), BTN.A);
+      else if (e.target.closest('.more.up')) press(BTN.UP);
+      else if (e.target.closest('.more.down')) press(BTN.DOWN);
+    });
+    this.help.addEventListener('click', (e) => {
+      if (e.target.closest('.more.up')) press(BTN.UP);
+      else if (e.target.closest('.more.down')) press(BTN.DOWN);
+    });
+    this.canvas.addEventListener('click', () => press(BTN.A));
+    this.hints.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.about !== undefined) this.on.about();
+      else if (b.dataset.press) press(Number(b.dataset.press));
+    });
   }
 
   hide() { this.root.hidden = true; }
@@ -35,6 +67,7 @@ export class MenuView {
     if (m.screen === SCREEN.PREVIEW) this.drawPreview(m, stat);
     if (key === this.last) return;
     this.last = key;
+    this.screen = m.screen;
     const mode = m.journey ? 'Journey' : 'Racing';
     const go = m.journey ? 'SAIL' : 'RACE';
     const isList = m.screen !== SCREEN.PREVIEW && m.screen !== SCREEN.HELP;
@@ -84,7 +117,7 @@ export class MenuView {
     for (let i = 0; i < vis; i++) {
       const k = m.top + i;
       const [label, on] = m.rows[k];
-      html += `<div class="item${k === m.sel ? ' sel' : ''}${on ? '' : ' off'}">${esc(fmt(label))}</div>`;
+      html += `<div class="item${k === m.sel ? ' sel' : ''}${on ? '' : ' off'}" data-row="${k}">${esc(fmt(label))}</div>`;
     }
     html += `<div class="more down"${m.top + vis < n ? '' : ' hidden'}>▼</div>`;
     this.list.innerHTML = html;
@@ -93,10 +126,11 @@ export class MenuView {
   drawHints([a, b, dpad], keys, crank) {
     const k = (cap, cls) => `<span class="key ${cls}">${esc(cap)}</span>`;
     let html = '';
-    if (a) html += `<span class="hint">${k(keys.A, 'a')} ${a}</span>`;
-    if (b) html += `<span class="hint">${k(keys.B, 'b')} ${b}</span>`;
+    if (a) html += `<button class="hint" data-press="${BTN.A}">${k(keys.A, 'a')} ${a}</button>`;
+    if (b) html += `<button class="hint" data-press="${BTN.B}">${k(keys.B, 'b')} ${b}</button>`;
     html += '<span class="grow"></span>';
-    if (dpad) html += `<span class="hint">${k(crank ? 'Mouse' : keys.updown, 'd')} ${dpad}</span>`;
+    if (dpad) html += `<span class="hint">${k(crank ? 'Wheel' : keys.updown, 'd')} ${dpad}</span>`;
+    html += '<button class="hint about" data-about>About</button>';
     this.hints.innerHTML = html;
   }
 
@@ -110,8 +144,8 @@ export class MenuView {
       else if (style === 2) html += `<div class="h-bullet${first ? ' first' : ''}">${esc(text)}</div>`;
       else html += `<div class="h-body">${esc(text) || '&nbsp;'}</div>`;
     }
-    if (m.helpTop > 0) html = '<div class="more">▲</div>' + html;
-    if (m.helpTop + HELP_VIS < m.helpRows) html += '<div class="more">▼</div>';
+    if (m.helpTop > 0) html = '<div class="more up">▲</div>' + html;
+    if (m.helpTop + HELP_VIS < m.helpRows) html += '<div class="more down">▼</div>';
     this.help.querySelector('.help-body').innerHTML = html;
   }
 

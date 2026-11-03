@@ -116,6 +116,34 @@ try {
   const j = await state();
   check(j.f.mode === 2 && j.f.marks.length > 0, `journey has buoys (${j.f.marks.length})`);
   await shot('journey');
+
+  // the mouse in the main menu: pointing selects, clicking chooses, the hints are buttons, About opens
+  await tap('Backspace');
+  await page.locator('.sys-back').click();
+  await tap('KeyV');
+  check(await waitDraw(1), 'back home from the journey');
+  const menuIs = (screen, sel) => page.waitForFunction(([s, k]) => {
+    const m = window.__cranksail && window.__cranksail.frame.menu;
+    return m && m.screen === s && (k === null || m.sel === k);
+  }, [screen, sel], { timeout: 4000 }).then(() => true, () => false);
+  await page.locator('.menu-list .item[data-row="3"]').hover();
+  await page.mouse.move(700, 400, { steps: 2 });   // off the list: the selection stays
+  await page.locator('.menu-list .item[data-row="3"]').hover({ position: { x: 30, y: 10 } });
+  check(await menuIs(0, 3), 'pointing at a row selects it');
+  await page.locator('.menu-list .item[data-row="3"]').click();
+  check(await menuIs(5, null), 'clicking Controls opens the controls screen');
+  await page.locator('.menu-hints button[data-press="16"]').click();
+  check(await menuIs(0, 3), 'the BACK hint is a button');
+  await page.locator('.menu-hints button.about').click();
+  check(await page.locator('#about .about-body h1').textContent({ timeout: 4000 }).then((t) => t === 'About Crank Sail', () => false),
+    'About shows the page rendered from about.md');
+  await shot('about');
+  await tap('KeyS');
+  check(await menuIs(0, 3), 'keys do not reach the menu while About is open');
+  await tap('Escape');
+  check(!(await page.locator('#about').isVisible()), 'Escape closes About');
+  await page.locator('.menu-list .item[data-row="0"]').click();
+  check(await waitDraw(2), 'clicking Free Range starts it');
 } catch (e) {
   check(false, `exception: ${e.message}`);
 }

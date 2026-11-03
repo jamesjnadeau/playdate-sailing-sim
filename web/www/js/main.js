@@ -6,6 +6,8 @@ import { View } from './render/scene.js';
 import { Hud } from './ui/hud.js';
 import { MenuView } from './ui/menu.js';
 import { SysMenu } from './ui/sysmenu.js';
+import { MenuPointer } from './ui/menupointer.js';
+import { About } from './ui/about.js';
 import { SeaAudio } from './audio.js';
 
 const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3 };
@@ -41,9 +43,14 @@ async function boot() {
   const canvas = $('#view');
   const view = new View(canvas);
   const hud = new Hud($('#hud'));
-  const menu = new MenuView($('#menu'));
   const settings = loadSettings(window.localStorage);
   const input = new Input(settings);
+  const pointer = new MenuPointer();
+  const about = new About($('#about'), 'about.md');
+  const menu = new MenuView($('#menu'), {
+    point: (screen, row, press) => { if (press) audio.start(); pointer.request(screen, row, press); },
+    about: () => { pointer.cancel(); input.releaseAll(); about.show(); },
+  });
   const audio = new SeaAudio(sim);
 
   let stat = null, statGen = -1, frame = null, paused = false;
@@ -80,13 +87,17 @@ async function boot() {
 
   window.addEventListener('keydown', (e) => {
     audio.start();
+    if (about.open) {
+      if (e.code === 'Escape' || e.code === 'Backspace') { e.preventDefault(); about.close(); }
+      return;
+    }
     if (e.code === 'Backspace' || e.code === 'KeyP') {
       e.preventDefault();
       if (sys.open) sys.close(); else openSys();
       return;
     }
     if (sys.open) return;
-    if (input.keyDown(e.code, e.repeat)) e.preventDefault();
+    if (input.keyDown(e.code, e.repeat)) { pointer.cancel(); e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => { if (input.keyUp(e.code)) e.preventDefault(); });
   window.addEventListener('blur', () => input.releaseAll());
@@ -103,7 +114,7 @@ async function boot() {
     if (document.pointerLockElement === canvas) input.mouseMove(e.movementY);
   });
   window.addEventListener('wheel', (e) => {
-    if (sys.open) return;
+    if (sys.open || about.open) return;   // let the panel scroll
     input.wheel(e.deltaY);
     e.preventDefault();
   }, { passive: false });
@@ -112,13 +123,17 @@ async function boot() {
   let last = performance.now();
   let saving = false;
   let tMenu = 0;
+  let d0 = DRAW.NONE;   // what the last frame drew
   const tick = (now) => {
     requestAnimationFrame(tick);
     const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
     last = now;
     if (paused) return;
+    if (d0 === DRAW.MENU && frame && !input.queue.length && !about.open) input.press(pointer.next(frame.menu));
+    else if (d0 !== DRAW.MENU) pointer.cancel();
     const inp = input.take();
     const d = sim._web_step(inp.pressed, inp.held, inp.crank, dt || 1 / 60);
+    d0 = d;
     frame = JSON.parse(sim.UTF8ToString(sim._web_frame_json()));
     if (!stat || frame.static !== statGen) readStatic();
     if (persistent && !saving && sim._web_take_dirty()) {

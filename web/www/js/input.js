@@ -53,6 +53,11 @@ export class Input {
     this.crank += Math.sign(deltaY) * this.settings.degPerWheel * (this.settings.invert ? -1 : 1);
   }
 
+  // A button press from somewhere other than the keyboard (the mouse in the menu); bit 0 does nothing.
+  press(bit) {
+    if (bit && this.queue.length < 16) this.queue.push(bit);
+  }
+
   // Focus lost or the system menu opened: nothing stays held or queued.
   releaseAll() {
     this.held = 0;

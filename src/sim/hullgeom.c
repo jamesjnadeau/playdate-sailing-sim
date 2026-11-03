@@ -45,3 +45,32 @@ int hull_clip_above(const HgPt *in, const float *d, int n, HgPt *out, bool *cut,
     }
     return m;
 }
+
+float hull_pivot(float heel, float spacing) {
+    if (spacing <= 0.0f || heel == 0.0f) return 0.0f;
+    return heel > 0.0f ? 0.5f * spacing : -0.5f * spacing;
+}
+
+void hull_heel_about(float heel, float pivot, float y, float z, float *l, float *up) {
+    float ch = cosf(heel), sh = sinf(heel);
+    *l = pivot + (y - pivot) * ch + z * sh;
+    *up = z * ch - (y - pivot) * sh;
+}
+
+static float immersion_of(float sea, float keel_up, float draft) {
+    float f = (sea - keel_up) / draft;
+    return f < 0.0f ? 0.0f : f > 1.0f ? 1.0f : f;
+}
+
+void cat_immersion(float heel, float spacing, float draft, float sea_port, float sea_stbd, float *port, float *stbd) {
+    if (!isfinite(heel) || !isfinite(spacing) || !isfinite(draft) || !isfinite(sea_port) || !isfinite(sea_stbd)) {
+        *port = 1.0f; *stbd = 1.0f;
+        return;
+    }
+    draft = fmaxf(draft, 0.05f);
+    float pivot = hull_pivot(heel, spacing), l, up_p, up_s;
+    hull_heel_about(heel, pivot, -0.5f * spacing, -draft, &l, &up_p);
+    hull_heel_about(heel, pivot,  0.5f * spacing, -draft, &l, &up_s);
+    *port = immersion_of(sea_port, up_p, draft);
+    *stbd = immersion_of(sea_stbd, up_s, draft);
+}

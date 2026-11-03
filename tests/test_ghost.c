@@ -150,6 +150,19 @@ static void test_round_trip(void) {
     T_NEAR(a.heading, b.heading, 1e-9);
 }
 
+static void test_peek_reads_the_finish_time_from_the_header(void) {
+    Ghost gh;
+    ghost_init(&gh, store, GHOST_MAX_SAMPLES);
+    sail(&gh, 8.0);
+    const size_t n = ghost_encode(&gh, file, sizeof file);
+    double t = 0;
+    T_ASSERT(ghost_peek_time(file, GHOST_HEADER_BYTES, &t));
+    T_NEAR(t, gh.time, 0.0);
+    T_ASSERT(!ghost_peek_time(file, GHOST_HEADER_BYTES - 1, &t));
+    file[0] ^= 0xff;
+    T_ASSERT(!ghost_peek_time(file, n, &t));
+}
+
 static void test_matches_rejects_other_conditions(void) {
     Ghost gh;
     ghost_init(&gh, store, GHOST_MAX_SAMPLES);
@@ -222,6 +235,7 @@ int main(void) {
     T_RUN(test_time_at_progress_inverts_progress);
     T_RUN(test_overflow_is_not_usable);
     T_RUN(test_round_trip);
+    T_RUN(test_peek_reads_the_finish_time_from_the_header);
     T_RUN(test_matches_rejects_other_conditions);
     T_RUN(test_decode_rejects_malformed);
     T_RUN(test_decode_rejects_nonfinite_position);

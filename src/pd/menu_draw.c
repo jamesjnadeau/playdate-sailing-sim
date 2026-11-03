@@ -310,7 +310,7 @@ static void draw_preview(PlaydateAPI *pd, const Menu *m, const Track *t) {
     text(pd, "WIND", ax - 16, ay + 8);
 }
 
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const HelpLine *help) {
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const double *boat_best, const HelpLine *help) {
     load_fonts(pd);
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
@@ -366,6 +366,17 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
         for (int i = 0; i < m->nboats && i < 64; i++) labels[i] = assets_boat_names()[i];
         if (m->journey) title_block(pd, "Menu › Journey", "Journey", "Choose a boat");
         else title_block(pd, "Racing › Course", tracks[m->track].name, "Choose a boat");
+        if (!m->journey && boat_best && m->sel >= 0 && m->sel < m->nboats && m->sel < 64) {
+            /* left column, under the subtitle: this boat's best on the course and whether it has a ghost */
+            const double bt = boat_best[m->sel];
+            char tbuf[16], line[32];
+            if (bt > 0) hud_fmt_time(bt, tbuf, sizeof tbuf);
+            else snprintf(tbuf, sizeof tbuf, "--:--.-");
+            font(pd, F.label, 0);
+            snprintf(line, sizeof line, "Best %s", tbuf);
+            text(pd, line, TB_X, 156);
+            text(pd, bt > 0 ? "Ghost: yes" : "Ghost: none", TB_X, 170);
+        }
         list(pd, m, labels);
         hint_bar(pd, m->nweather > 0 ? "SELECT" : go, "BACK", "CHOOSE");
     } else if (m->screen == MENU_WEATHER) {

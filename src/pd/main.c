@@ -43,6 +43,8 @@ static BestTimes best;
 static bool finish_recorded;   /* this race's time has been offered to `best` */
 static GhostSample *ghost_stores;   /* two GHOST_MAX_SAMPLES arrays, held only while a race is on (~576 KB) */
 static Ghost ghost_best, ghost_run;   /* the personal best on this course, and the run being sailed */
+static double boat_best[BOATLIST_MAX];   /* the boat screen's course: each boat's ghost time, -1 for none */
+static int boat_best_track = -1;
 static HelpLine help[HELP_ROWS_MAX];
 static int nhelp;
 
@@ -74,11 +76,15 @@ static void best_save(void) {
     pd->file->close(f);
 }
 
-/* ghost_<course>.bin, the course name cut down to letters and digits */
-static void ghost_path(char *out, size_t n, const char *course) {
-    size_t k = (size_t)snprintf(out, n, "ghost_");
-    for (; *course && k + 5 < n; course++)
-        if ((*course >= 'a' && *course <= 'z') || (*course >= 'A' && *course <= 'Z') || (*course >= '0' && *course <= '9')) out[k++] = *course;
+/* ghost_<course>_<boat>.bin, each name cut down to letters and digits: one ghost per boat on a course */
+static void ghost_path(char *out, size_t n, const char *course, const char *boat) {
+    size_t k = (size_t)snprintf(out, n, "ghost");
+    for (int part = 0; part < 2; part++) {
+        const char *s = part ? boat : course;
+        if (k + 1 < n) out[k++] = '_';
+        for (; *s && k + 5 < n; s++)
+            if ((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9')) out[k++] = *s;
+    }
     snprintf(out + k, n - k, ".bin");
 }
 
@@ -101,10 +107,10 @@ static void ghost_storage(bool want) {
 }
 
 static void ghost_load(void) {
-    char path[64];
+    char path[96];
     ghost_clear(&ghost_best);
     if (!ghost_best.s) return;
-    ghost_path(path, sizeof path, game.track.name);
+    ghost_path(path, sizeof path, game.track.name, assets_boat_names()[boat_index]);
     SDFile *f = pd->file->open(path, kFileReadData);
     if (!f) return;
     uint8_t *io = pd->system->realloc(NULL, GHOST_FILE_MAX);
@@ -117,12 +123,12 @@ static void ghost_load(void) {
 }
 
 static void ghost_save(const Ghost *gh) {
-    char path[64];
+    char path[96];
     uint8_t *io = pd->system->realloc(NULL, GHOST_FILE_MAX);
     if (!io) return;
     const size_t n = ghost_encode(gh, io, GHOST_FILE_MAX);
     if (n > 0) {
-        ghost_path(path, sizeof path, game.track.name);
+        ghost_path(path, sizeof path, game.track.name, assets_boat_names()[boat_index]);
         SDFile *f = pd->file->open(path, kFileWrite);
         if (f) {
             pd->file->write(f, io, (unsigned int)n);
@@ -130,6 +136,23 @@ static void ghost_save(const Ghost *gh) {
         }
     }
     pd->system->realloc(io, 0);
+}
+
+/* Fills boat_best for the course on the boat screen from the headers of its ghost files. */
+static void boat_best_refresh(void) {
+    const char *const *names = assets_boat_names();
+    for (int i = 0; i < BOATLIST_MAX; i++) boat_best[i] = -1.0;
+    for (int i = 0; i < menu.nboats && i < BOATLIST_MAX; i++) {
+        char path[96];
+        uint8_t hdr[GHOST_HEADER_BYTES];
+        ghost_path(path, sizeof path, tracks[menu.track].name, names[i]);
+        SDFile *f = pd->file->open(path, kFileReadData);
+        if (!f) continue;
+        const int n = pd->file->read(f, hdr, sizeof hdr);
+        pd->file->close(f);
+        double t;
+        if (n == (int)sizeof hdr && ghost_peek_time(hdr, sizeof hdr, &t)) boat_best[i] = t;
+    }
 }
 
 /* The ghost to race, or NULL when there is none or it was sailed in other conditions. */
@@ -318,7 +341,15 @@ static int update(void *ud) {
             camera_snap();
             app = APP_PLAY;
         }
-        menu_draw(pd, &menu, tracks, &best, help);
+        if (menu.screen == MENU_BOATS && !menu.journey) {
+            if (boat_best_track != menu.track) {
+                boat_best_refresh();
+                boat_best_track = menu.track;
+            }
+        } else {
+            boat_best_track = -1;
+        }
+        menu_draw(pd, &menu, tracks, &best, boat_best, help);
 #ifdef SHOW_FPS
         pd->system->drawFPS(0, 0);
 #endif
@@ -371,14 +402,13 @@ static int update(void *ud) {
     if (game.mode == GAME_RACE && game.race.finished) {
         if (!finish_recorded) {
             finish_recorded = true;
-            if (besttimes_record(&best, game.track.name, game.race.t)) {
-                best_save();
-                if (ghost_run.s && ghost_finish(&ghost_run, &game)) {
-                    ghost_save(&ghost_run);
-                    const Ghost keep = ghost_run;   /* the new best is the one on show next time; the old storage records */
-                    ghost_run = ghost_best;
-                    ghost_best = keep;
-                }
+            if (besttimes_record(&best, game.track.name, game.race.t)) best_save();
+            /* the ghost is the best for this boat on this course, whether or not another boat was faster */
+            if (ghost_run.s && (!ghost_usable(&ghost_best) || game.race.t < ghost_best.time) && ghost_finish(&ghost_run, &game)) {
+                ghost_save(&ghost_run);
+                const Ghost keep = ghost_run;   /* the new best is the one on show next time; the old storage records */
+                ghost_run = ghost_best;
+                ghost_best = keep;
             }
         }
     } else {

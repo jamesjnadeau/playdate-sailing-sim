@@ -23,8 +23,9 @@ enum { SEA_GRID, SEA_HEX, SEA_HEXC, SEA_TRI, SEA_STYLES };
 void render_set_sea_style(int style);
 int render_sea_style(void);
 
-/* Main menu screen (menu_draw.c). */
-void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const HelpLine *help);
+/* Main menu screen (menu_draw.c). boat_best: per boat row on the boat screen, the finish time of its ghost on
+   the chosen course, or < 0 for none (NULL: unknown). */
+void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTimes *best, const double *boat_best, const HelpLine *help);
 
 /* hud.c */
 void hud_draw(PlaydateAPI *pd, const Game *g);

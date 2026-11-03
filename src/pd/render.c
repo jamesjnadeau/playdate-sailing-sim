@@ -781,8 +781,14 @@ static bool rel_pt(const Ctx *k, float f, float l, float z, float *sx, float *sy
     return camera_project_rel(k->c, bdx + f * cd - l * sd, bdy + f * sd + l * cd, z + b->heave, sx, sy, NULL);
 }
 
-/* boat-frame (x fwd, y stbd, z up from waterline) -> heading frame; heel is applied in full */
-static void heel_xf(const BoatState *b, float y, float z, float *l, float *up) {
+/* boat-frame (x fwd, y stbd, z up from waterline) -> heading frame; heel is applied in full. A
+ * catamaran rolls about the keel of its leeward hull, a monohull about the centreline. */
+static void heel_xf(const Game *g, float y, float z, float *l, float *up) {
+    const BoatState *b = &g->b;
+    if (g->boat.hull.hulls == 2) {
+        hull_heel_about(b->heel, hull_pivot(b->heel, g->boat.hull.hull_spacing), y, z, l, up);
+        return;
+    }
     float ch = cosf(b->heel), sh = sinf(b->heel);
     *l = y * ch + z * sh; *up = z * ch - y * sh;
 }
@@ -790,28 +796,47 @@ static void heel_xf(const BoatState *b, float y, float z, float *l, float *up) {
 /* boat-frame (x fwd, y stbd, z up from waterline) -> screen; heel is applied in full */
 static bool boat_pt(const Ctx *k, float x, float y, float z, float *sx, float *sy) {
     float l, up;
-    heel_xf(&k->g->b, y, z, &l, &up);
+    heel_xf(k->g, y, z, &l, &up);
     return rel_pt(k, x, l, up, sx, sy);
 }
 
 static float rel_surface(const Game *g, float fwd, float lat);
 
+/* Where the sea cuts a catamaran hull's side at one section: the same tuck line as hull_side_z,
+ * but about this hull's centre and rotated with heel_xf, since the roll pivot is not the origin.
+ * The tuck line is straight, so its heeled height is linear in z and two points give the cut. */
+static float cat_side_z(const Game *g, float w, int sgn, float fb, float keel, float surf, float *y) {
+    float l, up0, up1;
+    heel_xf(g, cur_hull_y + sgn * w * HULL_TUCK, keel, &l, &up0);
+    heel_xf(g, cur_hull_y + sgn * w, fb, &l, &up1);
+    float den = (up1 - up0) / (fb - keel);        /* heeled height gained per metre of z */
+    float z;
+    if (den > 1e-3f) z = keel + (surf - up0) / den;
+    else z = up1 < surf ? fb : keel;              /* the side lies along the sea (or leans over it) */
+    z = z < keel ? keel : z > fb ? fb : z;
+    *y = cur_hull_y + sgn * w * (1.0f - (1.0f - HULL_TUCK) * (fb - z) / (fb - keel));
+    return z;
+}
+
 /* Where the sea meets the hull side at station u (0 stem .. 1 transom): the section's point on the
  * side's tuck line whose heeled height equals the local sea surface. wscale fattens the section
- * (the foam ring rides just outboard). False when this side is clear of the water at that station. */
+ * (the foam ring rides just outboard). False when this side is clear of the water at that station.
+ * A catamaran's keel line is its draft, so a hull that physics treats as clear is drawn clear. */
 static bool side_wl(const Game *g, int sgn, float u, float wscale, float *x, float *y, float *z) {
-    const BoatState *b = &g->b;
     const LookCfg *lk = &g->boat.look;
+    const bool cat = g->boat.hull.hulls == 2;
+    const float keel = cat ? -g->boat.hull.draft : HULL_KEEL;
     float w = cur_hull_hb * table_eval(lk->hull_width.p, lk->hull_width.n, u) * wscale;
     *x = g->boat.hull.length * (0.5f - u);
-    float surf = rel_surface(g, *x, sgn * w);
+    float surf = rel_surface(g, *x, cur_hull_y + sgn * w);
     for (int it = 0; it < 3; it++) {      /* the surface depends on where the cut lands, which depends on the surface */
-        *z = hull_side_z(w, sgn, lk->freeboard, HULL_KEEL, HULL_TUCK, b->heel, surf, y);
+        *z = cat ? cat_side_z(g, w, sgn, lk->freeboard, keel, surf, y)
+                 : hull_side_z(w, sgn, lk->freeboard, keel, HULL_TUCK, g->b.heel, surf, y);
         float l, up;
-        heel_xf(b, *y, *z, &l, &up);
+        heel_xf(g, *y, *z, &l, &up);
         surf = rel_surface(g, *x, l);
     }
-    return *z > HULL_KEEL + 1e-3f;
+    return *z > keel + 1e-3f;
 }
 
 /* water-plane point from boat-frame (fwd, stbd) metres, ignoring heel: the sea surface stays level */
@@ -827,6 +852,11 @@ static int far_side(const Game *g, const CameraPose *c) {
     const BoatState *b = &g->b;
     float ch = rcos(b->heading), sh = rsin(b->heading);
     float lat = -sh * (float)(c->x - b->x) + ch * (float)(c->y - b->y);   /* eye offset to starboard */
+    if (g->boat.hull.hulls == 2) {      /* measure from this hull's heeled centre */
+        float lc, upc;
+        heel_xf(g, cur_hull_y, 0.0f, &lc, &upc);
+        return hull_hidden_side(b->heel, lat - lc, c->height - b->heave - upc, 2.0f * cur_hull_hb);
+    }
     return hull_hidden_side(b->heel, lat, c->height - b->heave, g->boat.hull.beam);
 }
 
@@ -854,14 +884,25 @@ static void waterline_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c, 
     /* waterline ring: a band hugging the heeled hull where it meets the sea, denser on the buried (leeward) side */
     Ctx hk = { pd, g, c };
     float dip = sinf(b->heel) * 0.5f;                       /* + heel buries the starboard rail */
+    /* a catamaran hull's burial is how deep it sits, from the same sea samples the physics uses; one
+     * that is clear of the sea has no ring and no wake */
+    const bool cat = g->boat.hull.hulls == 2;
+    float imm = 1.0f;
+    if (cat) {
+        const HullCfg *h = &g->boat.hull;
+        float ip, is;
+        cat_immersion(b->heel, h->hull_spacing, h->draft, rel_surface(g, 0.0f, -0.5f * h->hull_spacing),
+                      rel_surface(g, 0.0f, 0.5f * h->hull_spacing), &ip, &is);
+        imm = hi == 0 ? ip : is;
+    }
     int hidden = far_side(g, c);                             /* its ring is behind the hull */
     const double last_t = wl_last_t;
     for (int side = -1; side <= 1; side += 2) {
         if (side == hidden) {
-            bury_sm[hi][side > 0] = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+            bury_sm[hi][side > 0] = cat ? 0.25f + 0.5f * imm : clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
             continue;
         }
-        float target = clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
+        float target = cat ? 0.25f + 0.5f * imm : clampf(0.5f + side * dip * 4.0f, 0.0f, 1.0f);
         float *sm = &bury_sm[hi][side > 0];                       /* low-passed so the dither density doesn't flash with every wave */
         *sm = (g->t < last_t || g->t - last_t > 1.0) ? target : *sm + (target - *sm) * clampf(6.0f * (float)(g->t - last_t), 0.0f, 1.0f);
         float bury = *sm;
@@ -889,7 +930,7 @@ static void waterline_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c, 
         foam_poly4(pd, p, 2);
     }
 
-    if (sp < 0.5f) return;
+    if (sp < 0.5f || imm <= 0.0f) return;
 
     /* wake: ripples spaced astern that spread and thin out, shifting back with time. Past wake_fade_m
      * each ripple splits in the middle into two lines whose ends shrink away toward the hull. */
@@ -908,8 +949,8 @@ static void waterline_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c, 
         if (level > 14) level = 14;
         for (int s = -1; s <= 1; s += 2) {
             float ex, ey, fx, fy, gx, gy, hx, hy;
-            if (!water_pt(g, c, back, s * lo, &ex, &ey) || !water_pt(g, c, back, s * hi, &fx, &fy) ||
-                !water_pt(g, c, back - depth, s * hi, &gx, &gy) || !water_pt(g, c, back - depth, s * lo, &hx, &hy)) continue;
+            if (!water_pt(g, c, back, cur_hull_y + s * lo, &ex, &ey) || !water_pt(g, c, back, cur_hull_y + s * hi, &fx, &fy) ||
+                !water_pt(g, c, back - depth, cur_hull_y + s * hi, &gx, &gy) || !water_pt(g, c, back - depth, cur_hull_y + s * lo, &hx, &hy)) continue;
             int p[8] = { (int)ex, (int)ey, (int)fx, (int)fy, (int)gx, (int)gy, (int)hx, (int)hy };
             foam_poly4(pd, p, level);
         }
@@ -980,7 +1021,7 @@ static void draw_sail(PlaydateAPI *pd, const Ctx *k, int i) {
             }
             float z = lz + (ez - lz) * v;
             float l, up;
-            heel_xf(b, y, z, &l, &up);
+            heel_xf(k->g, y, z, &l, &up);
             wp[a][q] = (HgPt){ x, l, up };
             if (up < lo) lo = up;
             ok[a][q] = rel_pt(k, x, l, up, &px[a][q], &py[a][q]);
@@ -1226,9 +1267,9 @@ static void draw_cockpit(PlaydateAPI *pd, const Ctx *k) {
     bool ok = true;
     for (int i = 0; i < 4; i++) {
         float l, z;
-        heel_xf(&g->b, cl[i], fb, &l, &z);
+        heel_xf(g, cl[i], fb, &l, &z);
         top[i] = (HgPt){ cf[i], l, z };
-        heel_xf(&g->b, cl[i], zf, &l, &z);
+        heel_xf(g, cl[i], zf, &l, &z);
         bot[i] = (HgPt){ cf[i], l, z };
         ok = ok && rel_pt(k, top[i].f, top[i].l, top[i].z, &rim[2 * i], &rim[2 * i + 1])
                 && rel_pt(k, bot[i].f, bot[i].l, bot[i].z, &flo[2 * i], &flo[2 * i + 1]);
@@ -1293,9 +1334,9 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         float u = (float)i / (N - 1);
         float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
         float l, z;
-        heel_xf(&g->b, w, fb, &l, &z);
+        heel_xf(g, cur_hull_y + w, fb, &l, &z);
         deck[i] = (HgPt){ L * (0.5f - u), l, z };
-        heel_xf(&g->b, -w, fb, &l, &z);
+        heel_xf(g, cur_hull_y - w, fb, &l, &z);
         deck[2 * N - 1 - i] = (HgPt){ L * (0.5f - u), l, z };
     }
     /* seen from the underside the deck is behind the topsides, so it goes down first */
@@ -1310,7 +1351,7 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         for (int i = 0; i < N && ok; i++) {
             float u = (float)i / (N - 1);
             float w = hb * table_eval(lk->hull_width.p, lk->hull_width.n, u);
-            ok = boat_pt(&k, L * (0.5f - u), sgn * w, fb, &sx, &sy);
+            ok = boat_pt(&k, L * (0.5f - u), cur_hull_y + sgn * w, fb, &sx, &sy);
             q[2 * m] = (int)sx; q[2 * m + 1] = (int)sy; m++;
         }
         int top = m;
@@ -1337,10 +1378,10 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
         side_wl(g, -1, 1.0f, 1.0f, &xp, &yp, &zp);
         side_wl(g, 1, 1.0f, 1.0f, &xq, &yq, &zq);
         HgPt tr[4];
-        heel_xf(&g->b, -wt, fb, &l, &z); tr[0] = (HgPt){ xs, l, z };
-        heel_xf(&g->b, wt, fb, &l, &z);  tr[1] = (HgPt){ xs, l, z };
-        heel_xf(&g->b, yq, zq, &l, &z);  tr[2] = (HgPt){ xs, l, z };
-        heel_xf(&g->b, yp, zp, &l, &z);  tr[3] = (HgPt){ xs, l, z };
+        heel_xf(g, cur_hull_y - wt, fb, &l, &z); tr[0] = (HgPt){ xs, l, z };
+        heel_xf(g, cur_hull_y + wt, fb, &l, &z);  tr[1] = (HgPt){ xs, l, z };
+        heel_xf(g, yq, zq, &l, &z);  tr[2] = (HgPt){ xs, l, z };
+        heel_xf(g, yp, zp, &l, &z);  tr[3] = (HgPt){ xs, l, z };
         draw_panel(pd, &k, tr, 4, side_col, 1);
         float ax, ay, bx, by;
         if (hidden == 0 && rel_pt(&k, xs, tr[2].l, tr[2].z, &ax, &ay) && rel_pt(&k, xs, tr[3].l, tr[3].z, &bx, &by))
@@ -1348,14 +1389,68 @@ static void draw_hull(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     }
     if (up) {
         draw_panel(pd, &k, deck, 2 * N, deck_col, 2);
-        draw_cockpit(pd, &k);
+        if (g->boat.hull.hulls != 2) draw_cockpit(pd, &k);
     }
 }
 
-/* the boat's hull or hulls */
+/* A catamaran's two crossbeams: square boxes at stations 1/3 and 2/3 from the bow, spanning from
+ * hull centre to hull centre at deck height. Only what faces the eye is drawn: the top (the underside
+ * when the boat is heeled far enough to show it) and the end toward the eye, in the deck shade. */
+static void draw_crossbeams(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
+    Ctx k = { pd, g, c };
+    const BoatState *b = &g->b;
+    const float L = g->boat.hull.length, fb = g->boat.look.freeboard;
+    const float hs = 0.5f * g->boat.hull.hull_spacing, s = 0.025f * L, hw = 0.5f * s;
+    LCDColor col = fillpat((int)(g->boat.look.hull_shade * 16.0f));
+    float ch = rcos(b->heading), sh = rsin(b->heading);
+    const float eye_x = (float)(c->x - b->x) * ch + (float)(c->y - b->y) * sh;
+    const bool faces = deck_faces_eye(g, c);
+    float xs[2] = { L / 6.0f, -L / 6.0f };
+    if (fabsf(eye_x - xs[0]) < fabsf(eye_x - xs[1])) { xs[0] = -xs[0]; xs[1] = -xs[1]; }   /* far one first */
+    for (int i = 0; i < 2; i++) {
+        const float xe = xs[i] + (eye_x > xs[i] ? hw : -hw);
+        const float zt = faces ? fb : fb - s;
+        HgPt end[4], face[4];
+        const float ey[4] = { -hs, hs, hs, -hs }, ez[4] = { fb, fb, fb - s, fb - s };
+        const float fx[4] = { xs[i] - hw, xs[i] - hw, xs[i] + hw, xs[i] + hw }, fy[4] = { -hs, hs, hs, -hs };
+        for (int j = 0; j < 4; j++) {
+            float l, z;
+            heel_xf(g, ey[j], ez[j], &l, &z);
+            end[j] = (HgPt){ xe, l, z };
+            heel_xf(g, fy[j], zt, &l, &z);
+            face[j] = (HgPt){ fx[j], l, z };
+        }
+        draw_panel(pd, &k, end, 4, col, 1);
+        draw_panel(pd, &k, face, 4, col, 1);
+    }
+}
+
+/* the boat's hull or hulls. A catamaran draws the hull farther from the eye, then the crossbeams, then
+ * the nearer hull, so each hull hides the beam ends behind it. */
 static void draw_hulls(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    set_hull(g, 0);
+    if (g->boat.hull.hulls != 2) {
+        set_hull(g, 0);
+        draw_hull(pd, g, c);
+        return;
+    }
+    const BoatState *b = &g->b;
+    float ch = rcos(b->heading), sh = rsin(b->heading);
+    const float lat = -sh * (float)(c->x - b->x) + ch * (float)(c->y - b->y);   /* eye offset to starboard */
+    const float h_e = c->height - b->heave;
+    const float hs = 0.5f * g->boat.hull.hull_spacing;
+    float lp, up_p, ls, up_s;
+    heel_xf(g, -hs, 0.0f, &lp, &up_p);
+    heel_xf(g, hs, 0.0f, &ls, &up_s);
+    const float dp = (lat - lp) * (lat - lp) + (h_e - up_p) * (h_e - up_p);
+    const float ds = (lat - ls) * (lat - ls) + (h_e - up_s) * (h_e - up_s);
+    const int far_hull = dp >= ds ? -1 : 1;
+    set_hull(g, far_hull);
     draw_hull(pd, g, c);
+    set_hull(g, 0);
+    draw_crossbeams(pd, g, c);
+    set_hull(g, -far_hull);
+    draw_hull(pd, g, c);
+    set_hull(g, 0);
 }
 
 /* ---- race buoys ---- */

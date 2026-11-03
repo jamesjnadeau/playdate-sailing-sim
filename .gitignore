@@ -9,3 +9,4 @@ Source/tracks/
 Source/ghosts/
 Source/pdex.*
 __pycache__/
+.claude/worktrees/

@@ -10,6 +10,7 @@ import { MenuPointer } from './ui/menupointer.js';
 import { About } from './ui/about.js';
 import { SeaAudio } from './audio.js';
 import { TouchControls } from './touch.js';
+import { setupFullscreen } from './fullscreen.js';
 
 const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3, DEMO_END: 4 };
 const KEYS = { A: 'V', B: 'C', updown: 'W / S',
@@ -73,6 +74,7 @@ async function boot() {
     menu.last = '';   // redraw the hints with the touch labels
   };
   try { setTouch(window.matchMedia('(pointer: coarse)').matches); } catch { /* no matchMedia */ }
+  setupFullscreen($('#fullscreen'), () => audio.start());
 
   let stat = null, statGen = -1, frame = null, paused = false;
   const readStatic = () => {

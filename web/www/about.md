@@ -26,6 +26,8 @@ On a phone or tablet, hold it sideways:
 - Drag a finger up and down anywhere else on the view to turn the crank; you can keep a thumb on the pad while you do.
 - `☰` top right opens the system menu. In the main menu, tap a row to choose it.
 
+The button top left switches full screen on and off. On an iPhone, where Safari has no full screen for pages, use Share › Add to Home Screen instead.
+
 Best times and ghosts are saved in this browser.
 
 ## Credits

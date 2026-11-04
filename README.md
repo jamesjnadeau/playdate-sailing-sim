@@ -60,7 +60,7 @@ In the launcher the demo is "Crank'n Sail Demo" (its own bundle id, so it instal
 
 In the main menu the mouse works too: point at a row to select it, click to choose it, and click the button hints along the bottom. **About** in that bar opens a page rendered from [`web/www/about.md`](web/www/about.md); edit the Markdown to change it.
 
-On a phone or tablet held sideways the page shows touch controls instead: a d-pad bottom left (press it and slide your thumb round to change direction), B and A bottom right, ☰ top right for the system menu, and dragging a finger up and down anywhere else on the view turns the crank. A thumb can stay on the d-pad while the other finger cranks.
+On a phone or tablet held sideways the page shows touch controls instead: a d-pad bottom left (press it and slide your thumb round to change direction), B and A bottom right, ☰ top right for the system menu, and dragging a finger up and down anywhere else on the view turns the crank. A thumb can stay on the d-pad while the other finger cranks. A button top left switches full screen on and off (on phones it also asks for landscape); browsers without the Fullscreen API, such as Safari on iPhone, don't show it.
 
 Best times and ghosts are saved in the browser (IndexedDB). On the web, rocks are drawn; the Playdate renderer leaves them out.
 

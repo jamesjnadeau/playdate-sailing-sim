@@ -60,6 +60,13 @@ try {
   check(await waitDraw(1, 30000), 'boots to the main menu');
   check(await page.locator('.menu-list .item.sel').count() === 1, 'menu shows a selected row');
   check(await page.evaluate(() => !document.body.classList.contains('touch') && document.querySelector('#touch').hidden), 'no touch controls with a mouse');
+  // the full-screen button, top left: in on the first click, out on the second
+  const fsIs = (on) => page.waitForFunction((w) => !!document.fullscreenElement === w, on, { timeout: 4000 }).then(() => true, () => false);
+  check(await page.locator('#fullscreen').isVisible(), 'the full-screen button shows');
+  await page.locator('#fullscreen').click();
+  check(await fsIs(true) && await page.locator('#fullscreen.on').count() === 1, 'it enters full screen');
+  await page.locator('#fullscreen').click();
+  check(await fsIs(false) && await page.locator('#fullscreen.on').count() === 0, 'and leaves it again');
   await page.waitForTimeout(600);
   await shot('menu');
 
@@ -189,6 +196,7 @@ try {
   check(await mob.waitForFunction(() => window.__cranksail.draw === 2, null, { timeout: 30000 }).then(() => true, () => false),
     'phone: tapping Free Range starts it');
   check(await mob.locator('.tc-pad').isVisible() && await mob.locator('.tc-btn.a').isVisible(), 'phone: d-pad and buttons show');
+  check(await mob.locator('#fullscreen').isVisible(), 'phone: the full-screen button shows');
   await mob.waitForTimeout(1200);
   if (shots) await mob.screenshot({ path: path.join(shots, 'phone_play.png') });
 

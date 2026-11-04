@@ -288,6 +288,20 @@ body[data-draw="1"] #touch .tc-menu { display: none; }   /* the main menu has it
 }
 /* the sail, a game's worth of buttons and the d-pad share one short phone screen */
 body.touch .hud-clock { left: calc(12px + env(safe-area-inset-left)); }
+
+/* ---- full screen ---- */
+#fullscreen {
+  position: fixed; z-index: 4; left: calc(12px + env(safe-area-inset-left)); top: calc(10px + env(safe-area-inset-top));
+  width: 40px; height: 40px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#fullscreen:hover, #fullscreen:focus-visible { background: rgba(255, 255, 255, 0.14); }
+#fullscreen svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#fullscreen .fs-leave, #fullscreen.on .fs-enter { display: none; }
+#fullscreen.on .fs-leave { display: inline; }
+/* the race clock sits beside it, the warning line below it */
+body.can-fs .hud-clock { left: calc(62px + env(safe-area-inset-left)); }
+body.can-fs .hud-warning { top: calc(58px + env(safe-area-inset-top)); }
 body.touch .hud-bar { padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
 
 @media (max-height: 500px) {

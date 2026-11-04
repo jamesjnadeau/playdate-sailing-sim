@@ -26,7 +26,9 @@ static void test_help_opens_scrolls_and_returns(void) {
     Menu m;
     menu_init(&m, 1, 3);
     menu_set_help(&m, MENU_HELP_VIS + 2);
-    m.sel = MENU_ITEM_HELP;
+    m.sel = MENU_ITEM_TRAINING;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_TRAINING);
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
     T_ASSERT(m.screen == MENU_HELP);
     for (int i = 0; i < 5; i++) menu_update(&m, BTN_DOWN);
@@ -34,8 +36,8 @@ static void test_help_opens_scrolls_and_returns(void) {
     menu_update(&m, BTN_UP);
     T_ASSERT(m.help_top == 1);
     menu_update(&m, BTN_B);
-    T_ASSERT(m.screen == MENU_MAIN);
-    T_ASSERT(m.sel == MENU_ITEM_HELP);
+    T_ASSERT(m.screen == MENU_TRAINING);
+    T_ASSERT(m.sel == TRAIN_ROW_CONTROLS);
 }
 
 static void test_sound_row_cycles_levels(void) {
@@ -60,7 +62,8 @@ static void test_help_scrolls_with_crank(void) {
     menu_set_help(&m, MENU_HELP_VIS + 3);
     menu_crank(&m, 90);
     T_ASSERT(m.help_top == 0);                        /* only on the help screen */
-    m.sel = MENU_ITEM_HELP;
+    m.sel = MENU_ITEM_TRAINING;
+    menu_update(&m, BTN_A);
     menu_update(&m, BTN_A);
     menu_crank(&m, MENU_HELP_CRANK_DEG * 2);
     T_ASSERT(m.help_top == 2);
@@ -74,7 +77,8 @@ static void test_short_help_does_not_scroll(void) {
     Menu m;
     menu_init(&m, 1, 3);
     menu_set_help(&m, 3);
-    m.sel = MENU_ITEM_HELP;
+    m.sel = MENU_ITEM_TRAINING;
+    menu_update(&m, BTN_A);
     menu_update(&m, BTN_A);
     menu_update(&m, BTN_DOWN);
     T_ASSERT(m.help_top == 0);
@@ -363,9 +367,9 @@ static void test_locked_main_rows_are_skipped_and_dimmed(void) {
     T_ASSERT(menu_row_enabled(&m, MENU_ITEM_FREE));
     T_ASSERT(!menu_row_enabled(&m, MENU_ITEM_JOURNEY));
     T_ASSERT(!menu_row_enabled(&m, MENU_ITEM_RACE));
-    T_ASSERT(menu_row_enabled(&m, MENU_ITEM_HELP));
+    T_ASSERT(menu_row_enabled(&m, MENU_ITEM_TRAINING));
     menu_update(&m, BTN_DOWN);
-    T_ASSERT(m.sel == MENU_ITEM_HELP);
+    T_ASSERT(m.sel == MENU_ITEM_TRAINING);
     menu_update(&m, BTN_UP);
     T_ASSERT(m.sel == MENU_ITEM_FREE);
     menu_update(&m, BTN_UP);
@@ -392,7 +396,50 @@ static void test_locking_moves_cursor_off_a_locked_row(void) {
     menu_init(&m, 1, 3);
     m.sel = MENU_ITEM_JOURNEY;
     menu_set_main_locked(&m, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
-    T_ASSERT(m.sel == MENU_ITEM_HELP);
+    T_ASSERT(m.sel == MENU_ITEM_TRAINING);
+}
+
+static void open_training(Menu *m) {
+    m->sel = MENU_ITEM_TRAINING;
+    menu_update(m, BTN_A);
+}
+
+static void test_training_opens_two_rows(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    open_training(&m);
+    T_ASSERT(m.screen == MENU_TRAINING);
+    T_ASSERT(menu_rows(&m) == MENU_TRAINING_ROWS && MENU_TRAINING_ROWS == 2);
+    T_ASSERT(m.sel == 0);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == TRAIN_ROW_LESSON);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == TRAIN_ROW_CONTROLS);
+}
+
+static void test_training_lesson_returns_start_action(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    open_training(&m);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_TRAINING);
+}
+
+static void test_training_b_returns_to_main_on_training_row(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    open_training(&m);
+    T_ASSERT(menu_update(&m, BTN_B) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_MAIN);
+    T_ASSERT(m.sel == MENU_ITEM_TRAINING);
+}
+
+static void test_training_row_open_in_demo_lock(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    menu_set_main_locked(&m, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
+    open_training(&m);
+    T_ASSERT(m.screen == MENU_TRAINING);
 }
 
 static void test_locked_tracks_are_skipped_and_unselectable(void) {
@@ -417,6 +464,10 @@ static void test_locked_tracks_are_skipped_and_unselectable(void) {
 }
 
 int main(void) {
+    T_RUN(test_training_opens_two_rows);
+    T_RUN(test_training_lesson_returns_start_action);
+    T_RUN(test_training_b_returns_to_main_on_training_row);
+    T_RUN(test_training_row_open_in_demo_lock);
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
     T_RUN(test_help_opens_scrolls_and_returns);

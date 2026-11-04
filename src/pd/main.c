@@ -191,6 +191,8 @@ static int update(void *ud) {
         render_frame(pd, app_game(), app_camera(), app_ghost_opponent());
 #endif
         const char *warn = app_warning();
+        const char *lesson = app_training_text();
+        if (lesson && d == APP_DRAW_PLAY && render_hud()) hud_lesson(pd, lesson);
         if (d == APP_DRAW_DEMO_END) {
             hud_demo_end(pd);
         } else if (d == APP_DRAW_CONFIRM) {

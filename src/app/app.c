@@ -4,6 +4,8 @@
 #include <string.h>
 #include "controls.h"
 #include "praise.h"
+#include "training.h"
+#include "trainingtext.h"
 
 #define WARN_SHOW_S 3.0f
 
@@ -37,6 +39,10 @@ static int boat_best_track = -1;
 static HelpLine help[APP_HELP_ROWS_MAX];
 static int nhelp;
 static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
+static Training lesson;
+static TrainingText lesson_text;
+static int lesson_prev_boat;   /* the boat to go back to when the lesson ends */
+static bool lesson_on;   /* the sailing lesson is the run on screen */
 
 #ifdef DEMO
 #define DEMO_BUILD true
@@ -194,9 +200,49 @@ static void begin(bool reload) {
     if (P->reset_time) P->reset_time();
 }
 
+/* Wind that holds its speed and direction, so every point of sail stays where the player put it. */
+static void lesson_weather(void) {
+    game.weather = weather_cfg;
+    WeatherPreset *p = &game.weather.preset[WEATHER_SUNNY];
+    p->wind_var = 0.0f;
+    p->shift_rate_deg = 0.0f;
+    p->gust_speed = 0.0f;
+    game_set_preset(&game, WEATHER_SUNNY);
+}
+
+/* The lesson is tuned for one forgiving boat; -1 when this build does not ship it. */
+static int lesson_boat(void) {
+    const char *const *names = assets_boat_names();
+    for (int i = 0; i < assets_boat_count(); i++)
+        if (strcmp(names[i], "sunfish") == 0) return i;
+    return -1;
+}
+
+/* A fresh lesson run, or the same step again after a capsize: the boat starts straight downwind. */
+static void lesson_place(void) {
+    game.b.heading = game.wind.dir;
+    lesson.held = 0.0f;
+    lesson.seen = 0;
+    camera_snap();
+}
+
 static void show_menu(void) {
+    const bool from_lesson = lesson_on;
+    if (lesson_on) {
+        lesson_on = false;
+        if (boat_index != lesson_prev_boat) {
+            boat_index = lesson_prev_boat;
+            begin(true);   /* reloads the boat's own config and weather too */
+        }
+        game.weather = weather_cfg;
+        game_set_preset(&game, preset_index);
+    }
     app = APP_MENU;
     menu_init(&menu, ntracks, assets_boat_count());
+    if (from_lesson) {
+        menu.screen = MENU_TRAINING;
+        menu.sel = TRAIN_ROW_LESSON;
+    }
     menu_set_boat_racing(&menu, boat_raceable);
     menu.boat = boat_index;   /* the boat screen opens on the current boat */
     menu_set_sound(&menu, sound_level);
@@ -264,7 +310,23 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
         }
         menu_crank(&menu, crank);
         if (act != MENU_NONE) ghost_storage(act == MENU_START_RACE);
-        if (act == MENU_START_FREE) {
+        if (act == MENU_START_TRAINING) {
+            lesson_prev_boat = boat_index;
+            const int lb = lesson_boat();
+            if (lb >= 0 && lb != boat_index) {
+                boat_index = lb;
+                begin(true);
+            }
+            game_set_track(&game, NULL);
+            lesson_weather();
+            training_init(&lesson);
+            lesson_on = true;
+            lesson_place();
+            sys_menu_build(true);
+            demo_left = APP_DEMO_SECONDS;
+            demo_end_left = 0.0f;
+            app = APP_PLAY;
+        } else if (act == MENU_START_FREE) {
             game_set_track(&game, NULL);
             sys_menu_build(false);
             camera_snap();
@@ -331,6 +393,11 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
         pushed = 0;   /* the B that answered "no" is not also an autotrim press */
     }
 
+    if (lesson_on && lesson.step == TRAIN_DONE && game.run == RUN_SAILING && (pushed & BTN_A)) {
+        show_menu();   /* the lesson is over; A goes back to the Training screen */
+        return APP_DRAW_NONE;
+    }
+
     if (game.mode == GAME_RACE && game.race.finished && game.run == RUN_SAILING && (pushed & BTN_A)) {
         show_menu();   /* the finish panel shows the time; A goes back to the home screen */
         return APP_DRAW_NONE;
@@ -341,10 +408,16 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     if (game.run != RUN_SAILING && (pushed & BTN_A)) {
         if (game.mode == GAME_RACE) race_attempt();
         else game_restart(&game, fresh_seed());
+        if (lesson_on) lesson_place();   /* the same step again */
         pushed = 0;
         dt = 1.0f / 30;
     }
+    if (lesson_on && training_engine_locked(&lesson)) game.en.on = false;   /* the lesson has not got to the engine yet */
     game_update(&game, pushed, cur, crank, dt);
+    if (lesson_on) {
+        if (training_engine_locked(&lesson)) game.en.on = false;
+        training_update(&lesson, &game, dt);
+    }
     if (game.mode == GAME_RACE) ghost_record(&ghost_run, &game);
     if (game.mode == GAME_RACE && game.race.finished) {
         if (!finish_recorded) {
@@ -390,6 +463,10 @@ void app_init(const Platform *p) {
     sys_menu_build(false);
     P->audio_set_level(sound_level);
     help_load();
+    {
+        char *md;
+        trainingtext_parse(assets_read_file(P, "config/training.md", &md) > 0 ? md : NULL, &lesson_text);
+    }
     begin(true);
     if (track_warn[0]) {
         /* append track warnings to the config line, "; "-separated */
@@ -425,3 +502,5 @@ int app_boat_index(void) { return boat_index; }
 int app_preset_index(void) { return preset_index; }
 bool app_sys_racing(void) { return sys_racing; }
 const char *app_warning(void) { return warn_shown ? warn : NULL; }
+const Training *app_training(void) { return lesson_on ? &lesson : NULL; }
+const char *app_training_text(void) { return lesson_on && app == APP_PLAY ? trainingtext_get(&lesson_text, lesson.step) : NULL; }

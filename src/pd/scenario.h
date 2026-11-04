@@ -22,7 +22,7 @@ typedef struct {
     bool caption_now; char caption[SC_NAME_MAX];   /* `caption TEXT`; "" for `caption off` */
     bool buoy_now; float buoy_fwd, buoy_right;     /* `buoy FWD RIGHT`: a lone buoy, m ahead / to starboard */
     int fixcam;                       /* `fixcam DIST HEIGHT AIM PITCH`: 1 = fix the camera by the buoy, 2 = `fixcam off` */
-    float fix_dist, fix_height, fix_aim, fix_pitch;
+    float fix_dist, fix_height, fix_aim, fix_pitch, fix_along;   /* DIST < 0: port side; ALONG m past the buoy */
     int ghost;                        /* `ghost on|off`: 1 on, 2 off, 0 unchanged */
 } ScShot;
 
@@ -46,7 +46,7 @@ typedef struct {
     uint32_t btn;
     int n;                            /* frames, sysmenu argument, or record / hud on (1) or off (0) */
     float deg;                        /* crank, wind or orbit degrees */
-    float v[4];                       /* buoy / fixcam arguments */
+    float v[5];                       /* buoy / fixcam arguments */
     ScSys sys;
     char name[SC_NAME_MAX];
 } ScCmd;

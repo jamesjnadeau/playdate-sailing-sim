@@ -1,0 +1,30 @@
+# Crank'n Sail trailer storyboard for tools/stitch_trailer.sh (about 30 s).
+# CLIP START DURATION [CAPTION]; clips are looked up in build/promo (unzip dinghy_weather_orbit.zip and
+# copy dinghy_buoy_pass_rollers.mp4 there). Use '|' for a line break in a caption.
+#
+#   tools/stitch_trailer.sh tools/trailer.txt build/promo/trailer.mp4 [--music track.mp3] [--vertical]
+
+dinghy_buoy_pass_rollers.mp4   0   9   # caption is already burned into the clip
+
+# Game modes (recorded with tools/promo_video.py run tools/shots/journey.txt|racing.txt --host --out build/promo/modes)
+card                           -   5   Take an endless|voyage on the sea,|guided by buoys
+modes/journey.mp4              1   6   Journey
+card                           -   5   Challenge yourself|and ghosts|to go faster
+modes/racing.mp4               3   6   Racing
+
+# One camera orbit (8 s per clip) split across the weathers: each shot starts where the last one's slice
+# ended (0, 3, 5, 0, 3, 5, 0 s; 8 s isn't a multiple of 3, so the 3rd and 6th shots step back 1 s), so the camera
+# keeps circling the boat while the weather changes under it. Three seconds is 135 degrees; seven shots make 2.6 turns.
+card                           -   5   Weather can change|to suit your mood
+dinghy_mist.mp4                0   3   Mist
+dinghy_sunny.mp4               3   3   Sunny
+dinghy_cloudy.mp4              5   3   Cloudy
+dinghy_choppy.mp4              0   3   Choppy
+dinghy_rollers.mp4             3   3   Rollers
+dinghy_storm.mp4               5   3   Storm
+dinghy_hurricane.mp4           0   3   Hurricane
+
+# Add footage of other boats, a HUD/race shot and the device in hand here once recorded, e.g.:
+# j24_sunny.mp4                0   4   Four boats|Free Range, Journey, Racing
+
+card                           -   6   Crank'n Sail|Free demo on itch.io|$3 for the full game|Open source on GitHub

@@ -115,7 +115,7 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
 | `caption TEXT` / `caption off` | Draw TEXT (the rest of the line, up to 47 characters) centred across the top in the home screen's title face, Jersey 10 at 2x |
 | `buoy FWD RIGHT` | Lay a lone buoy FWD m ahead of the boat and RIGHT m to starboard (any mode) |
-| `fixcam DIST HEIGHT AIM PITCH` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side, HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
+| `fixcam DIST HEIGHT AIM PITCH [ALONG]` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side (a negative DIST: the port side, so the boat crosses right to left), ALONG m further ahead (default 0), HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
 | `ghost on\|off` | Draw or leave out the trailing ghost of your recent track (free range and journey) |
 | `end` | Stop the scenario |
 

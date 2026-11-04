@@ -111,14 +111,16 @@ static void scenario_shot(const ScShot *s, float dt) {
     }
     if (s->fixcam == 2) fix_on = false;
     if (s->fixcam == 1 && buoy_set) {
-        /* DIST m from the buoy on the side away from the boat's track (starboard), looking back across the
-           track, so the boat crosses from left to right; AIM turns the view right (the buoy moves left) */
+        /* DIST m from the buoy on the side away from the boat's track (starboard; port if DIST < 0, so the boat
+           crosses right to left), ALONG m further ahead, looking back across the track, so the boat crosses
+           from left to right; AIM turns the view right (the buoy moves left) */
         const float ch = cosf(buoy_heading), sh = sinf(buoy_heading);
+        const float side = s->fix_dist < 0 ? -1.0f : 1.0f, d = side * s->fix_dist, al = s->fix_along;
         memset(&fix_cam, 0, sizeof fix_cam);
-        fix_cam.x = buoy_x - (double)(s->fix_dist * sh);
-        fix_cam.y = buoy_y + (double)(s->fix_dist * ch);
+        fix_cam.x = buoy_x - (double)(side * d * sh - al * ch);
+        fix_cam.y = buoy_y + (double)(side * d * ch + al * sh);
         fix_cam.height = s->fix_height;
-        fix_cam.yaw = wrap_pi(buoy_heading - (float)M_PI_2 + deg2rad(s->fix_aim));
+        fix_cam.yaw = wrap_pi(buoy_heading - side * (float)M_PI_2 + deg2rad(s->fix_aim));
         fix_cam.pitch = deg2rad(s->fix_pitch);
         fix_cam.trail = true;
         fix_on = true;

@@ -1,0 +1,28 @@
+# Racing mode: Racing > first track > preview > boat > weather, then the race begins
+wait 2
+press down
+wait 1
+press down
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 5
+hud on
+press A                 # autopilot
+wait 1
+press B                 # auto trim
+wait 60
+buoy 14 -1.5             # laid ahead, a little to port of the track
+fixcam 2.0 6 -86 -22 8   # camera raised, 8 m past the buoy, looking back down the track: the boat comes from the horizon (top) down past the buoy
+record racing
+wait 270
+record off
+state
+end

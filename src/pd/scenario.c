@@ -62,7 +62,7 @@ static bool valid_name(const char *t) {
 
 /* Parse one line (already stripped of comments) into c. Returns NULL or an error message. */
 static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
-    char *tok[5];
+    char *tok[6];
     int nt = 0;
     char *p = line;
     memset(c, 0, sizeof *c);
@@ -84,7 +84,7 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
     while (*p) {
         while (*p && is_ws(*p)) p++;
         if (!*p) break;
-        if (nt == 5) return "too many arguments";
+        if (nt == 6) return "too many arguments";
         tok[nt++] = p;
         while (*p && !is_ws(*p)) p++;
         if (*p) *p++ = 0;
@@ -169,10 +169,11 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
         c->kind = SC_C_FIXCAM;
         if (nt == 2 && !strcmp(tok[1], "off")) return NULL;
         c->n = 1;
-        if (nt != 5) return "usage: fixcam DIST HEIGHT AIM PITCH|off";
-        for (int k = 0; k < 4; k++)
-            if (!parse_float(tok[k + 1], &c->v[k])) return "usage: fixcam DIST HEIGHT AIM PITCH|off";
-        if (c->v[0] <= 0 || c->v[1] <= 0) return "fixcam: DIST and HEIGHT must be positive";
+        if (nt != 5 && nt != 6) return "usage: fixcam DIST HEIGHT AIM PITCH [ALONG]|off";
+        c->v[4] = 0;
+        for (int k = 0; k < nt - 1; k++)
+            if (!parse_float(tok[k + 1], &c->v[k])) return "usage: fixcam DIST HEIGHT AIM PITCH [ALONG]|off";
+        if (c->v[0] == 0 || c->v[1] <= 0) return "fixcam: DIST must be non-zero and HEIGHT positive";
     } else if (!strcmp(tok[0], "ghost")) {
         c->kind = SC_C_GHOST;
         if (nt != 2 || (strcmp(tok[1], "on") && strcmp(tok[1], "off"))) return "usage: ghost on|off";
@@ -237,7 +238,7 @@ static bool take_pending(Scenario *s, const ScCmd *c) {
     case SC_C_BUOY: p->buoy_now = true; p->buoy_fwd = c->v[0]; p->buoy_right = c->v[1]; return true;
     case SC_C_FIXCAM:
         p->fixcam = c->n ? 1 : 2;
-        p->fix_dist = c->v[0]; p->fix_height = c->v[1]; p->fix_aim = c->v[2]; p->fix_pitch = c->v[3];
+        p->fix_dist = c->v[0]; p->fix_height = c->v[1]; p->fix_aim = c->v[2]; p->fix_pitch = c->v[3]; p->fix_along = c->v[4];
         return true;
     case SC_C_GHOST: p->ghost = c->n ? 1 : 2; return true;
     default: return false;

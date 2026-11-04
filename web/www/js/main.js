@@ -24,6 +24,19 @@ const TOUCH_KEYS = { A: 'A', B: 'B', updown: '▲ / ▼', wheel: 'Drag',
 const HUD_PX = 46;
 
 const $ = (s) => document.querySelector(s);
+
+// Elements the page needs that are made here rather than in index.html: the host may cache index.html for a few
+// minutes, and a page from before an element existed must still boot with these scripts.
+function ensure(id, tag, html, attrs = {}) {
+  let el = document.getElementById(id);
+  if (el) return el;
+  el = document.createElement(tag);
+  el.id = id;
+  el.innerHTML = html;
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  document.body.insertBefore(el, document.getElementById('about'));
+  return el;
+}
 const status = $('#status');
 const say = (s) => { status.textContent = s; status.hidden = !s; };
 
@@ -61,6 +74,12 @@ async function boot() {
 
   // touch mode: on from the start on a touch-first device, and as soon as a finger lands on the view; a key
   // on the keyboard turns it off again
+  ensure('touch', 'div', '', { hidden: '' });
+  ensure('rotate', 'div', '<div>↻</div>Turn your phone sideways to sail');
+  ensure('fullscreen', 'button', `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <path class="fs-enter" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+      <path class="fs-leave" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>`,
+  { hidden: '', 'aria-label': 'Full screen', title: 'Full screen' });
   const touch = new TouchControls($('#touch'), $('#view'), input, {
     menu: () => { audio.start(); if (sys.open) sys.close(); else openSys(); },
     touch: () => { audio.start(); setTouch(true); },

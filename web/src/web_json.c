@@ -427,6 +427,8 @@ static void menu_json(void) {
             str_v(assets_boat_names()[i]);
         } else if (m->screen == MENU_WEATHER) {
             str_v(WEATHER_NAMES[i]);
+        } else if (m->screen == MENU_TRAINING) {
+            str_v(i == TRAIN_ROW_LESSON ? "Sailing Lesson" : "Controls");
         } else {
             str_v("");
         }

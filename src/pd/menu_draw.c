@@ -350,7 +350,7 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
         hint_bar(pd, "SELECT", NULL, "CHOOSE");
     } else if (m->screen == MENU_TRAINING) {
         static const char *const names[MENU_TRAINING_ROWS] = { "Controls", "Sailing Lesson" };
-        title_block(pd, "Menu", "Training", "Learn the boat");
+        title_block(pd, "Menu", "Training", "");
         list(pd, m, names);
         hint_bar(pd, "SELECT", "BACK", "CHOOSE");
     } else if (m->screen == MENU_PREVIEW) {

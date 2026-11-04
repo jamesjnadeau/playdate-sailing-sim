@@ -409,6 +409,7 @@ static void menu_json(void) {
     integer("sound", m->sound);
     integer("tick", m->tick);
     boolean("journey", m->journey);
+    boolean("demo", app_is_demo());
     integer("helpTop", m->help_top);
     integer("helpRows", m->help_rows);
     arr("rows");

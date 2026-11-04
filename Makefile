@@ -50,6 +50,20 @@ ULIBS = --specs=nosys.specs
 # and when the boat changes.
 STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks Source/ghosts && mkdir -p ghosts && cp -r boats config tracks ghosts Source/)
 
+# The launcher entry follows the variant: the demo gets its own name, bundle id and card art (assets/launcher-demo,
+# made by DEMO=1 tools/launcher_art.sh); every build rewrites these three pdxinfo lines, so the tracked file stays the full game's.
+ifeq ($(DEMO),1)
+PDX_NAME = Crank'n Sail Demo
+PDX_BUNDLE = com.jamesnadeau.sailingsim.demo
+PDX_IMAGES = launcher-demo
+else
+PDX_NAME = Crank'n Sail
+PDX_BUNDLE = com.jamesnadeau.sailingsim
+PDX_IMAGES = launcher
+endif
+STAGE_PDX := $(shell rm -rf Source/launcher-demo; if [ "$(DEMO)" = 1 ]; then cp -r assets/launcher-demo Source/launcher-demo; fi; \
+  sed -i -e "s/^name=.*/name=$(PDX_NAME)/" -e "s/^bundleID=.*/bundleID=$(PDX_BUNDLE)/" -e "s/^imagePath=.*/imagePath=$(PDX_IMAGES)/" Source/pdxinfo)
+
 include $(SDK)/C_API/buildsupport/common.mk
 
 # Both variants share build/ and Source/pdex.*, and the simulator dylib rule only

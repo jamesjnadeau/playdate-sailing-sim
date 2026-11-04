@@ -7,6 +7,7 @@ Source/boats/
 Source/config/
 Source/tracks/
 Source/ghosts/
+Source/launcher-demo/
 Source/pdex.*
 __pycache__/
 .claude/worktrees/

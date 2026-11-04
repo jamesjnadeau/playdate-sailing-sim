@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include "app.h"
 #include "assets.h"
 #include "helptext.h"
 #include "hudinfo.h"
@@ -339,7 +340,7 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
         text(pd, m->help_top + MENU_HELP_VIS < m->help_rows ? "v" : " ", 388, 196);
         hint_bar(pd, NULL, "BACK", "SCROLL");
     } else if (m->screen == MENU_MAIN) {
-        title_block(pd, NULL, "Crank'n Sail", "A sailing simulation");
+        title_block(pd, app_is_demo() ? "DEMO" : NULL, "Crank'n Sail", "A sailing simulation");
         for (int i = 0; i < MENU_MAIN_ITEMS; i++) labels[i] = MENU_MAIN_NAMES[i];
         list(pd, m, labels);
         hint_bar(pd, "SELECT", NULL, "CHOOSE");

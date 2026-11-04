@@ -7,12 +7,13 @@
 #   launchImage.png         400x240 all white (shown while loading; the white start menu follows)
 #
 #   tools/launcher_art.sh [out_dir]         default Source/launcher
+#   DEMO=1 tools/launcher_art.sh            the demo's art (a DEMO tag by the title), default assets/launcher-demo
 # Env: BOAT, FPS (20), FREEZE (clip frame the launch animation starts from, default 70 = empty sea),
 # LOOKUP_FRAMES (20), LOOKUP_DEG (50), CARD_Y0 (first screen row kept in the card, default 85 = flush with the bottom of the render; PITCH_DEG 17.5 sets the scene low enough to fit).
 # Needs the Playdate SDK C_API headers (PLAYDATE_SDK_PATH) and Pillow. Set imagePath=launcher in pdxinfo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT="${1:-Source/launcher}"
+if [ "${DEMO:-0}" = 1 ]; then OUT="${1:-assets/launcher-demo}"; else OUT="${1:-Source/launcher}"; fi
 SDK="${PLAYDATE_SDK_PATH:-$HOME/Developer/PlaydateSDK-3.1.2}"
 INC="${PD_API_INCLUDE:-$SDK/C_API}"
 [ -f "$INC/pd_api.h" ] || { echo "launcher_art: pd_api.h not found in $INC" >&2; exit 1; }
@@ -24,25 +25,36 @@ export PITCH_DEG="${PITCH_DEG:-17.5}" PASSBY=1 BOAT="${BOAT:-boats/sunfish.json}
 FRAME_DIR="$WORK/pass" "$WORK/gif_clip" | tail -n 1
 FREEZE="${FREEZE:-70}" FRAME_DIR="$WORK/look" "$WORK/gif_clip" | tail -n 1
 rm -rf "$OUT"; mkdir -p "$OUT/card-highlighted" "$OUT/launchImages"
-python3 -I - "$WORK" "$OUT" "${CARD_Y0:-85}" "${LOOKUP_DEG:-50}" "$PITCH_DEG" <<'PY'
+python3 -I - "$WORK" "$OUT" "${CARD_Y0:-85}" "${LOOKUP_DEG:-50}" "$PITCH_DEG" "${DEMO:-0}" <<'PY'
 import sys, glob, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 work, out, y0, deg, p0 = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
+demo = sys.argv[6] == "1"
 CW, CH, CX, CY = 350, 155, 25, 43             # card size and where the launcher draws it
 font = ImageFont.truetype("assets/fonts/Jersey10-Regular.ttf", 56)
 mask = Image.new("L", (400, 80), 0)
 ImageDraw.Draw(mask).text((0, 0), "Crank'n Sail", font=font, fill=255)
 mask = mask.crop(mask.getbbox()).point(lambda v: 255 if v > 127 else 0)
+tag_text = Image.new("L", (200, 60), 0)
+ImageDraw.Draw(tag_text).text((0, 0), "DEMO", font=ImageFont.truetype("assets/fonts/Jersey10-Regular.ttf", 36), fill=255)
+tag_text = tag_text.crop(tag_text.getbbox()).point(lambda v: 255 if v > 127 else 0)
+tag = Image.new("L", (tag_text.width + 8, tag_text.height + 6))
+print("title width", mask.width, "tag width", tag.width)
 TITLE_Y = y0 + 8                                # a little below the top edge of the card crop
 
 def titled(im, shift=0):
     """scene (L, 400x240) with the title stamped on it; `shift` rows moves the title with the scene"""
     im = im.convert("L").copy()
     pad = Image.new("L", im.size, 0)
-    pad.paste(mask, ((400 - mask.width) // 2, TITLE_Y + shift))
+    pad.paste(mask, (CX + 10 if demo else (400 - mask.width) // 2, TITLE_Y + shift))   # the demo tag takes the right end
     halo = pad.filter(ImageFilter.MaxFilter(5))   # 2 px black outline so it reads on any sea
     im.paste(0, mask=halo.point(lambda v: 255 if v else 0))
     im.paste(255, mask=pad)
+    if demo:                                       # a black "DEMO" tag in the top-right corner of the card
+        w, h = tag.size
+        x, y = CX + CW - 5 - w, TITLE_Y + shift + 2
+        im.paste(0, (x, y, x + w, y + h))
+        im.paste(255, (x + 4, y + 3), tag_text)
     return im
 
 def one_bit(im): return im.point(lambda v: 255 if v > 127 else 0).convert("1")

@@ -4,7 +4,7 @@
 // go back to the game as button presses (see menupointer.js), so the C menu stays the one source of truth.
 import { BTN } from '../input.js';
 
-export const SCREEN = { MAIN: 0, TRACKS: 1, PREVIEW: 2, BOATS: 3, WEATHER: 4, HELP: 5 };
+export const SCREEN = { MAIN: 0, TRACKS: 1, PREVIEW: 2, BOATS: 3, WEATHER: 4, HELP: 5, TRAINING: 6 };
 const LIST_VIS = 5, HELP_VIS = 14;
 const PV_LOOP = 240, PV_HOLD = 45;
 
@@ -78,7 +78,7 @@ export class MenuView {
     let hint;
     const track = stat.tracks[m.track] || { name: '' };
     if (m.screen === SCREEN.MAIN) {
-      this.titleBlock(null, 'Crank Sail', 'A sailing simulation');
+      this.titleBlock(m.demo ? 'DEMO' : null, "Crank'n Sail", 'A sailing simulation');
       hint = ['SELECT', null, 'CHOOSE'];
     } else if (m.screen === SCREEN.TRACKS) {
       this.titleBlock('Menu › Racing', 'Racing', 'Choose a course');
@@ -91,6 +91,9 @@ export class MenuView {
     } else if (m.screen === SCREEN.WEATHER) {
       this.titleBlock(`${mode} › Boat`, cap(stat.boats[m.boat] || ''), 'Choose weather');
       hint = [go, 'BACK', 'CHOOSE'];
+    } else if (m.screen === SCREEN.TRAINING) {
+      this.titleBlock('Menu', 'Training', '');
+      hint = ['SELECT', 'BACK', 'CHOOSE'];
     } else if (m.screen === SCREEN.PREVIEW) {
       this.preview.querySelector('h2').textContent = track.name;
       this.preview.querySelector('.pv-best').textContent = `Best ${m.best || '--:--.-'}`;

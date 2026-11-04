@@ -31,6 +31,12 @@ UDEFS += -DSCENARIO
 SRC += src/pd/scenario.c src/pd/scenario_io.c
 VARIANT = scenario
 endif
+# make DEMO=1 builds SailingSimDemo.pdx: Free Range only, five minutes a run, then back to the home screen.
+ifeq ($(DEMO),1)
+PRODUCT = SailingSimDemo.pdx
+UDEFS += -DDEMO
+VARIANT := $(VARIANT)-demo
+endif
 # make FPS=1 draws the SDK frame-rate readout in the top-left corner, for device profiling.
 ifeq ($(FPS),1)
 UDEFS += -DSHOW_FPS
@@ -43,6 +49,20 @@ ULIBS = --specs=nosys.specs
 # Runtime configs ship inside the .pdx as plain files the game reads at start
 # and when the boat changes.
 STAGE := $(shell mkdir -p Source && rm -rf Source/boats Source/config Source/tracks Source/ghosts && mkdir -p ghosts && cp -r boats config tracks ghosts Source/)
+
+# The launcher entry follows the variant: the demo gets its own name, bundle id and card art (assets/launcher-demo,
+# made by DEMO=1 tools/launcher_art.sh); every build rewrites these three pdxinfo lines, so the tracked file stays the full game's.
+ifeq ($(DEMO),1)
+PDX_NAME = Crank'n Sail Demo
+PDX_BUNDLE = com.jamesnadeau.sailingsim.demo
+PDX_IMAGES = launcher-demo
+else
+PDX_NAME = Crank'n Sail
+PDX_BUNDLE = com.jamesnadeau.sailingsim
+PDX_IMAGES = launcher
+endif
+STAGE_PDX := $(shell rm -rf Source/launcher-demo; if [ "$(DEMO)" = 1 ]; then cp -r assets/launcher-demo Source/launcher-demo; fi; \
+  sed -i -e "s/^name=.*/name=$(PDX_NAME)/" -e "s/^bundleID=.*/bundleID=$(PDX_BUNDLE)/" -e "s/^imagePath=.*/imagePath=$(PDX_IMAGES)/" Source/pdxinfo)
 
 include $(SDK)/C_API/buildsupport/common.mk
 

@@ -1,0 +1,22 @@
+# Journey mode: Journey > boat > weather, autopilot and auto trim, camera follows the next buoy
+wait 2
+press down
+wait 1
+press A
+wait 1
+press A
+wait 1
+press A
+wait 5
+hud on
+press A                 # autopilot
+wait 1
+press B                 # auto trim
+wait 150                # get up to speed
+buoy 10 0.4             # a buoy just ahead, to starboard
+fixcam -10 2.0 -5 -5      # camera on the far (port) side: the boat sails across the frame right to left, in front of the buoy
+record journey
+wait 270
+record off
+state
+end

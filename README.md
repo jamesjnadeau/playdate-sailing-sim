@@ -1,4 +1,6 @@
-# CrankSail
+# Crank'n Sail
+
+This game was first inspired by the many people who have tried to make sailing games for the Playdate, such as [The Big Pond](https://devforum.play.date/t/the-big-pond-a-chill-sailing-game-beta-available/8300) and [My Fishing Boat demo](https://devforum.play.date/t/my-fishing-boat-demo/12241). There are many more I can't find.
 
 A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, or a Reynolds 33 catamaran around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
 
@@ -23,6 +25,8 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 | B | Toggle auto trim; stops the engine instead while it runs |
 | Hold B | Start the engine (1 knot, pushes along the rudder) |
 
+The controls were inspired by the game "At the Helm" from Reddit user pararar, in [this post](https://www.reddit.com/r/PlaydateConsole/comments/1xa39t4/im_making_a_sailing_game/).
+
 The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather and go back. Go back asks for confirmation, then returns to the home screen.
 
 ## Building
@@ -33,7 +37,14 @@ You need the [Playdate SDK](https://play.date/dev/) and, for hardware builds, `a
 tools/sim.sh            # build SailingSim.pdx and open it in the simulator
 tools/deploy.sh         # build for hardware and copy it to a connected Playdate over USB
 make                    # build only
+make DEMO=1             # build SailingSimDemo.pdx, the demo (below)
 ```
+
+### Demo build
+
+In the launcher the demo is "Crank'n Sail Demo" (its own bundle id, so it installs beside the full game) with a DEMO tag on its card (`assets/launcher-demo/`, rebuilt with `DEMO=1 tools/launcher_art.sh`), and the title screen shows DEMO above the name.
+
+`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The menus still list everything, but locked rows are dimmed and skipped by the cursor: Journey is locked, and of the race courses only Two Buoys 100m can be picked (`APP_DEMO_TRACK`), so the demo offers Free Range and that one race. A run, free or race, lasts five minutes of sailing (`APP_DEMO_SECONDS` in `src/app/app.h`); then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game returns to the home screen.
 
 ## Web version
 
@@ -67,6 +78,14 @@ make -C web test     # native vs wasm parity, input unit tests, headless browser
 
 The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to `main`. In the repository settings, set Pages → Build and deployment → Source to GitHub Actions.
 
+### Releasing
+
+`tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip`, `CranknSail-Demo-v0.2.0.pdx.zip` and the browser build `CranknSail-Web-v0.2.0.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
+
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET`, `ITCH_DEMO_TARGET` and `ITCH_WEB_TARGET` (the browser build, zipped with `index.html` at the root; mark that upload "This file will be played in the browser" on itch.io once), each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
+
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET` and `ITCH_DEMO_TARGET`, each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
+
 ## Tests
 
 The simulation core in `src/sim/` has no Playdate dependencies and is tested on the host:
@@ -98,7 +117,7 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
 | `caption TEXT` / `caption off` | Draw TEXT (the rest of the line, up to 47 characters) centred across the top in the home screen's title face, Jersey 10 at 2x |
 | `buoy FWD RIGHT` | Lay a lone buoy FWD m ahead of the boat and RIGHT m to starboard (any mode) |
-| `fixcam DIST HEIGHT AIM PITCH` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side, HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
+| `fixcam DIST HEIGHT AIM PITCH [ALONG]` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side (a negative DIST: the port side, so the boat crosses right to left), ALONG m further ahead (default 0), HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
 | `ghost on\|off` | Draw or leave out the trailing ghost of your recent track (free range and journey) |
 | `end` | Stop the scenario |
 

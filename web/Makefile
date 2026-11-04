@@ -8,13 +8,17 @@ DIST    := dist
 BUILD   := build
 EMCC    ?= emcc
 CC      ?= gcc
+# make DEMO=1 builds the demo: Free Range only, five minutes a run, then back to the home screen
+ifeq ($(DEMO),1)
+DEMOFLAG := -DDEMO
+endif
 # resolved by the shell: emsdk_env.sh puts the emsdk folder, which holds a node/ directory, on PATH
 NODE    := $(shell command -v node)
 SRC     := $(wildcard $(ROOT)/src/sim/*.c) $(wildcard $(ROOT)/src/app/*.c) $(wildcard src/*.c)
 HDR     := $(wildcard $(ROOT)/src/sim/*.h) $(wildcard $(ROOT)/src/app/*.h) $(wildcard src/*.h)
 INC     := -I$(ROOT)/src/sim -I$(ROOT)/src/app -Isrc
 # -ffp-contract=off as on the host: no fused multiply-adds, so wasm and native differ only by libm rounding
-CFLAGS  := -std=gnu99 -O2 -Wall -Wextra -ffp-contract=off $(INC)
+CFLAGS  := -std=gnu99 -O2 -Wall -Wextra -ffp-contract=off $(DEMOFLAG) $(INC)
 EXPORTS := _web_init,_web_step,_web_frame_json,_web_static_json,_web_static_generation,_web_sys_boat,_web_sys_weather,_web_sys_back,_web_playing,_web_take_dirty,_web_audio,_web_audio_on,_web_alloc,_malloc,_free
 LDFLAGS := -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createSim -sALLOW_MEMORY_GROWTH=1 -sENVIRONMENT=web \
            -sEXPORTED_FUNCTIONS=$(EXPORTS) -sEXPORTED_RUNTIME_METHODS=UTF8ToString,FS,HEAP16 \

@@ -47,8 +47,12 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 /* Praise banner after a buoy is rounded; blank once its time is up. */
 void hud_praise(PlaydateAPI *pd, const Game *g);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
+/* The sailing lesson's text for the current step. */
+void hud_lesson(PlaydateAPI *pd, const char *text);
 /* Confirmation box shown when "go back" is picked from the system menu. */
 void hud_back_confirm(PlaydateAPI *pd);
+/* "Thanks for playing the demo" box over the frozen run (demo build). */
+void hud_demo_end(PlaydateAPI *pd);
 /* System pause-menu panel: race time and next-mark info; blank in free sail. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g);
 

@@ -111,14 +111,16 @@ static void scenario_shot(const ScShot *s, float dt) {
     }
     if (s->fixcam == 2) fix_on = false;
     if (s->fixcam == 1 && buoy_set) {
-        /* DIST m from the buoy on the side away from the boat's track (starboard), looking back across the
-           track, so the boat crosses from left to right; AIM turns the view right (the buoy moves left) */
+        /* DIST m from the buoy on the side away from the boat's track (starboard; port if DIST < 0, so the boat
+           crosses right to left), ALONG m further ahead, looking back across the track, so the boat crosses
+           from left to right; AIM turns the view right (the buoy moves left) */
         const float ch = cosf(buoy_heading), sh = sinf(buoy_heading);
+        const float side = s->fix_dist < 0 ? -1.0f : 1.0f, d = side * s->fix_dist, al = s->fix_along;
         memset(&fix_cam, 0, sizeof fix_cam);
-        fix_cam.x = buoy_x - (double)(s->fix_dist * sh);
-        fix_cam.y = buoy_y + (double)(s->fix_dist * ch);
+        fix_cam.x = buoy_x - (double)(side * d * sh - al * ch);
+        fix_cam.y = buoy_y + (double)(side * d * ch + al * sh);
         fix_cam.height = s->fix_height;
-        fix_cam.yaw = wrap_pi(buoy_heading - (float)M_PI_2 + deg2rad(s->fix_aim));
+        fix_cam.yaw = wrap_pi(buoy_heading - side * (float)M_PI_2 + deg2rad(s->fix_aim));
         fix_cam.pitch = deg2rad(s->fix_pitch);
         fix_cam.trail = true;
         fix_on = true;
@@ -184,14 +186,18 @@ static int update(void *ud) {
     const AppDraw d = app_step((uint32_t)pushed, (uint32_t)cur, crank, dt);
     if (d == APP_DRAW_MENU) {
         menu_draw(pd, app_menu(), app_tracks(), app_best(), app_boat_best(), app_help());
-    } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM) {
+    } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END) {
 #ifdef SCENARIO
         render_frame(pd, app_game(), fix_on ? &fix_cam : app_camera(), app_ghost_opponent());
 #else
         render_frame(pd, app_game(), app_camera(), app_ghost_opponent());
 #endif
         const char *warn = app_warning();
-        if (d == APP_DRAW_CONFIRM) {
+        const char *lesson = app_training_text();
+        if (lesson && d == APP_DRAW_PLAY && render_hud()) hud_lesson(pd, lesson);
+        if (d == APP_DRAW_DEMO_END) {
+            hud_demo_end(pd);
+        } else if (d == APP_DRAW_CONFIRM) {
             hud_back_confirm(pd);
         } else if (warn && render_hud()) {
             /* below the HUD bar, on white, clipped to one screen-width line */

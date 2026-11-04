@@ -111,7 +111,7 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `snap NAME` | Save the frame buffer as `NAME.fb` (`NAME` is `[A-Za-z0-9_]+`; needs at least one frame before it) |
 | `state` | Save the game state as text |
 | `sysmenu back\|boat N\|weather N` | Pick that system-menu item on the next frame |
-| `record NAME` / `record off` | Save every frame from the next one on as `NAME/00000.fb`, `NAME/00001.fb`, ... (for videos) |
+| `record NAME` / `record off` | Save every frame from the next one on as `NAME/00000.fb`, `NAME/00001.fb`, ..., and the game's sea sound alongside as `NAME/audio.pcm` (44.1 kHz stereo s16le, 1470 samples a frame) (for videos) |
 | `hud on\|off` | Draw or leave out the HUD (bar, markers, banners, prompts) from the next frame |
 | `wind DEG` | Turn the wind to blow from DEG degrees off the bow (+ = starboard) on the next frame; put it after any `sysmenu weather` |
 | `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
@@ -164,7 +164,7 @@ Warning: never start the simulator with `WAYLAND_DISPLAY` set, it opens on your 
 
 ## Promo videos
 
-`tools/promo_video.py` plays scripted shots in the real simulator (headless, on its own Xvfb) and encodes each recording as an MP4 (H.264, 30 fps, 1600x960 by default: 4x nearest-neighbour). It needs `PLAYDATE_SDK_PATH`, Xvfb and ffmpeg.
+`tools/promo_video.py` plays scripted shots in the real simulator (headless, on its own Xvfb) and encodes each recording as an MP4 (H.264, 30 fps, 1600x960 by default: 4x nearest-neighbour) with the game's own sea sound (wash, swell, rigging wind, slaps), recorded frame by frame so it stays in sync and brought up to -16 LUFS. It needs `PLAYDATE_SDK_PATH`, Xvfb and ffmpeg.
 
 ```bash
 tools/promo_video.py series weather-orbit          # the dinghy in every weather, HUD off -> build/promo/dinghy_<weather>.mp4

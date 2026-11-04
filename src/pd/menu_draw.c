@@ -340,7 +340,7 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
         text(pd, m->help_top + MENU_HELP_VIS < m->help_rows ? "v" : " ", 388, 196);
         hint_bar(pd, NULL, "BACK", "SCROLL");
     } else if (m->screen == MENU_MAIN) {
-        title_block(pd, NULL, "Crank Sail", "A sailing simulation");
+        title_block(pd, NULL, "Crank'n Sail", "A sailing simulation");
         for (int i = 0; i < MENU_MAIN_ITEMS; i++) {
             if (i == MENU_ITEM_SOUND) snprintf(buf[i], sizeof buf[i], "%s: %s", MENU_MAIN_NAMES[i], MENU_SOUND_NAMES[m->sound]);
             else snprintf(buf[i], sizeof buf[i], "%s", MENU_MAIN_NAMES[i]);

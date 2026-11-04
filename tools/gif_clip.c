@@ -114,11 +114,24 @@ int main(void) {
 
     BoatCfg bc; WeatherCfg wc; WorldCfg wo;
     boatcfg_default(&bc); weather_default(&wc); world_default(&wo);
+    const int passby = getenv("PASSBY") != NULL;
+    if (passby) render_set_hud(false);   /* the promo tools want the bare scene */
+    if (passby) {   /* a seamless loop needs a sea (and clouds) that repeat exactly: period = the whole loop in sim time (the clip plays 2x), still sky */
+        int pr = getenv("PRESET") ? atoi(getenv("PRESET")) : WEATHER_CHOPPY;
+        float ls = getenv("LOOP_S") ? (float)atof(getenv("LOOP_S")) : 3.0f;
+        float ps = getenv("PAUSE_S") ? (float)atof(getenv("PAUSE_S")) : 1.0f;
+        float sp = getenv("SPEED") ? (float)atof(getenv("SPEED")) : 2.0f;
+        wc.preset[pr].wave_period = getenv("WAVE_PERIOD") ? (float)atof(getenv("WAVE_PERIOD")) : (ls + ps) * sp;
+        wc.preset[pr].cloud_speed = 0.0f;
+        wc.preset[pr].cloud_cover = 0.0f;   /* blank white sky: the launch animation ends looking up into it */
+        wc.preset[pr].sky_top = 0; wc.preset[pr].sky_horizon = 0;
+    }
     const char *boat_path = getenv("BOAT") ? getenv("BOAT") : "boats/j24.json";
     FILE *jf = fopen(boat_path, "rb");
     if (!jf) { fprintf(stderr, "gif_clip: cannot open boat file %s\n", boat_path); return 1; }
     static char buf[1 << 16]; size_t n = fread(buf, 1, sizeof buf - 1, jf); fclose(jf); buf[n] = 0;
     char w[128]; boatcfg_load(&bc, buf, n, w, sizeof w);
+    if (passby) preset = getenv("PRESET") ? atoi(getenv("PRESET")) : WEATHER_CHOPPY;
     game_init(&g, &bc, &wc, &wo, preset, 1);
     if (getenv("WIND")) wind_set_speed(&g.wind, &g.weather.preset[g.preset], (float)atof(getenv("WIND")));
     memset(&cp, 0, sizeof cp); cp.trail = true;
@@ -127,6 +140,79 @@ int main(void) {
     float wind_from = wrap_pi(g.wind.dir + (float)M_PI);
     g.ap.on = true;
     g.ap.target = wrap_pi(wind_from + rel * 0.0174533f);
+    if (passby) {
+        /* Fixed camera beside the boat's track; the boat crosses the view in LOOP_S seconds, entering
+         * and leaving fully off screen, so the last frame leads straight into the first. Env: DIST (m
+         * from the track), EYE (camera height, m), PITCH_DEG (+ = look up), LOOP_S (boat on screen), PAUSE_S (empty sea after it). */
+        float loop_s = getenv("LOOP_S") ? (float)atof(getenv("LOOP_S")) : 3.0f;
+        float dist = getenv("DIST") ? (float)atof(getenv("DIST")) : 8.0f;
+        float eye = getenv("EYE") ? (float)atof(getenv("EYE")) : 1.8f;
+        float pitch = (getenv("PITCH_DEG") ? (float)atof(getenv("PITCH_DEG")) : 5.0f) * 0.0174533f;
+        float speed = getenv("SPEED") ? (float)atof(getenv("SPEED")) : 2.0f;   /* sim seconds per clip second */
+        float pause_s = getenv("PAUSE_S") ? (float)atof(getenv("PAUSE_S")) : 1.0f;   /* empty sea before the boat returns */
+        int total = (int)((loop_s + pause_s) * fps + 0.5f), warm_p = 60 * fps;
+        float sdt = dt * speed;   /* sim time per frame; speed * loop_s should be one sea period */
+        /* t is a whole number of sea periods at the loop start, so frame `total` matches frame 0 */
+        double t_start = 0;
+        for (int i = 0; i < warm_p; i++) {
+            float awa = g.b.awa;
+            for (int s = 0; s < bc.sail_count; s++) {
+                float t = autotrim_best_trim(&bc.sails[s], awa, g.b.aws, g.b.heel);
+                if (t >= 0) g.in.trim_target[s] = t;
+                g.in.hoist_target[s] = 1.0f;
+            }
+            game_update(&g, 0, 0, 0, dt);
+        }
+        (void)t_start;
+        /* the loop's mid-point: where the boat will be after half the clip, at its present speed */
+        float hd = g.b.heading, half = 0.5f * loop_s * speed;
+        CameraPose fixed; memset(&fixed, 0, sizeof fixed);
+        fixed.height = eye; fixed.pitch = pitch; fixed.roll = 0; fixed.trail = true;
+        fixed.yaw = wrap_pi(hd - (float)M_PI * 0.5f);        /* look at the track from its starboard side */
+        float vx = g.b.u * cosf(hd), vy = g.b.u * sinf(hd);
+        fixed.x = g.b.x + vx * half + (double)(-sinf(hd) * dist);
+        fixed.y = g.b.y + vy * half + (double)(cosf(hd) * dist);
+        double t0 = g.t, per = g.sea.period;
+        if (getenv("FREEZE")) {
+            /* launch animation: hold the pass-by at clip frame FREEZE, then tip the camera up LOOKUP_DEG
+             * over LOOKUP_FRAMES frames (ease in and out) until only sky is left */
+            int fz = atoi(getenv("FREEZE"));
+            int nl = getenv("LOOKUP_FRAMES") ? atoi(getenv("LOOKUP_FRAMES")) : 20;
+            float deg = getenv("LOOKUP_DEG") ? (float)atof(getenv("LOOKUP_DEG")) : 50.0f;
+            for (int i = 0; i <= fz; i++) {
+                float awa = g.b.awa;
+                for (int s = 0; s < bc.sail_count; s++) {
+                    float t = autotrim_best_trim(&bc.sails[s], awa, g.b.aws, g.b.heel);
+                    if (t >= 0) g.in.trim_target[s] = t;
+                    g.in.hoist_target[s] = 1.0f;
+                }
+                for (int k = 0; k < (int)speed; k++) game_update(&g, 0, 0, 0, dt);
+            }
+            for (int i = 0; i < nl; i++) {
+                float u = nl > 1 ? (float)i / (nl - 1) : 1.0f;
+                fixed.pitch = pitch + u * u * (3 - 2 * u) * deg * 0.0174533f;
+                render_frame(&a, &g, &fixed, NULL);
+                dump_frame(dir, i);
+            }
+            printf("lookup frames %d\n", nl);
+            return 0;
+        }
+        /* start the sea phase on a period boundary relative to the clip so frame `total` == frame 0 */
+        for (int i = 0; i < total; i++) {
+            float awa = g.b.awa;
+            for (int s = 0; s < bc.sail_count; s++) {
+                float t = autotrim_best_trim(&bc.sails[s], awa, g.b.aws, g.b.heel);
+                if (t >= 0) g.in.trim_target[s] = t;
+                g.in.hoist_target[s] = 1.0f;
+            }
+            for (int k = 0; k < (int)speed; k++) game_update(&g, 0, 0, 0, dt);
+            render_frame(&a, &g, &fixed, NULL);
+            dump_frame(dir, i);
+            if (i % fps == 0) (void)sdt; printf("t=%4.1f u %4.1f heel %5.1f\n", (double)i / fps, (double)g.b.u, (double)(g.b.heel * 57.2958f));
+        }
+        printf("frames %d, sea period %.2f, loop %.2f s, t0 %.3f\n", total, per, (double)loop_s, t0);
+        return 0;
+    }
     const int warm = 40 * fps, n1 = 3 * fps, n2 = 6 * fps, n3 = 3 * fps;
     int frame = 0;
     float panned = 0, minheel = 1e9f; float maxluff = 0;
@@ -156,7 +242,7 @@ int main(void) {
             if (k % fps == 0) printf("t=%4.1f heel %5.1f aws %4.1f u %4.1f yaw %4.0f luff %.2f/%.2f run %d\n", (double)k / fps,
                 (double)(g.b.heel * 57.2958f), (double)g.b.aws, (double)g.b.u, (double)(g.ctl.camera_yaw * 57.2958f),
                 (double)g.b.luff[0], (double)g.b.luff[1], (int)g.run);
-            render_frame(&a, &g, &cp);
+            render_frame(&a, &g, &cp, NULL);
             dump_frame(dir, frame++);
         }
     }

@@ -1,4 +1,4 @@
-// CrankSail on the web: the Playdate game's own simulation and app flow (src/sim, src/app) compiled to
+// Crank'n Sail on the web: the Playdate game's own simulation and app flow (src/sim, src/app) compiled to
 // wasm, with a Three.js view. One sim step per animation frame with the real elapsed time.
 import createSim from '../sim.js';
 import { Input, loadSettings, saveSettings } from './input.js';

@@ -78,7 +78,7 @@ export class MenuView {
     let hint;
     const track = stat.tracks[m.track] || { name: '' };
     if (m.screen === SCREEN.MAIN) {
-      this.titleBlock(null, 'Crank Sail', 'A sailing simulation');
+      this.titleBlock(null, "Crank'n Sail", 'A sailing simulation');
       hint = ['SELECT', null, 'CHOOSE'];
     } else if (m.screen === SCREEN.TRACKS) {
       this.titleBlock('Menu › Racing', 'Racing', 'Choose a course');

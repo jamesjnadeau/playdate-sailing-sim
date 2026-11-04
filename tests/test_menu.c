@@ -40,16 +40,10 @@ static void test_help_opens_scrolls_and_returns(void) {
     T_ASSERT(m.sel == TRAIN_ROW_CONTROLS);
 }
 
-static void test_sound_row_cycles_levels(void) {
+static void test_set_sound_clamps_level(void) {
     Menu m;
     menu_init(&m, 1, 3);
     T_ASSERT(m.sound == 2);
-    m.sel = MENU_ITEM_SOUND;
-    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
-    T_ASSERT(m.screen == MENU_MAIN);
-    T_ASSERT(m.sound == 3);
-    menu_update(&m, BTN_A);
-    T_ASSERT(m.sound == 0);                           /* wraps round to Off */
     menu_set_sound(&m, 1);
     T_ASSERT(m.sound == 1);
     menu_set_sound(&m, 9);
@@ -373,7 +367,7 @@ static void test_locked_main_rows_are_skipped_and_dimmed(void) {
     menu_update(&m, BTN_UP);
     T_ASSERT(m.sel == MENU_ITEM_FREE);
     menu_update(&m, BTN_UP);
-    T_ASSERT(m.sel == MENU_ITEM_SOUND);
+    T_ASSERT(m.sel == MENU_ITEM_TRAINING);             /* wraps round to the last row */
     menu_update(&m, BTN_DOWN);
     T_ASSERT(m.sel == MENU_ITEM_FREE);
     T_ASSERT(menu_update(&m, BTN_A) == MENU_START_FREE);
@@ -471,7 +465,7 @@ int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
     T_RUN(test_help_opens_scrolls_and_returns);
-    T_RUN(test_sound_row_cycles_levels);
+    T_RUN(test_set_sound_clamps_level);
     T_RUN(test_help_scrolls_with_crank);
     T_RUN(test_short_help_does_not_scroll);
     T_RUN(test_a_on_free_starts_free);

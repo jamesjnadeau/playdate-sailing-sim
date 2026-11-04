@@ -76,6 +76,8 @@ The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to 
 
 `tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip` and `CranknSail-Demo-v0.2.0.pdx.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
 
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET` and `ITCH_DEMO_TARGET`, each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
+
 ## Tests
 
 The simulation core in `src/sim/` has no Playdate dependencies and is tested on the host:

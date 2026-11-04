@@ -356,6 +356,45 @@ static void test_rows_and_enabled_rows(void) {
     T_ASSERT(menu_rows(&m) == 0);
 }
 
+static void test_locked_main_rows_are_skipped_and_dimmed(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    menu_set_main_locked(&m, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
+    T_ASSERT(menu_row_enabled(&m, MENU_ITEM_FREE));
+    T_ASSERT(!menu_row_enabled(&m, MENU_ITEM_JOURNEY));
+    T_ASSERT(!menu_row_enabled(&m, MENU_ITEM_RACE));
+    T_ASSERT(menu_row_enabled(&m, MENU_ITEM_HELP));
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == MENU_ITEM_HELP);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.sel == MENU_ITEM_FREE);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.sel == MENU_ITEM_SOUND);
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == MENU_ITEM_FREE);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_FREE);
+}
+
+static void test_a_on_a_locked_row_does_nothing(void) {
+    Menu m;
+    menu_init(&m, 2, 3);
+    menu_set_main_locked(&m, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
+    m.sel = MENU_ITEM_RACE;   /* forced past the cursor rules */
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_MAIN);
+    m.sel = MENU_ITEM_JOURNEY;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_MAIN && !m.journey);
+}
+
+static void test_locking_moves_cursor_off_a_locked_row(void) {
+    Menu m;
+    menu_init(&m, 1, 3);
+    m.sel = MENU_ITEM_JOURNEY;
+    menu_set_main_locked(&m, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
+    T_ASSERT(m.sel == MENU_ITEM_HELP);
+}
+
 int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
@@ -382,5 +421,8 @@ int main(void) {
     T_RUN(test_long_list_scrolls_with_selection);
     T_RUN(test_entering_screen_scrolls_to_selection);
     T_RUN(test_rows_and_enabled_rows);
+    T_RUN(test_locked_main_rows_are_skipped_and_dimmed);
+    T_RUN(test_a_on_a_locked_row_does_nothing);
+    T_RUN(test_locking_moves_cursor_off_a_locked_row);
     return T_DONE();
 }

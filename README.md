@@ -33,7 +33,12 @@ You need the [Playdate SDK](https://play.date/dev/) and, for hardware builds, `a
 tools/sim.sh            # build SailingSim.pdx and open it in the simulator
 tools/deploy.sh         # build for hardware and copy it to a connected Playdate over USB
 make                    # build only
+make DEMO=1             # build SailingSimDemo.pdx, the demo (below)
 ```
+
+### Demo build
+
+`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The main menu still lists Journey and Racing, dimmed and skipped by the cursor, so only Free Range can be started. A run lasts five minutes of sailing (`APP_DEMO_SECONDS` in `src/app/app.h`); then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game returns to the home screen.
 
 ## Web version
 

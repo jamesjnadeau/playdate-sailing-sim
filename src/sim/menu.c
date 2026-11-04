@@ -19,12 +19,29 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->help_top = 0;
     m->help_crank = 0;
     m->raceable = NULL;
+    m->main_locked = 0;
     m->journey = false;
     m->sound = 2;
 }
 
 void menu_set_sound(Menu *m, int level) {
     m->sound = level >= 0 && level < MENU_SOUND_LEVELS ? level : 2;
+}
+
+static bool main_open(const Menu *m, int row) { return !(m->main_locked >> row & 1u); }
+
+/* Nearest open main row from row, stepping dir and wrapping; row when every row is locked. */
+static int main_next(const Menu *m, int row, int dir) {
+    for (int i = 0; i < MENU_MAIN_ITEMS; i++) {
+        int k = ((row + dir * i) % MENU_MAIN_ITEMS + MENU_MAIN_ITEMS) % MENU_MAIN_ITEMS;
+        if (main_open(m, k)) return k;
+    }
+    return row;
+}
+
+void menu_set_main_locked(Menu *m, uint32_t mask) {
+    m->main_locked = mask;
+    if (m->screen == MENU_MAIN) m->sel = main_next(m, m->sel, 1);
 }
 
 void menu_set_boat_racing(Menu *m, const bool *raceable) {
@@ -65,6 +82,7 @@ int menu_rows(const Menu *m) {
 }
 
 bool menu_row_enabled(const Menu *m, int row) {
+    if (m->screen == MENU_MAIN) return row >= 0 && row < MENU_MAIN_ITEMS && main_open(m, row);
     return m->screen != MENU_BOATS || row_ok(m, row);
 }
 
@@ -156,6 +174,9 @@ static MenuAction update(Menu *m, uint32_t pressed) {
             /* Step past cruiser rows; next_ok returns the same row when none can race. */
             if (pressed & BTN_DOWN) m->sel = next_ok(m, (m->sel + 1) % n, 1);
             if (pressed & BTN_UP) m->sel = next_ok(m, (m->sel + n - 1) % n, -1);
+        } else if (m->screen == MENU_MAIN) {
+            if (pressed & BTN_DOWN) m->sel = main_next(m, (m->sel + 1) % n, 1);
+            if (pressed & BTN_UP) m->sel = main_next(m, (m->sel + n - 1) % n, -1);
         } else {
             if (pressed & BTN_DOWN) m->sel = (m->sel + 1) % n;
             if (pressed & BTN_UP) m->sel = (m->sel + n - 1) % n;
@@ -164,6 +185,7 @@ static MenuAction update(Menu *m, uint32_t pressed) {
 
     if (!(pressed & BTN_A)) return MENU_NONE;
     if (m->screen == MENU_MAIN) {
+        if (!main_open(m, m->sel)) return MENU_NONE;
         if (m->sel == MENU_ITEM_FREE) return MENU_START_FREE;
         if (m->sel == MENU_ITEM_JOURNEY) {
             m->journey = true;

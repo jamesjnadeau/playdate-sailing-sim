@@ -31,6 +31,12 @@ UDEFS += -DSCENARIO
 SRC += src/pd/scenario.c src/pd/scenario_io.c
 VARIANT = scenario
 endif
+# make DEMO=1 builds SailingSimDemo.pdx: Free Range only, five minutes a run, then back to the home screen.
+ifeq ($(DEMO),1)
+PRODUCT = SailingSimDemo.pdx
+UDEFS += -DDEMO
+VARIANT := $(VARIANT)-demo
+endif
 # make FPS=1 draws the SDK frame-rate readout in the top-left corner, for device profiling.
 ifeq ($(FPS),1)
 UDEFS += -DSHOW_FPS

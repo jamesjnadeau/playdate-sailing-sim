@@ -251,6 +251,15 @@ void hud_back_confirm(PlaydateAPI *pd) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
+void hud_demo_end(PlaydateAPI *pd) {
+    static const char *const lines[] = { "Thanks for playing the demo", "Back to the home screen...", "A: continue" };
+    pd->graphics->fillRect(60, 76, 280, 72, kColorBlack);
+    pd->graphics->drawRect(64, 80, 272, 64, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    for (int i = 0; i < 3; i++) text(pd, lines[i], 200 - (int)strlen(lines[i]) * 4, 88 + i * 16);   /* 8 px a character, centred */
+    pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
 /* Course map in the pause panel: north-up, x north / y east in the track frame. */
 #define MAP_L 2
 #define MAP_T 62

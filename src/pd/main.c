@@ -184,14 +184,16 @@ static int update(void *ud) {
     const AppDraw d = app_step((uint32_t)pushed, (uint32_t)cur, crank, dt);
     if (d == APP_DRAW_MENU) {
         menu_draw(pd, app_menu(), app_tracks(), app_best(), app_boat_best(), app_help());
-    } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM) {
+    } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END) {
 #ifdef SCENARIO
         render_frame(pd, app_game(), fix_on ? &fix_cam : app_camera(), app_ghost_opponent());
 #else
         render_frame(pd, app_game(), app_camera(), app_ghost_opponent());
 #endif
         const char *warn = app_warning();
-        if (d == APP_DRAW_CONFIRM) {
+        if (d == APP_DRAW_DEMO_END) {
+            hud_demo_end(pd);
+        } else if (d == APP_DRAW_CONFIRM) {
             hud_back_confirm(pd);
         } else if (warn && render_hud()) {
             /* below the HUD bar, on white, clipped to one screen-width line */

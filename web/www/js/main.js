@@ -10,7 +10,7 @@ import { MenuPointer } from './ui/menupointer.js';
 import { About } from './ui/about.js';
 import { SeaAudio } from './audio.js';
 
-const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3 };
+const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3, DEMO_END: 4 };
 const KEYS = { A: 'V', B: 'C', updown: 'W / S',
   legend: '<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> d-pad, ' +
     '<span class="key">V</span> A, <span class="key">C</span> B, move the mouse to turn the crank (left works as up, right as down) ' +
@@ -147,7 +147,7 @@ async function boot() {
       view.renderBackdrop(frame, stat, tMenu, dt);
       menu.update(frame.menu, stat, KEYS);
       canvas.classList.add('dim');
-    } else if (d === DRAW.PLAY || d === DRAW.CONFIRM) {
+    } else if (d === DRAW.PLAY || d === DRAW.CONFIRM || d === DRAW.DEMO_END) {
       menu.hide();
       canvas.classList.remove('dim');
       view.render(frame, stat, dt);

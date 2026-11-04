@@ -19,11 +19,22 @@
 #define APP_HELP_ROWS_MAX 96
 #define APP_HELP_COLS 44
 
+/* Demo build (compile with -DDEMO; make DEMO=1): only Free Range can be started, and each run lasts
+ * APP_DEMO_SECONDS of sailing. Then the thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the
+ * game returns to the home screen. Journey and Racing stay on the menu, dimmed and out of reach. */
+#define APP_DEMO_SECONDS 300.0f
+#define APP_DEMO_END_SECONDS 6.0f
+#define APP_DEMO_MESSAGE "Thanks for playing the demo"
+bool app_is_demo(void);
+/* Sailing seconds left in the demo run; 0 outside a demo build. */
+float app_demo_left(void);
+
 typedef enum {
     APP_DRAW_NONE,      /* leave the screen as it is (the menu shows from the next frame) */
     APP_DRAW_MENU,      /* the main menu */
     APP_DRAW_PLAY,      /* the run */
-    APP_DRAW_CONFIRM    /* the run, frozen, with the "go back" box over it */
+    APP_DRAW_CONFIRM,   /* the run, frozen, with the "go back" box over it */
+    APP_DRAW_DEMO_END   /* the run, frozen, with "Thanks for playing the demo" over it (demo build only) */
 } AppDraw;
 
 /* Loads tracks, best times, boats, help and the first boat, then opens the main menu. p must outlive the app. */

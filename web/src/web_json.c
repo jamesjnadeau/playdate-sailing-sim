@@ -490,7 +490,7 @@ const char *web_json_frame(AppDraw d) {
     obj_end();
 
     if (d == APP_DRAW_MENU) menu_json();
-    if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM) {
+    if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END) {
         wake_track(g);
         integer("mode", g->mode);
         integer("run", g->run);

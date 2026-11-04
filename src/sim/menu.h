@@ -29,6 +29,7 @@ typedef struct {
     int tick;       /* frames spent on the preview screen; drives its animation */
     int sound;      /* sea sound level 0..MENU_SOUND_LEVELS-1; A on the Sound row steps it round */
     int boat;       /* the boat row to start on; the chosen boat once MENU_START_RACE is returned */
+    uint32_t main_locked;   /* bit per main-screen row: set rows are shown but cannot be selected (the demo build) */
     const bool *raceable;   /* per boat row: false rows (cruisers) are skipped; NULL means every row is raceable */
 } Menu;
 
@@ -44,6 +45,9 @@ void menu_set_help(Menu *m, int rows);
 /* Marks which boat rows may race (nboats entries). The array is not copied and must outlive the menu.
    NULL, or no row raceable, makes every row selectable. */
 void menu_set_boat_racing(Menu *m, const bool *raceable);
+/* Locks main-screen rows: bit i of mask set -> row i is drawn dimmed and the cursor skips it. The cursor moves
+   to the first open row if it is on a locked one. */
+void menu_set_main_locked(Menu *m, uint32_t mask);
 /* One frame of input; pressed is the BTN_* newly-pressed mask. Order: B, then UP/DOWN, then A. */
 MenuAction menu_update(Menu *m, uint32_t pressed);
 

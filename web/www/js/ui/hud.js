@@ -97,6 +97,7 @@ export class Hud {
     // the box: go back? beats finished / capsized / wrecked
     let box = null;
     if (f.draw === 3) box = { head: 'GO BACK?', line: 'Return to the home screen', act: `${keys.A}: yes    ${keys.B}: no` };
+    else if (f.draw === 4) box = { head: 'Thanks for playing the demo', line: 'Back to the home screen…', act: `${keys.A}: continue` };
     else if (h.prompt) box = { head: h.prompt.head, line: h.prompt.line, act: `Press ${keys.A} to ${h.prompt.action}` };
     this.show(e.box, 'box', !!box);
     if (box) {

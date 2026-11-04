@@ -38,6 +38,14 @@ static HelpLine help[APP_HELP_ROWS_MAX];
 static int nhelp;
 static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
 
+#ifdef DEMO
+#define DEMO_BUILD true
+#else
+#define DEMO_BUILD false
+#endif
+static float demo_left;       /* sailing seconds left in this demo run */
+static float demo_end_left;   /* seconds left on the thank-you box; > 0 once the demo run is over */
+
 #define BEST_FILE "besttimes.txt"
 
 static void best_load(void) {
@@ -195,6 +203,7 @@ static void show_menu(void) {
     P->audio_set_active(true);
     menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
     menu_set_help(&menu, nhelp);
+    if (DEMO_BUILD) menu_set_main_locked(&menu, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
 }
 
 /* config/help.md is laid out once; a missing file leaves a one-line notice */
@@ -254,6 +263,8 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             game_set_track(&game, NULL);
             sys_menu_build(false);
             camera_snap();
+            demo_left = APP_DEMO_SECONDS;
+            demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_RACE) {
             const bool new_boat = menu.boat != boat_index;
@@ -287,6 +298,18 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             boat_best_track = -1;
         }
         return APP_DRAW_MENU;
+    }
+
+    if (DEMO_BUILD && demo_end_left > 0.0f) {
+        /* the demo run is over: the thank-you box stays up, then the home screen */
+        demo_end_left -= dt;
+        if ((pushed & BTN_A) || demo_end_left <= 0.0f) {
+            demo_end_left = 0.0f;
+            back_asked = false;
+            show_menu();
+            return APP_DRAW_NONE;
+        }
+        return APP_DRAW_DEMO_END;
     }
 
     if (back_asked) {
@@ -334,6 +357,14 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     camera_update(&cam, &game, &game.boat, dt);
     if (game.mode == GAME_JOURNEY) journey_cull(&game, &cam);
     P->audio_update(&game, dt);
+    if (DEMO_BUILD) {
+        demo_left -= dt < 0.1f ? dt : 0.1f;   /* a long pause in the system menu is not sailing time */
+        if (demo_left <= 0.0f) {
+            demo_left = 0.0f;
+            demo_end_left = APP_DEMO_END_SECONDS;
+            return APP_DRAW_DEMO_END;
+        }
+    }
     if (warn_left > 0.0f) {
         warn_left -= dt;
         warn_shown = true;
@@ -341,7 +372,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     return APP_DRAW_PLAY;
 }
 
-const char *app_draw_name(AppDraw d) { return d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM ? "play" : "menu"; }
+const char *app_draw_name(AppDraw d) { return d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END ? "play" : "menu"; }
 
 void app_init(const Platform *p) {
     P = p;
@@ -370,6 +401,8 @@ void app_init(const Platform *p) {
     show_menu();
 }
 
+bool app_is_demo(void) { return DEMO_BUILD; }
+float app_demo_left(void) { return DEMO_BUILD && app == APP_PLAY ? demo_left : 0.0f; }
 bool app_playing(void) { return app == APP_PLAY; }
 const Game *app_game(void) { return &game; }
 Game *app_game_mut(void) { return &game; }

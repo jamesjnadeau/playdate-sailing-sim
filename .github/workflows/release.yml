@@ -1,0 +1,103 @@
+name: Release
+
+# Push a tag like v0.2.0 (tools/release.sh does it) to build the full game and the demo for
+# the Playdate hardware and attach both, zipped for sideloading, to a GitHub Release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  PLAYDATE_SDK_VERSION: "3.1.2"
+  EMSDK_VERSION: "3.1.64"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      # The SDK licence does not allow redistributing its headers, so fetch it from Panic.
+      - name: Cache Playdate SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/playdate-sdk
+          key: playdate-sdk-${{ env.PLAYDATE_SDK_VERSION }}
+
+      - name: Download Playdate SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/playdate-sdk
+          curl -fsSL "https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-${PLAYDATE_SDK_VERSION}.tar.gz" \
+            | tar -xz -C ~/playdate-sdk --strip-components=1
+
+      - name: Unit tests
+        run: make -C tests test
+
+      - name: Build and package
+        env:
+          TAG: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/playdate-sdk"
+          tools/package_release.sh "$TAG" "$RUN_NUMBER" dist
+
+      - name: Cache Emscripten
+        id: emsdk
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+
+      - name: Install Emscripten
+        if: steps.emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "$EMSDK_VERSION"
+          ~/emsdk/emsdk activate "$EMSDK_VERSION"
+
+      # itch.io wants index.html at the root of the zip.
+      - name: Build and package web version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          make -C web
+          (cd web/dist && python3 -I -m zipfile -c "$GITHUB_WORKSPACE/dist/CranknSail-Web-$TAG.zip" *)
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/*.zip --title "$TAG" --generate-notes
+
+      # Optional: set the BUTLER_API_KEY secret and the ITCH_FULL_TARGET / ITCH_DEMO_TARGET variables
+      # (each "user/game:channel", e.g. jamesnadeau/cranknsail:playdate) to push the zips to itch.io;
+      # ITCH_WEB_TARGET does the same for the browser build (mark that upload "played in the browser").
+      # A target left unset is skipped.
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          FULL_TARGET: ${{ vars.ITCH_FULL_TARGET }}
+          DEMO_TARGET: ${{ vars.ITCH_DEMO_TARGET }}
+          WEB_TARGET: ${{ vars.ITCH_WEB_TARGET }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ] || { [ -z "$FULL_TARGET" ] && [ -z "$DEMO_TARGET" ] && [ -z "$WEB_TARGET" ]; }; then
+            echo "itch.io push not configured; skipping"
+            exit 0
+          fi
+          curl -fsSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d "$HOME/butler"
+          export PATH="$HOME/butler:$PATH"
+          [ -z "$FULL_TARGET" ] || butler push "dist/CranknSail-$TAG.pdx.zip" "$FULL_TARGET" --userversion "${TAG#v}"
+          [ -z "$DEMO_TARGET" ] || butler push "dist/CranknSail-Demo-$TAG.pdx.zip" "$DEMO_TARGET" --userversion "${TAG#v}"
+          [ -z "$WEB_TARGET" ] || butler push "dist/CranknSail-Web-$TAG.zip" "$WEB_TARGET" --userversion "${TAG#v}"

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include "app.h"
 #include "assets.h"
 #include "helptext.h"
 #include "hudinfo.h"
@@ -315,7 +316,6 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
     const char *labels[64];
-    char buf[MENU_MAIN_ITEMS][24];
     const char *mode = m->journey ? "Journey" : "Racing";
     const char *go = m->journey ? "SAIL" : "RACE";
     if (m->screen == MENU_HELP) {
@@ -340,14 +340,15 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
         text(pd, m->help_top + MENU_HELP_VIS < m->help_rows ? "v" : " ", 388, 196);
         hint_bar(pd, NULL, "BACK", "SCROLL");
     } else if (m->screen == MENU_MAIN) {
-        title_block(pd, NULL, "Crank Sail", "A sailing simulation");
-        for (int i = 0; i < MENU_MAIN_ITEMS; i++) {
-            if (i == MENU_ITEM_SOUND) snprintf(buf[i], sizeof buf[i], "%s: %s", MENU_MAIN_NAMES[i], MENU_SOUND_NAMES[m->sound]);
-            else snprintf(buf[i], sizeof buf[i], "%s", MENU_MAIN_NAMES[i]);
-            labels[i] = buf[i];
-        }
+        title_block(pd, app_is_demo() ? "DEMO" : NULL, "Crank'n Sail", "A sailing simulation");
+        for (int i = 0; i < MENU_MAIN_ITEMS; i++) labels[i] = MENU_MAIN_NAMES[i];
         list(pd, m, labels);
         hint_bar(pd, "SELECT", NULL, "CHOOSE");
+    } else if (m->screen == MENU_TRAINING) {
+        static const char *const names[MENU_TRAINING_ROWS] = { "Controls", "Sailing Lesson" };
+        title_block(pd, "Menu", "Training", "");
+        list(pd, m, names);
+        hint_bar(pd, "SELECT", "BACK", "CHOOSE");
     } else if (m->screen == MENU_PREVIEW) {
         const Track *t = &tracks[m->track];
         font(pd, F.item, 0);

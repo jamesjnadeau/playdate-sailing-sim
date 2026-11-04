@@ -1,4 +1,6 @@
-# CrankSail
+# Crank'n Sail
+
+This game was first inspired by the many people who have tried to make sailing games for the Playdate, such as [The Big Pond](https://devforum.play.date/t/the-big-pond-a-chill-sailing-game-beta-available/8300) and [My Fishing Boat demo](https://devforum.play.date/t/my-fishing-boat-demo/12241). There are many more I can't find.
 
 A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, or a Reynolds 33 catamaran around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
 
@@ -23,6 +25,8 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 | B | Toggle auto trim; stops the engine instead while it runs |
 | Hold B | Start the engine (1 knot, pushes along the rudder) |
 
+The controls were inspired by the game "At the Helm" from Reddit user pararar, in [this post](https://www.reddit.com/r/PlaydateConsole/comments/1xa39t4/im_making_a_sailing_game/).
+
 The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather and go back. Go back asks for confirmation, then returns to the home screen.
 
 ## Building
@@ -33,7 +37,14 @@ You need the [Playdate SDK](https://play.date/dev/) and, for hardware builds, `a
 tools/sim.sh            # build SailingSim.pdx and open it in the simulator
 tools/deploy.sh         # build for hardware and copy it to a connected Playdate over USB
 make                    # build only
+make DEMO=1             # build SailingSimDemo.pdx, the demo (below)
 ```
+
+### Demo build
+
+In the launcher the demo is "Crank'n Sail Demo" (its own bundle id, so it installs beside the full game) with a DEMO tag on its card (`assets/launcher-demo/`, rebuilt with `DEMO=1 tools/launcher_art.sh`), and the title screen shows DEMO above the name.
+
+`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The menus still list everything, but locked rows are dimmed and skipped by the cursor: Journey is locked, and of the race courses only Two Buoys 100m can be picked (`APP_DEMO_TRACK`), so the demo offers Free Range and that one race. A run, free or race, lasts five minutes of sailing (`APP_DEMO_SECONDS` in `src/app/app.h`); then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game returns to the home screen.
 
 ## Web version
 
@@ -44,7 +55,7 @@ make                    # build only
 | W A S D (or the arrow keys) | d-pad |
 | V | A |
 | C | B |
-| Move the mouse up and down | Crank (click the view first to lock the pointer; the wheel works too) |
+| Move the mouse (up or left, down or right) | Crank: left turns it the same way as up, right as down (click the view first to lock the pointer; the wheel works too) |
 | Backspace | System menu: boat, weather, go back, mouse sensitivity and direction |
 
 In the main menu the mouse works too: point at a row to select it, click to choose it, and click the button hints along the bottom. **About** in that bar opens a page rendered from [`web/www/about.md`](web/www/about.md); edit the Markdown to change it.
@@ -68,6 +79,14 @@ make -C web test     # native vs wasm parity, input unit tests, headless browser
 ```
 
 The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to `main`. In the repository settings, set Pages → Build and deployment → Source to GitHub Actions.
+
+### Releasing
+
+`tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip`, `CranknSail-Demo-v0.2.0.pdx.zip` and the browser build `CranknSail-Web-v0.2.0.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
+
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET`, `ITCH_DEMO_TARGET` and `ITCH_WEB_TARGET` (the browser build, zipped with `index.html` at the root; mark that upload "This file will be played in the browser" on itch.io once), each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
+
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET` and `ITCH_DEMO_TARGET`, each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
 
 ## Tests
 
@@ -94,6 +113,14 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `snap NAME` | Save the frame buffer as `NAME.fb` (`NAME` is `[A-Za-z0-9_]+`; needs at least one frame before it) |
 | `state` | Save the game state as text |
 | `sysmenu back\|boat N\|weather N` | Pick that system-menu item on the next frame |
+| `record NAME` / `record off` | Save every frame from the next one on as `NAME/00000.fb`, `NAME/00001.fb`, ..., and the game's sea sound alongside as `NAME/audio.pcm` (44.1 kHz stereo s16le, 1470 samples a frame) (for videos) |
+| `hud on\|off` | Draw or leave out the HUD (bar, markers, banners, prompts) from the next frame |
+| `wind DEG` | Turn the wind to blow from DEG degrees off the bow (+ = starboard) on the next frame; put it after any `sysmenu weather` |
+| `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
+| `caption TEXT` / `caption off` | Draw TEXT (the rest of the line, up to 47 characters) centred across the top in the home screen's title face, Jersey 10 at 2x |
+| `buoy FWD RIGHT` | Lay a lone buoy FWD m ahead of the boat and RIGHT m to starboard (any mode) |
+| `fixcam DIST HEIGHT AIM PITCH [ALONG]` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side (a negative DIST: the port side, so the boat crosses right to left), ALONG m further ahead (default 0), HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
+| `ghost on\|off` | Draw or leave out the trailing ghost of your recent track (free range and journey) |
 | `end` | Stop the scenario |
 
 Two `press A` lines in a row land on consecutive frames, so put a `wait 1` between them if the game should see two separate taps. A `sysmenu` with no frame after it is a parse error. The grammar is in `src/pd/scenario.c`.
@@ -136,6 +163,36 @@ Warning: never start the simulator with `WAYLAND_DISPLAY` set, it opens on your 
 ### Frame-dump tools that remain
 
 `tools/frames.sh` (with `tools/frame_dump.c`) renders fixed gallery views to PNG: wake trails in three weathers, side views, forced heel angles and the longship scenes. Scenarios do not replace these, since they drive the game rather than posing the renderer. `tools/gif_clip.c` and `tools/boat_clip.sh` render the boat clips for the PR check. All three stay.
+
+## Promo videos
+
+`tools/promo_video.py` plays scripted shots in the real simulator (headless, on its own Xvfb) and encodes each recording as an MP4 (H.264, 30 fps, 1600x960 by default: 4x nearest-neighbour) with the game's own sea sound (wash, swell, rigging wind, slaps), recorded frame by frame so it stays in sync and brought up to -16 LUFS. It needs `PLAYDATE_SDK_PATH`, Xvfb and ffmpeg.
+
+```bash
+tools/promo_video.py series weather-orbit          # the dinghy in every weather, HUD off -> build/promo/dinghy_<weather>.mp4
+```
+
+```bash
+tools/promo_video.py series weather-orbit --hud --boat j24 --weathers storm,hurricane
+```
+
+Each `weather-orbit` shot starts a free-range run, picks the boat and weather, turns the wind to come from `--wind` degrees off the bow (default 60, the same for every shot), engages the autopilot on the starting heading and the auto trim, sails for `--settle-s` seconds (default 12) and then records one full camera orbit of `--orbit-s` seconds (default 8). The camera ends at the angle it started from (the sea and boat keep moving, so it is not a seamless loop). In the hurricane the dinghy capsizes in under a second at full sail, and the auto trim hoists a reefed sail back up, so there the sails are reefed to 16% and the auto trim stays off (`--reef WEATHER=HOIST,...` changes this, `--reef none` turns it off). The tool warns when a shot ends capsized.
+
+```bash
+tools/promo_video.py series buoy-pass              # "Are you ready to sail?" over a buoy as the dinghy sails by behind it
+```
+
+`buoy-pass` sails up to speed like `weather-orbit` (sunny by default), then lays a buoy 12 m ahead, fixes the camera low beside it and records 9 s with the caption across the top: the buoy fills most of the frame and the boat passes behind it from left to right, close enough that the masthead is cut off. `--caption`, `--length-s`, `--buoy-ahead`, `--buoy-side`, `--cam-dist`, `--cam-height`, `--cam-aim` and `--cam-pitch` adjust it.
+
+```bash
+tools/promo_video.py trailer                       # render every shot, then cut build/promo/crank_sail_trailer.mp4
+```
+
+`trailer` renders the shots into `build/promo/clips/` and cuts a 30 s trailer with sound: the buoy-pass with its caption (in rollers; `--opening WEATHER`), then 3 s of each weather orbit, calmest first (`--clip-s`, `--clip-start`, `--weathers`). Hard cuts, with a short sound fade at each so nothing clicks. `--recut` re-cuts from the clips already there without rendering again; every `series` option (`--boat`, `--caption`, `--hud`, ...) works here too.
+
+Your own shots are ordinary scenarios using `record`, `hud`, `wind`, `orbit`, `caption`, `buoy`, `fixcam` and `ghost`; `tools/promo_video.py run my_shot.txt` writes one MP4 per `record NAME`. Common options: `--out DIR` (default `build/promo`), `--scale N`, `--palette playdate` (the real screen's grey tones instead of black and white), `--crf N` (quality, default 12), `--keep-frames` (keep the `.fb` frames; `tools/promo_video.py encode DIR OUT.mp4` re-encodes them) and `--keep-scenarios`. `--host` plays the shots on the host harness instead: about 5x faster, but it draws no text, so use it only to preview shots with the HUD off.
+
+Like `golden_refresh.sh`, it wipes `$SDK/Disk/Data/com.jamesnadeau.sailingsim` before every shot.
 
 ## Contributing a boat
 

@@ -140,6 +140,65 @@ static void test_praise_frame(void) {
     T_ASSERT(fails("praise", "line 1"));
 }
 
+static void test_shot_commands(void) {
+    ScFrame f;
+    char name[SC_NAME_MAX];
+    P("wait 1\nrecord clip_1\nhud off\nwind -45.5\norbit 45\nwait 2\nsnap a\nrecord off\nhud on\norbit 0\nwait 1\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.rec == SC_REC_NONE && f.shot.hud == SC_HUD_NONE && !f.shot.wind_now && !f.shot.orbit_now);
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_NONE);
+    T_ASSERT(scenario_poll(&S, &f));            /* the settings land on the next frame, once */
+    T_ASSERT(f.shot.rec == SC_REC_ON && !strcmp(f.shot.rec_name, "clip_1"));
+    T_ASSERT(f.shot.hud == SC_HUD_OFF);
+    T_ASSERT(f.shot.wind_now); T_NEAR(f.shot.wind_deg, -45.5f, 1e-6);
+    T_ASSERT(f.shot.orbit_now); T_NEAR(f.shot.orbit_dps, 45.0f, 1e-6);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.rec == SC_REC_NONE && f.shot.hud == SC_HUD_NONE && !f.shot.wind_now && !f.shot.orbit_now);
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP && !strcmp(name, "a"));
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_NONE);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.rec == SC_REC_OFF && f.shot.hud == SC_HUD_ON && f.shot.orbit_now && f.shot.orbit_dps == 0.0f);
+    T_ASSERT(!scenario_poll(&S, &f));
+    T_ASSERT(fails("record", "line 1"));
+    T_ASSERT(fails("record a/b", "line 1"));
+    T_ASSERT(fails("hud maybe", "line 1"));
+    T_ASSERT(fails("wind", "line 1"));
+    T_ASSERT(fails("orbit inf", "line 1"));
+}
+
+static void test_caption_buoy_fixcam_ghost(void) {
+    ScFrame f;
+    P("wait 1\ncaption   Are you ready to sail?  # comment\nbuoy 15 -4.5\nfixcam 3 1.2 10 -2\nghost off\nwait 1\n"
+      "caption off\nfixcam off\nghost on\nwait 1\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(!f.shot.caption_now && !f.shot.buoy_now && f.shot.fixcam == 0 && f.shot.ghost == 0);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.caption_now && !strcmp(f.shot.caption, "Are you ready to sail?"));
+    T_ASSERT(f.shot.buoy_now); T_NEAR(f.shot.buoy_fwd, 15.0f, 1e-6); T_NEAR(f.shot.buoy_right, -4.5f, 1e-6);
+    T_ASSERT(f.shot.fixcam == 1); T_NEAR(f.shot.fix_dist, 3.0f, 1e-6); T_NEAR(f.shot.fix_height, 1.2f, 1e-6);
+    T_NEAR(f.shot.fix_aim, 10.0f, 1e-6); T_NEAR(f.shot.fix_pitch, -2.0f, 1e-6);
+    T_ASSERT(f.shot.ghost == 2);
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.caption_now && f.shot.caption[0] == 0 && f.shot.fixcam == 2 && f.shot.ghost == 1);
+    T_ASSERT(!scenario_poll(&S, &f));
+    T_ASSERT(fails("caption", "line 1"));
+    T_ASSERT(fails("caption 0123456789012345678901234567890123456789012345678", "too long"));
+    T_ASSERT(fails("buoy 1", "line 1"));
+    T_ASSERT(fails("fixcam 3 1 0", "line 1"));
+    T_ASSERT(fails("fixcam 0 1 0 0", "positive"));
+    T_ASSERT(fails("ghost maybe", "line 1"));
+}
+
+static void test_snap_behind_shot_commands(void) {
+    ScFrame f;
+    char name[SC_NAME_MAX];
+    P("wait 1\nhud off\nsnap a\nwait 1\nend");
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(scenario_after(&S, name) == SC_AFTER_SNAP && !strcmp(name, "a"));
+    T_ASSERT(scenario_poll(&S, &f));
+    T_ASSERT(f.shot.hud == SC_HUD_OFF);
+}
+
 static void test_errors_have_line_numbers(void) {
     static char big[600 * 8 + 1];
     int i;
@@ -184,6 +243,9 @@ int main(void) {
     T_RUN(test_snap_behind_sysmenu);
     T_RUN(test_snap_after_press_and_hold);
     T_RUN(test_praise_frame);
+    T_RUN(test_shot_commands);
+    T_RUN(test_snap_behind_shot_commands);
+    T_RUN(test_caption_buoy_fixcam_ghost);
     T_RUN(test_errors_have_line_numbers);
     T_RUN(test_eof_ends);
     T_RUN(test_comments_and_blank_lines);

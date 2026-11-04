@@ -62,14 +62,29 @@ static bool valid_name(const char *t) {
 
 /* Parse one line (already stripped of comments) into c. Returns NULL or an error message. */
 static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
-    char *tok[5];
+    char *tok[6];
     int nt = 0;
     char *p = line;
     memset(c, 0, sizeof *c);
+    while (*p && is_ws(*p)) p++;
+    if (!strncmp(p, "caption", 7) && (is_ws(p[7]) || !p[7])) {
+        /* the rest of the line is the text, spaces and all */
+        char *t = p + 7, *e;
+        c->kind = SC_C_CAPTION;
+        while (*t && is_ws(*t)) t++;
+        e = t + strlen(t);
+        while (e > t && is_ws(e[-1])) *--e = 0;
+        if (!*t) return "usage: caption TEXT|off";
+        if (strlen(t) > SC_NAME_MAX - 1) return "caption too long";
+        for (e = t; *e; e++)
+            if (*e < 32 || *e > 126) return "caption: printable ASCII only";
+        if (strcmp(t, "off")) strcpy(c->name, t);
+        return NULL;
+    }
     while (*p) {
         while (*p && is_ws(*p)) p++;
         if (!*p) break;
-        if (nt == 5) return "too many arguments";
+        if (nt == 6) return "too many arguments";
         tok[nt++] = p;
         while (*p && !is_ws(*p)) p++;
         if (*p) *p++ = 0;
@@ -131,6 +146,38 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
         c->kind = SC_C_PRAISE;
         if (nt != 2 || !parse_int(tok[1], &c->n) || c->n < 1 || c->n > PRAISE_COUNT) return "usage: praise N (N in 1..PRAISE_COUNT)";
         c->n--;   /* the script counts from 1, like the message list in praise.c */
+    } else if (!strcmp(tok[0], "record")) {
+        c->kind = SC_C_RECORD;
+        if (nt != 2 || !valid_name(tok[1])) return "usage: record NAME|off";
+        c->n = strcmp(tok[1], "off") != 0;
+        if (c->n) strcpy(c->name, tok[1]);
+    } else if (!strcmp(tok[0], "hud")) {
+        c->kind = SC_C_HUD;
+        if (nt != 2 || (strcmp(tok[1], "on") && strcmp(tok[1], "off"))) return "usage: hud on|off";
+        c->n = !strcmp(tok[1], "on");
+    } else if (!strcmp(tok[0], "wind")) {
+        c->kind = SC_C_WIND;
+        if (nt != 2 || !parse_float(tok[1], &c->deg)) return "usage: wind DEG";
+    } else if (!strcmp(tok[0], "orbit")) {
+        c->kind = SC_C_ORBIT;
+        if (nt != 2 || !parse_float(tok[1], &c->deg)) return "usage: orbit DEG_PER_S";
+    } else if (!strcmp(tok[0], "buoy")) {
+        c->kind = SC_C_BUOY;
+        if (nt != 3 || !parse_float(tok[1], &c->v[0]) || !parse_float(tok[2], &c->v[1]))
+            return "usage: buoy FWD RIGHT";
+    } else if (!strcmp(tok[0], "fixcam")) {
+        c->kind = SC_C_FIXCAM;
+        if (nt == 2 && !strcmp(tok[1], "off")) return NULL;
+        c->n = 1;
+        if (nt != 5 && nt != 6) return "usage: fixcam DIST HEIGHT AIM PITCH [ALONG]|off";
+        c->v[4] = 0;
+        for (int k = 0; k < nt - 1; k++)
+            if (!parse_float(tok[k + 1], &c->v[k])) return "usage: fixcam DIST HEIGHT AIM PITCH [ALONG]|off";
+        if (c->v[0] == 0 || c->v[1] <= 0) return "fixcam: DIST must be non-zero and HEIGHT positive";
+    } else if (!strcmp(tok[0], "ghost")) {
+        c->kind = SC_C_GHOST;
+        if (nt != 2 || (strcmp(tok[1], "on") && strcmp(tok[1], "off"))) return "usage: ghost on|off";
+        c->n = !strcmp(tok[1], "on");
     } else if (!strcmp(tok[0], "end")) {
         c->kind = SC_C_END;
         if (nt != 1) return "usage: end";
@@ -174,6 +221,30 @@ bool scenario_parse(Scenario *s, const char *text, char *err, size_t errn) {
     return true;
 }
 
+/* Zero-time commands that attach to the next frame. False for any other kind. */
+static bool take_pending(Scenario *s, const ScCmd *c) {
+    ScShot *p = &s->pend_shot;
+    switch (c->kind) {
+    case SC_C_SYS: s->pend_sys = c->sys; s->pend_arg = c->n; strcpy(s->pend_name, c->name); return true;
+    case SC_C_PRAISE: s->pend_praise = true; s->pend_praise_idx = c->n; return true;
+    case SC_C_RECORD:
+        p->rec = c->n ? SC_REC_ON : SC_REC_OFF;
+        strcpy(p->rec_name, c->n ? c->name : "");
+        return true;
+    case SC_C_HUD: p->hud = c->n ? SC_HUD_ON : SC_HUD_OFF; return true;
+    case SC_C_WIND: p->wind_now = true; p->wind_deg = c->deg; return true;
+    case SC_C_ORBIT: p->orbit_now = true; p->orbit_dps = c->deg; return true;
+    case SC_C_CAPTION: p->caption_now = true; strcpy(p->caption, c->name); return true;
+    case SC_C_BUOY: p->buoy_now = true; p->buoy_fwd = c->v[0]; p->buoy_right = c->v[1]; return true;
+    case SC_C_FIXCAM:
+        p->fixcam = c->n ? 1 : 2;
+        p->fix_dist = c->v[0]; p->fix_height = c->v[1]; p->fix_aim = c->v[2]; p->fix_pitch = c->v[3]; p->fix_along = c->v[4];
+        return true;
+    case SC_C_GHOST: p->ghost = c->n ? 1 : 2; return true;
+    default: return false;
+    }
+}
+
 bool scenario_poll(Scenario *s, ScFrame *f) {
     const ScCmd *c;
     uint32_t cur = 0;
@@ -182,8 +253,7 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
     while (s->pc < s->ncmds && !is_frame_cmd(s->cmds[s->pc].kind)) {
         c = &s->cmds[s->pc];
         if (c->kind == SC_C_END) { s->pc = s->ncmds; break; }
-        if (c->kind == SC_C_SYS) { s->pend_sys = c->sys; s->pend_arg = c->n; strcpy(s->pend_name, c->name); }
-        if (c->kind == SC_C_PRAISE) { s->pend_praise = true; s->pend_praise_idx = c->n; }
+        take_pending(s, c);
         s->pc++;
     }
     if (s->pc >= s->ncmds) return false;
@@ -203,6 +273,8 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
     f->praise_now = s->pend_praise;
     f->praise = s->pend_praise_idx;
     s->pend_praise = false;
+    f->shot = s->pend_shot;
+    memset(&s->pend_shot, 0, sizeof s->pend_shot);
     s->prev = cur;
     if (++s->k >= c->n) { s->pc++; s->k = 0; }
     return true;
@@ -211,13 +283,9 @@ bool scenario_poll(Scenario *s, ScFrame *f) {
 ScAfterKind scenario_after(Scenario *s, char name[SC_NAME_MAX]) {
     const ScCmd *c;
     if (s->k != 0) return SC_AFTER_NONE;          /* mid-command */
-    /* sysmenu is consumed into the pending action so snap/state behind it still fire */
-    while (s->pc < s->ncmds && s->cmds[s->pc].kind == SC_C_SYS) {
-        s->pend_sys = s->cmds[s->pc].sys;
-        s->pend_arg = s->cmds[s->pc].n;
-        strcpy(s->pend_name, s->cmds[s->pc].name);
-        s->pc++;
-    }
+    /* sysmenu, praise, record, hud, wind and orbit are consumed into the pending actions so
+       snap/state behind them still fire */
+    while (s->pc < s->ncmds && take_pending(s, &s->cmds[s->pc])) s->pc++;
     if (s->pc >= s->ncmds) return SC_AFTER_END;
     c = &s->cmds[s->pc];
     switch (c->kind) {

@@ -1,4 +1,4 @@
-// CrankSail on the web: the Playdate game's own simulation and app flow (src/sim, src/app) compiled to
+// Crank'n Sail on the web: the Playdate game's own simulation and app flow (src/sim, src/app) compiled to
 // wasm, with a Three.js view. One sim step per animation frame with the real elapsed time.
 import createSim from '../sim.js';
 import { Input, loadSettings, saveSettings } from './input.js';
@@ -11,10 +11,10 @@ import { About } from './ui/about.js';
 import { SeaAudio } from './audio.js';
 import { TouchControls } from './touch.js';
 
-const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3 };
+const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3, DEMO_END: 4 };
 const KEYS = { A: 'V', B: 'C', updown: 'W / S',
   legend: '<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> d-pad, ' +
-    '<span class="key">V</span> A, <span class="key">C</span> B, move the mouse up and down to turn the crank ' +
+    '<span class="key">V</span> A, <span class="key">C</span> B, move the mouse to turn the crank (left works as up, right as down) ' +
     '(click the view first), <span class="key">Backspace</span> the system menu.' };
 const TOUCH_KEYS = { A: 'A', B: 'B', updown: '▲ / ▼', wheel: 'Drag',
   legend: 'hold your phone sideways. The pad bottom left is the d-pad, <span class="key">B</span> and ' +
@@ -133,7 +133,7 @@ async function boot() {
     document.body.classList.toggle('locked', document.pointerLockElement === canvas);
   });
   document.addEventListener('mousemove', (e) => {
-    if (document.pointerLockElement === canvas) input.mouseMove(e.movementY);
+    if (document.pointerLockElement === canvas) input.mouseMove(e.movementY, e.movementX);
   });
   window.addEventListener('wheel', (e) => {
     if (sys.open || about.open) return;   // let the panel scroll
@@ -171,7 +171,7 @@ async function boot() {
       view.renderBackdrop(frame, stat, tMenu, dt);
       menu.update(frame.menu, stat, keys);
       canvas.classList.add('dim');
-    } else if (d === DRAW.PLAY || d === DRAW.CONFIRM) {
+    } else if (d === DRAW.PLAY || d === DRAW.CONFIRM || d === DRAW.DEMO_END) {
       menu.hide();
       canvas.classList.remove('dim');
       view.render(frame, stat, dt);

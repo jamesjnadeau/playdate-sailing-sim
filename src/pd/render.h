@@ -14,6 +14,15 @@
    run to race against: drawn as a light boat, with its gap on the HUD. */
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam, Ghost *ghost);
 
+/* HUD on (the default) or off: off leaves out the HUD bar, markers, banners and prompts, for clean footage. */
+void render_set_hud(bool on);
+bool render_hud(void);
+
+/* A lone buoy at local (x, y), drawn in any mode in front of or behind the boat by depth (promo shots). */
+void render_set_prop_buoy(bool on, double x, double y);
+/* The trailing ghost of the player's recent track in free range and journey: on by default. */
+void render_set_follower(bool on);
+
 /* Ordered-dither fill: 0 = white .. 16 = black. Out-of-range levels are clamped. */
 LCDColor render_pattern(int level);
 
@@ -38,8 +47,12 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c);
 /* Praise banner after a buoy is rounded; blank once its time is up. */
 void hud_praise(PlaydateAPI *pd, const Game *g);
 void hud_prompt(PlaydateAPI *pd, const Game *g);
+/* The sailing lesson's text for the current step. */
+void hud_lesson(PlaydateAPI *pd, const char *text);
 /* Confirmation box shown when "go back" is picked from the system menu. */
 void hud_back_confirm(PlaydateAPI *pd);
+/* "Thanks for playing the demo" box over the frozen run (demo build). */
+void hud_demo_end(PlaydateAPI *pd);
 /* System pause-menu panel: race time and next-mark info; blank in free sail. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g);
 

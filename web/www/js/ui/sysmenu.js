@@ -18,7 +18,7 @@ export class SysMenu {
         <button class="sys-back">Go back to the home screen</button>
         <h3>Crank (mouse or drag)</h3>
         <label class="range">Sensitivity <input class="sys-sens" type="range" min="0.1" max="3" step="0.05"><span class="sys-sens-v"></span></label>
-        <label class="check"><input class="sys-inv" type="checkbox"> Up turns the crank clockwise</label>
+        <label class="check"><input class="sys-inv" type="checkbox"> Up (or left) turns the crank clockwise</label>
         <button class="sys-resume">Resume <span class="key mouse-only">Backspace</span></button>
       </div>`;
     this.q = (s) => root.querySelector(s);

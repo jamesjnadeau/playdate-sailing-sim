@@ -1,6 +1,6 @@
 // Touch controls for phones and tablets held in landscape: the Playdate's d-pad bottom left, B and A bottom right,
-// the system menu top right, and the crank anywhere else: drag a finger up and down the view to turn it, as the
-// mouse does. Every finger is its own pointer, so one thumb can hold the d-pad while the other turns the crank.
+// the system menu top right, and the crank anywhere else: drag a finger up and down (or left and right) the view to
+// turn it, as the mouse does. Every finger is its own pointer, so one thumb can hold the d-pad while the other turns the crank.
 import { BTN } from './input.js';
 
 // The d-pad direction for a finger at (dx, dy) from the pad's centre, for a pad of radius r: the nearest of the
@@ -22,7 +22,7 @@ export class TouchControls {
     this.input = input;
     this.on = { menu: () => {}, touch: () => {}, ...on };
     this.enabled = false;
-    this.dragging = new Map();   // crank fingers: pointerId -> last clientY
+    this.dragging = new Map();   // crank fingers: pointerId -> last [clientX, clientY]
     root.innerHTML = `
       <div class="tc-pad" role="group" aria-label="D-pad">
         ${ARROW('up', '▲')}${ARROW('right', '▶')}${ARROW('down', '▼')}${ARROW('left', '◀')}
@@ -98,14 +98,14 @@ export class TouchControls {
       if (e.pointerType !== 'touch') return;
       this.on.touch();
       if (!this.enabled) return;
-      this.dragging.set(e.pointerId, e.clientY);
+      this.dragging.set(e.pointerId, [e.clientX, e.clientY]);
       try { canvas.setPointerCapture(e.pointerId); } catch { /* already gone */ }
     });
     canvas.addEventListener('pointermove', (e) => {
-      const y0 = this.dragging.get(e.pointerId);
-      if (y0 === undefined) return;
-      this.dragging.set(e.pointerId, e.clientY);
-      this.input.mouseMove(e.clientY - y0);
+      const p0 = this.dragging.get(e.pointerId);
+      if (p0 === undefined) return;
+      this.dragging.set(e.pointerId, [e.clientX, e.clientY]);
+      this.input.mouseMove(e.clientY - p0[1], e.clientX - p0[0]);   // as the mouse: up or left one way, down or right the other
       document.body.classList.add('dragged');   // the hint has done its job
     });
     const crankEnd = (e) => this.dragging.delete(e.pointerId);

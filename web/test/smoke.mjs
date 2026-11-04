@@ -133,9 +133,13 @@ try {
   await page.locator('.menu-list .item[data-row="3"]').hover({ position: { x: 30, y: 10 } });
   check(await menuIs(0, 3), 'pointing at a row selects it');
   await page.locator('.menu-list .item[data-row="3"]').click();
+  check(await menuIs(6, null), 'clicking Training opens the training screen');
+  await page.locator('.menu-list .item[data-row="0"]').click();
   check(await menuIs(5, null), 'clicking Controls opens the controls screen');
   await page.locator('.menu-hints button[data-press="16"]').click();
-  check(await menuIs(0, 3), 'the BACK hint is a button');
+  check(await menuIs(6, null), 'the BACK hint is a button');
+  await page.locator('.menu-hints button[data-press="16"]').click();
+  check(await menuIs(0, 3), 'BACK leaves Training');
   await page.locator('.menu-hints button.about').click();
   check(await page.locator('#about .about-body h1').textContent({ timeout: 4000 }).then((t) => t === 'About Crank Sail', () => false),
     'About shows the page rendered from about.md');
@@ -181,7 +185,8 @@ try {
   check(/^A\b/.test(hint.trim()), `phone: the hints name the on-screen buttons (${hint.trim()})`);
   if (shots) await mob.screenshot({ path: path.join(shots, 'phone_menu.png') });
   await mob.locator('.menu-list .item[data-row="0"]').tap();
-  check(await mob.waitForFunction(() => window.__cranksail.draw === 2, null, { timeout: 8000 }).then(() => true, () => false),
+  // the first sailing frame compiles the sea's shaders, which takes seconds in software-rendered headless Chromium
+  check(await mob.waitForFunction(() => window.__cranksail.draw === 2, null, { timeout: 30000 }).then(() => true, () => false),
     'phone: tapping Free Range starts it');
   check(await mob.locator('.tc-pad').isVisible() && await mob.locator('.tc-btn.a').isVisible(), 'phone: d-pad and buttons show');
   await mob.waitForTimeout(1200);

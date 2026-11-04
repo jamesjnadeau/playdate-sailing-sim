@@ -216,6 +216,28 @@ void hud_praise(PlaydateAPI *pd, const Game *g) {
     message(pd, praise_text(g->praise), 26);
 }
 
+/* The lesson's text for the current step, word-wrapped under the HUD bar. */
+void hud_lesson(PlaydateAPI *pd, const char *s) {
+    enum { COLS = 44, MAX_LINES = 4 };
+    char line[COLS + 1];
+    int n = 0, y = 40;
+    while (*s && n < MAX_LINES) {
+        int len = (int)strlen(s);
+        if (len > COLS) {
+            len = COLS;
+            while (len > 0 && s[len] != ' ') len--;
+            if (len == 0) len = COLS;
+        }
+        memcpy(line, s, (size_t)len);
+        line[len] = 0;
+        message(pd, line, y);
+        y += 16;
+        n++;
+        s += len;
+        while (*s == ' ') s++;
+    }
+}
+
 void hud_prompt(PlaydateAPI *pd, const Game *g) {
     if (g->mode == GAME_RACE && g->run == RUN_SAILING && g->race.finished) {
         char time[16], line[32];
@@ -248,6 +270,15 @@ void hud_back_confirm(PlaydateAPI *pd) {
     text(pd, "GO BACK?", 200 - 4 * 8, 90);
     text(pd, "Return to the home screen", 98, 106);
     text(pd, "A: yes     B: no", 98, 122);
+    pd->graphics->setDrawMode(kDrawModeCopy);
+}
+
+void hud_demo_end(PlaydateAPI *pd) {
+    static const char *const lines[] = { "Thanks for playing the demo", "Back to the home screen...", "A: continue" };
+    pd->graphics->fillRect(60, 76, 280, 72, kColorBlack);
+    pd->graphics->drawRect(64, 80, 272, 64, kColorWhite);
+    pd->graphics->setDrawMode(kDrawModeFillWhite);
+    for (int i = 0; i < 3; i++) text(pd, lines[i], 200 - (int)strlen(lines[i]) * 4, 88 + i * 16);   /* 8 px a character, centred */
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 

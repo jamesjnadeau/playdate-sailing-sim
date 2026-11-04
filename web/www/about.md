@@ -16,7 +16,7 @@ A dinghy, a Sunfish, a J/24, a Hobie 16 and a Reynolds 33 catamaran. Each one is
 ## Playing on the web
 
 - `W` `A` `S` `D` or the arrow keys are the d-pad, `V` is A and `C` is B.
-- Click the view, then move the mouse up and down to turn the crank. The wheel works too.
+- Click the view, then move the mouse to turn the crank: left turns it the same way as up, right the same way as down. The wheel works too.
 - `Backspace` opens the system menu: boat, weather, going back, and mouse settings.
 - In the main menu, point at a row to pick it and click to choose it.
 

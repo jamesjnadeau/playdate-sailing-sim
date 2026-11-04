@@ -397,7 +397,7 @@ static void hud(const Game *g, Ghost *ghost) {
 static void menu_json(void) {
     const Menu *m = app_menu();
     const Track *tracks = app_tracks();
-    char line[48], tbuf[16];
+    char tbuf[16];
     obj("menu");
     integer("screen", m->screen);
     integer("sel", m->sel);
@@ -409,6 +409,7 @@ static void menu_json(void) {
     integer("sound", m->sound);
     integer("tick", m->tick);
     boolean("journey", m->journey);
+    boolean("demo", app_is_demo());
     integer("helpTop", m->help_top);
     integer("helpRows", m->help_rows);
     arr("rows");
@@ -418,15 +419,15 @@ static void menu_json(void) {
         raw("[");
         need_comma = 0;
         if (m->screen == MENU_MAIN) {
-            if (i == MENU_ITEM_SOUND) snprintf(line, sizeof line, "%s: %s", MENU_MAIN_NAMES[i], MENU_SOUND_NAMES[m->sound]);
-            else snprintf(line, sizeof line, "%s", MENU_MAIN_NAMES[i]);
-            str_v(line);
+            str_v(MENU_MAIN_NAMES[i]);
         } else if (m->screen == MENU_TRACKS) {
             str_v(tracks[i].name);
         } else if (m->screen == MENU_BOATS) {
             str_v(assets_boat_names()[i]);
         } else if (m->screen == MENU_WEATHER) {
             str_v(WEATHER_NAMES[i]);
+        } else if (m->screen == MENU_TRAINING) {
+            str_v(i == TRAIN_ROW_LESSON ? "Sailing Lesson" : "Controls");
         } else {
             str_v("");
         }
@@ -490,7 +491,7 @@ const char *web_json_frame(AppDraw d) {
     obj_end();
 
     if (d == APP_DRAW_MENU) menu_json();
-    if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM) {
+    if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END) {
         wake_track(g);
         integer("mode", g->mode);
         integer("run", g->run);

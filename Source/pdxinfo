@@ -1,7 +1,7 @@
-name=CrankSail
+name=Crank'n Sail
 author=James Nadeau
 description=A small open-sea sailing sim
 bundleID=com.jamesnadeau.sailingsim
 version=0.1
 buildNumber=1
-imagePath=
+imagePath=launcher

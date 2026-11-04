@@ -11,6 +11,7 @@
 #include "helptext.h"
 #include "menu.h"
 #include "tracks.h"
+#include "training.h"
 
 /* The game's app flow, shared by every platform: main menu -> free range / journey / race, race attempts,
  * ghosts and best times, the "go back" question. The platform polls input, calls app_step once a frame and
@@ -71,5 +72,9 @@ int app_preset_index(void);
 bool app_sys_racing(void);               /* the system menu offers only "go back" */
 /* The config warning while it is on screen (play frames only), else NULL. */
 const char *app_warning(void);
+
+/* The sailing lesson: its state, and the current step's text from config/training.md. Both NULL outside a lesson. */
+const Training *app_training(void);
+const char *app_training_text(void);
 
 #endif

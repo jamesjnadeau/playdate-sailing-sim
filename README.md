@@ -78,9 +78,9 @@ The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to 
 
 ### Releasing
 
-`tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip` and `CranknSail-Demo-v0.2.0.pdx.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
+`tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip`, `CranknSail-Demo-v0.2.0.pdx.zip` and the browser build `CranknSail-Web-v0.2.0.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
 
-To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET` and `ITCH_DEMO_TARGET`, each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
+To also publish to itch.io, add a `BUTLER_API_KEY` secret (an itch.io API key) and the repository variables `ITCH_FULL_TARGET`, `ITCH_DEMO_TARGET` and `ITCH_WEB_TARGET` (the browser build, zipped with `index.html` at the root; mark that upload "This file will be played in the browser" on itch.io once), each in the form `user/game:channel` (for example `jamesnadeau/cranknsail:playdate`). The workflow pushes the zips with `butler` after the GitHub Release is created; unset targets are skipped.
 
 ## Tests
 

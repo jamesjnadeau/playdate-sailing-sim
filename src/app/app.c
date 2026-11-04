@@ -41,6 +41,9 @@ static int nhelp;
 static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
 static Training lesson;
 static TrainingText lesson_text;
+static float lesson_text_t;   /* seconds into the current step, drives which line of text shows */
+static TrainStep lesson_text_step;
+static char lesson_page[TRAINTEXT_LEN];
 static int lesson_prev_boat;   /* the boat to go back to when the lesson ends */
 static bool lesson_on;   /* the sailing lesson is the run on screen */
 
@@ -222,6 +225,7 @@ static void lesson_place(void) {
     game.b.heading = game.wind.dir;
     lesson.held = 0.0f;
     lesson.seen = 0;
+    lesson_text_t = 0.0f;
     camera_snap();
 }
 
@@ -315,6 +319,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             game_set_track(&game, NULL);
             lesson_weather();
             training_init(&lesson);
+            lesson_text_step = lesson.step;
             lesson_on = true;
             lesson_place();
             sys_menu_build(true);
@@ -410,6 +415,8 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     if (lesson_on) {
         if (training_engine_locked(&lesson)) game.en.on = false;
         training_update(&lesson, &game, dt);
+        if (lesson.step != lesson_text_step) { lesson_text_step = lesson.step; lesson_text_t = 0.0f; }
+        else lesson_text_t += dt;
     }
     if (game.mode == GAME_RACE) ghost_record(&ghost_run, &game);
     if (game.mode == GAME_RACE && game.race.finished) {
@@ -496,4 +503,8 @@ int app_preset_index(void) { return preset_index; }
 bool app_sys_racing(void) { return sys_racing; }
 const char *app_warning(void) { return warn_shown ? warn : NULL; }
 const Training *app_training(void) { return lesson_on ? &lesson : NULL; }
-const char *app_training_text(void) { return lesson_on && app == APP_PLAY ? trainingtext_get(&lesson_text, lesson.step) : NULL; }
+const char *app_training_text(void) {
+    if (!lesson_on || app != APP_PLAY) return NULL;
+    trainingtext_page(&lesson_text, lesson.step, lesson_text_t, lesson_page, sizeof lesson_page);
+    return lesson_page;
+}

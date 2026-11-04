@@ -1,4 +1,5 @@
 #include "trainingtext.h"
+#include <stdlib.h>
 #include <string.h>
 
 static const char *const NAMES[TRAIN_STEPS] = {
@@ -17,7 +18,8 @@ static int step_of(const char *s, int len) {
 }
 
 int trainingtext_parse(const char *md, TrainingText *out) {
-    for (int i = 0; i < TRAIN_STEPS; i++) out->text[i][0] = 0;
+    for (int i = 0; i < TRAIN_STEPS; i++) { out->text[i][0] = 0; out->seconds[i] = 0.0f; }
+    out->default_s = TRAINTEXT_DEFAULT_S;
     if (!md) return 0;
     int cur = -1, len = 0;
     const char *p = md;
@@ -33,9 +35,12 @@ int trainingtext_parse(const char *md, TrainingText *out) {
             while (hn > 0 && *h == '#') { h++; hn--; }
             cur = step_of(h, hn);
             len = 0;
+        } else if (n > 8 && memcmp(l, "seconds:", 8) == 0) {
+            const float v = (float)atof(l + 8);
+            if (v > 0.0f) { if (cur >= 0) out->seconds[cur] = v; else out->default_s = v; }
         } else if (n > 0 && cur >= 0) {
             char *dst = out->text[cur];
-            if (len > 0 && len < TRAINTEXT_LEN - 1) dst[len++] = ' ';
+            if (len > 0 && len < TRAINTEXT_LEN - 1) dst[len++] = '\n';
             for (int i = 0; i < n && len < TRAINTEXT_LEN - 1; i++) dst[len++] = l[i];
             dst[len] = 0;
         }
@@ -50,4 +55,24 @@ int trainingtext_parse(const char *md, TrainingText *out) {
 const char *trainingtext_get(const TrainingText *t, TrainStep s) {
     if ((int)s < 0 || (int)s >= TRAIN_STEPS || !t->text[s][0]) return NOTICE;
     return t->text[s];
+}
+
+int trainingtext_page(const TrainingText *t, TrainStep s, float elapsed, char *out, int cap) {
+    const char *txt = trainingtext_get(t, s);
+    const float per = (int)s >= 0 && (int)s < TRAIN_STEPS && t->seconds[s] > 0.0f ? t->seconds[s] : t->default_s;
+    int want = per > 0.0f && elapsed > 0.0f ? (int)(elapsed / per) : 0;
+    int page = 0;
+    while (page < want) {
+        const char *nl = strchr(txt, '\n');
+        if (!nl) break;
+        txt = nl + 1;
+        page++;
+    }
+    const char *nl = strchr(txt, '\n');
+    int n = nl ? (int)(nl - txt) : (int)strlen(txt);
+    if (n > cap - 1) n = cap - 1;
+    if (n < 0) n = 0;
+    memcpy(out, txt, (size_t)n);
+    out[n] = 0;
+    return page;
 }

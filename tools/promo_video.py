@@ -372,7 +372,13 @@ def encode(frames_dir, out, scale, palette, crf):
     lut = ":".join(f"{c}='{lo}+val*{hi - lo}/255'" for c, lo, hi in zip("rgb", dark, light))
     vf = f"scale={W * scale}:{H * scale}:flags=neighbor,format=rgb24,lutrgb={lut},scale=out_color_matrix=bt709:out_range=tv,format=yuv420p"
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "monob", "-s", f"{W}x{H}",
-           "-r", str(FPS), "-i", "-", "-vf", vf, "-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
+           "-r", str(FPS), "-i", "-"]
+    # the game's sea sound, recorded in step with the frames (44.1 kHz stereo s16le, 1470 samples a frame),
+    # brought up to the usual web loudness (-16 LUFS); the game plays it much quieter
+    audio = os.path.join(frames_dir, "audio.pcm")
+    if os.path.isfile(audio) and os.path.getsize(audio) > 0:
+        cmd += ["-f", "s16le", "-ar", "44100", "-ac", "2", "-i", audio, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000", "-c:a", "aac", "-b:a", "192k", "-shortest"]
+    cmd += ["-vf", vf, "-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
            "-tune", "animation", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
            "-movflags", "+faststart", out]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -386,7 +392,8 @@ def encode(frames_dir, out, scale, palette, crf):
     p.stdin.close()
     if p.wait() != 0:
         die(f"ffmpeg failed on {out}")
-    print(f"   {out}: {len(files)} frames, {len(files) / FPS:.2f} s, {W * scale}x{H * scale}", flush=True)
+    print(f"   {out}: {len(files)} frames, {len(files) / FPS:.2f} s, {W * scale}x{H * scale}"
+          f"{', with sound' if '-c:a' in cmd else ''}", flush=True)
 
 
 # ---------------------------------------------------------------- main

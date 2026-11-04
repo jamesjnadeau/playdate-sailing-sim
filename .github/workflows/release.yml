@@ -1,0 +1,56 @@
+name: Release
+
+# Push a tag like v0.2.0 (tools/release.sh does it) to build the full game and the demo for
+# the Playdate hardware and attach both, zipped for sideloading, to a GitHub Release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  PLAYDATE_SDK_VERSION: "3.1.2"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      # The SDK licence does not allow redistributing its headers, so fetch it from Panic.
+      - name: Cache Playdate SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/playdate-sdk
+          key: playdate-sdk-${{ env.PLAYDATE_SDK_VERSION }}
+
+      - name: Download Playdate SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/playdate-sdk
+          curl -fsSL "https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-${PLAYDATE_SDK_VERSION}.tar.gz" \
+            | tar -xz -C ~/playdate-sdk --strip-components=1
+
+      - name: Unit tests
+        run: make -C tests test
+
+      - name: Build and package
+        env:
+          TAG: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/playdate-sdk"
+          tools/package_release.sh "$TAG" "$RUN_NUMBER" dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/*.zip --title "$TAG" --generate-notes

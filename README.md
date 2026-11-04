@@ -72,6 +72,10 @@ make -C web test     # native vs wasm parity, input unit tests, headless browser
 
 The `Web build` workflow publishes `web/dist/` to GitHub Pages on every push to `main`. In the repository settings, set Pages → Build and deployment → Source to GitHub Actions.
 
+### Releasing
+
+`tools/release.sh v0.2.0` tags `main` and pushes the tag. The `Release` workflow then runs the unit tests, builds the full game and the demo for the Playdate hardware (stamping the tag into `pdxinfo`) and creates a GitHub Release with `CranknSail-v0.2.0.pdx.zip` and `CranknSail-Demo-v0.2.0.pdx.zip` attached, ready to sideload. `tools/package_release.sh v0.2.0` does the same build locally.
+
 ## Tests
 
 The simulation core in `src/sim/` has no Playdate dependencies and is tested on the host:

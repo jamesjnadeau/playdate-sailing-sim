@@ -8,7 +8,7 @@
 #
 #   tools/launcher_art.sh [out_dir]         default Source/launcher
 # Env: BOAT, FPS (20), FREEZE (clip frame the launch animation starts from, default 70 = empty sea),
-# LOOKUP_FRAMES (20), LOOKUP_DEG (50), CARD_Y0 (first screen row kept in the card, default 35).
+# LOOKUP_FRAMES (20), LOOKUP_DEG (50), CARD_Y0 (first screen row kept in the card, default 85 = flush with the bottom of the render; PITCH_DEG 17.5 sets the scene low enough to fit).
 # Needs the Playdate SDK C_API headers (PLAYDATE_SDK_PATH) and Pillow. Set imagePath=launcher in pdxinfo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -20,11 +20,11 @@ WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/pass" "$WORK/look"
 cc -std=c99 -DTARGET_EXTENSION=1 -DTARGET_SIMULATOR=1 -O1 -w -I src/sim -I src/pd -I "$INC" \
    tools/gif_clip.c src/sim/*.c src/pd/render.c src/pd/hud.c -lm -o "$WORK/gif_clip"
-export PASSBY=1 BOAT="${BOAT:-boats/sunfish.json}" FPS="${FPS:-20}"
+export PITCH_DEG="${PITCH_DEG:-17.5}" PASSBY=1 BOAT="${BOAT:-boats/sunfish.json}" FPS="${FPS:-20}"
 FRAME_DIR="$WORK/pass" "$WORK/gif_clip" | tail -n 1
 FREEZE="${FREEZE:-70}" FRAME_DIR="$WORK/look" "$WORK/gif_clip" | tail -n 1
 rm -rf "$OUT"; mkdir -p "$OUT/card-highlighted" "$OUT/launchImages"
-python3 -I - "$WORK" "$OUT" "${CARD_Y0:-35}" "${LOOKUP_DEG:-50}" "${PITCH_DEG:-5}" <<'PY'
+python3 -I - "$WORK" "$OUT" "${CARD_Y0:-85}" "${LOOKUP_DEG:-50}" "$PITCH_DEG" <<'PY'
 import sys, glob, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 work, out, y0, deg, p0 = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])

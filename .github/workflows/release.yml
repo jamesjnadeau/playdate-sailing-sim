@@ -54,3 +54,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" dist/*.zip --title "$TAG" --generate-notes
+
+      # Optional: set the BUTLER_API_KEY secret and the ITCH_FULL_TARGET / ITCH_DEMO_TARGET variables
+      # (each "user/game:channel", e.g. jamesnadeau/cranknsail:playdate) to push the zips to itch.io.
+      # A target left unset is skipped.
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          FULL_TARGET: ${{ vars.ITCH_FULL_TARGET }}
+          DEMO_TARGET: ${{ vars.ITCH_DEMO_TARGET }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ] || { [ -z "$FULL_TARGET" ] && [ -z "$DEMO_TARGET" ]; }; then
+            echo "itch.io push not configured; skipping"
+            exit 0
+          fi
+          curl -fsSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d "$HOME/butler"
+          export PATH="$HOME/butler:$PATH"
+          [ -z "$FULL_TARGET" ] || butler push "dist/CranknSail-$TAG.pdx.zip" "$FULL_TARGET" --userversion "${TAG#v}"
+          [ -z "$DEMO_TARGET" ] || butler push "dist/CranknSail-Demo-$TAG.pdx.zip" "$DEMO_TARGET" --userversion "${TAG#v}"

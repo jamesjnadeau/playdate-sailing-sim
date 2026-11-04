@@ -30,6 +30,7 @@ typedef struct {
     int sound;      /* sea sound level 0..MENU_SOUND_LEVELS-1; A on the Sound row steps it round */
     int boat;       /* the boat row to start on; the chosen boat once MENU_START_RACE is returned */
     uint32_t main_locked;   /* bit per main-screen row: set rows are shown but cannot be selected (the demo build) */
+    const bool *track_ok;   /* per track row: false rows are shown but cannot be selected (the demo build); NULL means all */
     const bool *raceable;   /* per boat row: false rows (cruisers) are skipped; NULL means every row is raceable */
 } Menu;
 
@@ -48,6 +49,9 @@ void menu_set_boat_racing(Menu *m, const bool *raceable);
 /* Locks main-screen rows: bit i of mask set -> row i is drawn dimmed and the cursor skips it. The cursor moves
    to the first open row if it is on a locked one. */
 void menu_set_main_locked(Menu *m, uint32_t mask);
+/* Marks which track rows may be picked (ntracks entries). Not copied; must outlive the menu. NULL, or no row
+   open, makes every row selectable. */
+void menu_set_track_ok(Menu *m, const bool *ok);
 /* One frame of input; pressed is the BTN_* newly-pressed mask. Order: B, then UP/DOWN, then A. */
 MenuAction menu_update(Menu *m, uint32_t pressed);
 

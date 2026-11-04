@@ -38,7 +38,7 @@ make DEMO=1             # build SailingSimDemo.pdx, the demo (below)
 
 ### Demo build
 
-`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The main menu still lists Journey and Racing, dimmed and skipped by the cursor, so only Free Range can be started. A run lasts five minutes of sailing (`APP_DEMO_SECONDS` in `src/app/app.h`); then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game returns to the home screen.
+`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The menus still list everything, but locked rows are dimmed and skipped by the cursor: Journey is locked, and of the race courses only Two Buoys 100m can be picked (`APP_DEMO_TRACK`), so the demo offers Free Range and that one race. A run, free or race, lasts five minutes of sailing (`APP_DEMO_SECONDS` in `src/app/app.h`); then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game returns to the home screen.
 
 ## Web version
 

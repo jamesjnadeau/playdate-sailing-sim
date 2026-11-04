@@ -19,11 +19,12 @@
 #define APP_HELP_ROWS_MAX 96
 #define APP_HELP_COLS 44
 
-/* Demo build (compile with -DDEMO; make DEMO=1): only Free Range can be started, and each run lasts
- * APP_DEMO_SECONDS of sailing. Then the thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the
- * game returns to the home screen. Journey and Racing stay on the menu, dimmed and out of reach. */
+/* Demo build (compile with -DDEMO; make DEMO=1): only Free Range and the APP_DEMO_TRACK race can be started
+ * (Journey and the other courses are shown but locked), and each run lasts APP_DEMO_SECONDS of sailing. Then the thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the
+ * game returns to the home screen. The locked rows stay on the menu, dimmed and out of reach. */
 #define APP_DEMO_SECONDS 300.0f
 #define APP_DEMO_END_SECONDS 6.0f
+#define APP_DEMO_TRACK "Two Buoys 100m"   /* the one course the demo races, by its "name" in tracks/ */
 #define APP_DEMO_MESSAGE "Thanks for playing the demo"
 bool app_is_demo(void);
 /* Sailing seconds left in the demo run; 0 outside a demo build. */

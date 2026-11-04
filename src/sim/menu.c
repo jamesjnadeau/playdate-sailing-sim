@@ -19,6 +19,7 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->help_top = 0;
     m->help_crank = 0;
     m->raceable = NULL;
+    m->track_ok = NULL;
     m->main_locked = 0;
     m->journey = false;
     m->sound = 2;
@@ -55,6 +56,27 @@ static bool row_ok(const Menu *m, int row) {
     return true;
 }
 
+/* A track row is selectable when allowed; with none allowed, every row is. */
+static bool track_open(const Menu *m, int row) {
+    if (!m->track_ok) return true;
+    for (int i = 0; i < m->ntracks; i++) if (m->track_ok[i]) return m->track_ok[row];
+    return true;
+}
+
+/* Nearest selectable track row from row, stepping dir and wrapping; row when none is open. */
+static int track_next(const Menu *m, int row, int dir) {
+    int n = m->ntracks;
+    for (int i = 0; i < n; i++) {
+        int k = ((row + dir * i) % n + n) % n;
+        if (track_open(m, k)) return k;
+    }
+    return row;
+}
+
+void menu_set_track_ok(Menu *m, const bool *ok) {
+    m->track_ok = ok;
+}
+
 /* Nearest selectable boat row from row, stepping dir (+1 or -1) and wrapping; row when none can race. */
 static int next_ok(const Menu *m, int row, int dir) {
     int n = m->nboats;
@@ -83,6 +105,7 @@ int menu_rows(const Menu *m) {
 
 bool menu_row_enabled(const Menu *m, int row) {
     if (m->screen == MENU_MAIN) return row >= 0 && row < MENU_MAIN_ITEMS && main_open(m, row);
+    if (m->screen == MENU_TRACKS) return row >= 0 && row < m->ntracks && track_open(m, row);
     return m->screen != MENU_BOATS || row_ok(m, row);
 }
 
@@ -174,6 +197,9 @@ static MenuAction update(Menu *m, uint32_t pressed) {
             /* Step past cruiser rows; next_ok returns the same row when none can race. */
             if (pressed & BTN_DOWN) m->sel = next_ok(m, (m->sel + 1) % n, 1);
             if (pressed & BTN_UP) m->sel = next_ok(m, (m->sel + n - 1) % n, -1);
+        } else if (m->screen == MENU_TRACKS) {
+            if (pressed & BTN_DOWN) m->sel = track_next(m, (m->sel + 1) % n, 1);
+            if (pressed & BTN_UP) m->sel = track_next(m, (m->sel + n - 1) % n, -1);
         } else if (m->screen == MENU_MAIN) {
             if (pressed & BTN_DOWN) m->sel = main_next(m, (m->sel + 1) % n, 1);
             if (pressed & BTN_UP) m->sel = main_next(m, (m->sel + n - 1) % n, -1);
@@ -207,10 +233,11 @@ static MenuAction update(Menu *m, uint32_t pressed) {
         if (m->ntracks < 1) return MENU_NONE;
         m->journey = false;
         m->screen = MENU_TRACKS;
-        m->sel = 0;
+        m->sel = track_next(m, 0, 1);
         return MENU_NONE;
     }
     if (m->screen == MENU_TRACKS) {
+        if (!track_open(m, m->sel)) return MENU_NONE;
         m->track = m->sel;
         m->screen = MENU_PREVIEW;
         m->tick = 0;

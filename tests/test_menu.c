@@ -395,6 +395,27 @@ static void test_locking_moves_cursor_off_a_locked_row(void) {
     T_ASSERT(m.sel == MENU_ITEM_HELP);
 }
 
+static void test_locked_tracks_are_skipped_and_unselectable(void) {
+    Menu m;
+    static const bool ok[3] = { false, true, false };
+    menu_init(&m, 3, 3);
+    menu_set_track_ok(&m, ok);
+    m.sel = MENU_ITEM_RACE;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_TRACKS && m.sel == 1);
+    T_ASSERT(!menu_row_enabled(&m, 0) && menu_row_enabled(&m, 1) && !menu_row_enabled(&m, 2));
+    menu_update(&m, BTN_DOWN);
+    T_ASSERT(m.sel == 1);
+    menu_update(&m, BTN_UP);
+    T_ASSERT(m.sel == 1);
+    m.sel = 2;   /* forced past the cursor rules */
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_TRACKS);
+    m.sel = 1;
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_PREVIEW && m.track == 1);
+}
+
 int main(void) {
     T_RUN(test_starts_on_main_first_row);
     T_RUN(test_down_up_wrap);
@@ -424,5 +445,6 @@ int main(void) {
     T_RUN(test_locked_main_rows_are_skipped_and_dimmed);
     T_RUN(test_a_on_a_locked_row_does_nothing);
     T_RUN(test_locking_moves_cursor_off_a_locked_row);
+    T_RUN(test_locked_tracks_are_skipped_and_unselectable);
     return T_DONE();
 }

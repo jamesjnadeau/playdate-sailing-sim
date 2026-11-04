@@ -44,6 +44,7 @@ static bool boat_raceable[BOATLIST_MAX];   /* cruisers are free range only */
 #define DEMO_BUILD false
 #endif
 static float demo_left;       /* sailing seconds left in this demo run */
+static bool track_demo_ok[TRACKS_MAX];   /* demo build: the one course that may be raced */
 static float demo_end_left;   /* seconds left on the thank-you box; > 0 once the demo run is over */
 
 #define BEST_FILE "besttimes.txt"
@@ -203,7 +204,11 @@ static void show_menu(void) {
     P->audio_set_active(true);
     menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
     menu_set_help(&menu, nhelp);
-    if (DEMO_BUILD) menu_set_main_locked(&menu, 1u << MENU_ITEM_JOURNEY | 1u << MENU_ITEM_RACE);
+    if (DEMO_BUILD) {
+        for (int i = 0; i < ntracks; i++) track_demo_ok[i] = strcmp(tracks[i].name, APP_DEMO_TRACK) == 0;
+        menu_set_track_ok(&menu, track_demo_ok);
+        menu_set_main_locked(&menu, 1u << MENU_ITEM_JOURNEY);
+    }
 }
 
 /* config/help.md is laid out once; a missing file leaves a one-line notice */
@@ -277,6 +282,8 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             race_attempt();
             sys_menu_build(true);
             camera_snap();
+            demo_left = APP_DEMO_SECONDS;
+            demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_JOURNEY) {
             const bool new_boat = menu.boat != boat_index;

@@ -24,6 +24,10 @@ static inline float rcos(float a) { return fast_cosf(a); }
 static inline float rsin(float a) { return fast_sinf(a); }
 
 static int sea_style = SEA_TRI;   /* the sea tiling; change here (or call render_set_sea_style) to try another */
+static bool hud_on = true;
+void render_set_hud(bool on) { hud_on = on; }
+bool render_hud(void) { return hud_on; }
+
 void render_set_sea_style(int style) { sea_style = style < 0 || style >= SEA_STYLES ? SEA_GRID : style; }
 int render_sea_style(void) { return sea_style; }
 
@@ -1705,6 +1709,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_hulls(pd, g, c);
     draw_rudder(pd, g, c);   /* head stands above the transom: the waterline sits behind the panel */
     if (!rig_behind) draw_rig(pd, g, c);
+    if (!hud_on) return;
     hud_draw(pd, g);
     if (g->mode == GAME_RACE) hud_race(pd, g, c);
     hud_ghost(pd, g, c, ghost);

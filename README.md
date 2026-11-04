@@ -92,6 +92,10 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `snap NAME` | Save the frame buffer as `NAME.fb` (`NAME` is `[A-Za-z0-9_]+`; needs at least one frame before it) |
 | `state` | Save the game state as text |
 | `sysmenu back\|boat N\|weather N` | Pick that system-menu item on the next frame |
+| `record NAME` / `record off` | Save every frame from the next one on as `NAME/00000.fb`, `NAME/00001.fb`, ... (for videos) |
+| `hud on\|off` | Draw or leave out the HUD (bar, markers, banners, prompts) from the next frame |
+| `wind DEG` | Turn the wind to blow from DEG degrees off the bow (+ = starboard) on the next frame; put it after any `sysmenu weather` |
+| `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
 | `end` | Stop the scenario |
 
 Two `press A` lines in a row land on consecutive frames, so put a `wait 1` between them if the game should see two separate taps. A `sysmenu` with no frame after it is a parse error. The grammar is in `src/pd/scenario.c`.
@@ -134,6 +138,24 @@ Warning: never start the simulator with `WAYLAND_DISPLAY` set, it opens on your 
 ### Frame-dump tools that remain
 
 `tools/frames.sh` (with `tools/frame_dump.c`) renders fixed gallery views to PNG: wake trails in three weathers, side views, forced heel angles and the longship scenes. Scenarios do not replace these, since they drive the game rather than posing the renderer. `tools/gif_clip.c` and `tools/boat_clip.sh` render the boat clips for the PR check. All three stay.
+
+## Promo videos
+
+`tools/promo_video.py` plays scripted shots in the real simulator (headless, on its own Xvfb) and encodes each recording as an MP4 (H.264, 30 fps, 1600x960 by default: 4x nearest-neighbour). It needs `PLAYDATE_SDK_PATH`, Xvfb and ffmpeg.
+
+```bash
+tools/promo_video.py series weather-orbit          # the dinghy in every weather, HUD off -> build/promo/dinghy_<weather>.mp4
+```
+
+```bash
+tools/promo_video.py series weather-orbit --hud --boat j24 --weathers storm,hurricane
+```
+
+Each `weather-orbit` shot starts a free-range run, picks the boat and weather, turns the wind to come from `--wind` degrees off the bow (default 60, the same for every shot), engages the autopilot on the starting heading and the auto trim, sails for `--settle-s` seconds (default 12) and then records one full camera orbit of `--orbit-s` seconds (default 8). The camera ends at the angle it started from (the sea and boat keep moving, so it is not a seamless loop). In the hurricane the dinghy capsizes in under a second at full sail, and the auto trim hoists a reefed sail back up, so there the sails are reefed to 16% and the auto trim stays off (`--reef WEATHER=HOIST,...` changes this, `--reef none` turns it off). The tool warns when a shot ends capsized.
+
+Your own shots are ordinary scenarios using `record`, `hud`, `wind` and `orbit`; `tools/promo_video.py run my_shot.txt` writes one MP4 per `record NAME`. Common options: `--out DIR` (default `build/promo`), `--scale N`, `--palette playdate` (the real screen's grey tones instead of black and white), `--crf N` (quality, default 12), `--keep-frames` (keep the `.fb` frames; `tools/promo_video.py encode DIR OUT.mp4` re-encodes them) and `--keep-scenarios`. `--host` plays the shots on the host harness instead: about 5x faster, but it draws no text, so use it only to preview shots with the HUD off.
+
+Like `golden_refresh.sh`, it wipes `$SDK/Disk/Data/com.jamesnadeau.sailingsim` before every shot.
 
 ## Contributing a boat
 

@@ -14,10 +14,13 @@ static Scenario scen;   /* ~20 KB, too big for the stack */
 static char scen_text[SCEN_TEXT_MAX];
 static uint8_t fb_out[FB_ROW_BYTES * FB_ROWS];
 static bool scen_ended, scen_marked;
+static bool rec_on;                     /* `record NAME`: every frame goes to NAME/NNNNN.fb */
+static char rec_name[SC_NAME_MAX];
+static int rec_frame;
 
 static void write_all(PlaydateAPI *pd, const char *path, const void *buf, unsigned len) {
     /* NAME may carry a directory prefix; create each level, ignoring "already exists" */
-    char dir[96];
+    char dir[SC_NAME_MAX + 16];
     for (size_t i = 0; path[i] && i < sizeof dir - 1; i++) {
         if (path[i] != '/') continue;
         memcpy(dir, path, i);
@@ -74,9 +77,17 @@ bool scenario_poll_input(PDButtons *cur, PDButtons *pushed, PDButtons *released,
         *pushed = (PDButtons)f->pushed;
         *released = (PDButtons)f->released;
         *crank = f->crank;
+        if (f->shot.rec == SC_REC_ON) {
+            rec_on = true;
+            strcpy(rec_name, f->shot.rec_name);
+            rec_frame = 0;
+        } else if (f->shot.rec == SC_REC_OFF) {
+            rec_on = false;
+        }
         return true;
     }
     scen_ended = true;
+    rec_on = false;
     memset(f, 0, sizeof *f);
     *cur = *pushed = *released = (PDButtons)0;
     *crank = 0.0f;
@@ -90,16 +101,22 @@ static int state_text(const Game *g, const char *app_name, char *st, size_t n) {
                     g->b.wheel, g->b.x, g->b.y);
 }
 
-static void write_snapshot(PlaydateAPI *pd, const Game *g, const char *app_name, const char *name) {
+/* The frame just drawn, without LCD_ROWSIZE's padding; false if the API has none. */
+static bool grab_frame(PlaydateAPI *pd) {
     /* getFrame, not getDisplayFrame. Measured on the SDK 3.1.2 simulator (Task 7): called at the
      * end of update(), getDisplayFrame returns the previously presented frame (a snap taken the
      * frame after a menu->play transition was still the menu, identical to the snap before it),
      * while getFrame returns the frame just drawn and matches the host stub's capture apart from
      * text (~0.9% of pixels, the stub draws none). */
     const uint8_t *src = pd->graphics->getFrame();
+    if (!src) return false;
+    for (int y = 0; y < FB_ROWS; y++) memcpy(fb_out + y * FB_ROW_BYTES, src + y * LCD_ROWSIZE, FB_ROW_BYTES);
+    return true;
+}
+
+static void write_snapshot(PlaydateAPI *pd, const Game *g, const char *app_name, const char *name) {
     char path[SC_NAME_MAX + 8], st[512];
-    if (src) {
-        for (int y = 0; y < FB_ROWS; y++) memcpy(fb_out + y * FB_ROW_BYTES, src + y * LCD_ROWSIZE, FB_ROW_BYTES);
+    if (grab_frame(pd)) {
         snprintf(path, sizeof path, "%s.fb", name);
         write_all(pd, path, fb_out, sizeof fb_out);
     }
@@ -110,6 +127,11 @@ static void write_snapshot(PlaydateAPI *pd, const Game *g, const char *app_name,
 
 void scenario_frame_done(PlaydateAPI *pd, const Game *g, const char *app_name) {
     char name[SC_NAME_MAX];
+    if (rec_on && !scen_ended && grab_frame(pd)) {
+        char path[SC_NAME_MAX + 16];
+        snprintf(path, sizeof path, "%s/%05d.fb", rec_name, rec_frame++ % 100000);
+        write_all(pd, path, fb_out, sizeof fb_out);
+    }
     if (scen_ended) { write_marker(pd, NULL); return; }
     for (;;) {
         ScAfterKind k = scenario_after(&scen, name);

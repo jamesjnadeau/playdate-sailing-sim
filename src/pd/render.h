@@ -14,6 +14,10 @@
    run to race against: drawn as a light boat, with its gap on the HUD. */
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam, Ghost *ghost);
 
+/* HUD on (the default) or off: off leaves out the HUD bar, markers, banners and prompts, for clean footage. */
+void render_set_hud(bool on);
+bool render_hud(void);
+
 /* Ordered-dither fill: 0 = white .. 16 = black. Out-of-range levels are clamped. */
 LCDColor render_pattern(int level);
 

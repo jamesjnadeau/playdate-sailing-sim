@@ -7,6 +7,8 @@
 #include "audio.h"
 #include "render.h"
 #ifdef SCENARIO
+#include <math.h>
+#include "mathx.h"
 #include "scenario.h"
 #endif
 
@@ -85,6 +87,21 @@ static void scenario_sys(const ScFrame *f) {
     case SC_SYS_NONE: break;
     }
 }
+
+/* Scripted shot settings: HUD, wind relative to the bow, and a steady camera orbit (deg/s). */
+static float orbit_dps;
+static void scenario_shot(const ScShot *s, float dt) {
+    Game *g = app_game_mut();
+    if (s->hud != SC_HUD_NONE) render_set_hud(s->hud == SC_HUD_ON);
+    if (s->wind_now)
+        wind_set_base(&g->wind, wrap_pi(g->b.heading + deg2rad(s->wind_deg) + (float)M_PI));
+    if (s->orbit_now) orbit_dps = s->orbit_dps;
+    /* before app_step: the controls leave the camera yaw alone while steering, and the view reads it */
+    if (orbit_dps != 0.0f && app_playing()) {
+        g->ctl.camera_yaw = wrap_pi(g->ctl.camera_yaw + deg2rad(orbit_dps) * dt);
+        g->ctl.camera_target_yaw = g->ctl.camera_yaw;
+    }
+}
 #endif
 
 static int update(void *ud) {
@@ -95,6 +112,7 @@ static int update(void *ud) {
     ScFrame sf;
     scenario_poll_input(&cur, &pushed, &released, &crank, &dt, &sf);
     scenario_sys(&sf);
+    scenario_shot(&sf.shot, dt);
     if (sf.praise_now) app_force_praise(sf.praise);
 #else
     pd->system->getButtonState(&cur, &pushed, &released);
@@ -111,7 +129,7 @@ static int update(void *ud) {
         const char *warn = app_warning();
         if (d == APP_DRAW_CONFIRM) {
             hud_back_confirm(pd);
-        } else if (warn) {
+        } else if (warn && render_hud()) {
             /* below the HUD bar, on white, clipped to one screen-width line */
             size_t len = strlen(warn) < 48 ? strlen(warn) : 48;
             pd->graphics->fillRect(0, 36, CAM_W, 18, kColorWhite);

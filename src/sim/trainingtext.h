@@ -3,7 +3,7 @@
 #include "training.h"
 
 #define TRAINTEXT_LEN 320   /* bytes per step including the NUL; longer text is cut */
-#define TRAINTEXT_DEFAULT_S 5.0f   /* seconds per line when the file does not say */
+#define TRAINTEXT_DEFAULT_S 4.0f   /* seconds per line when the file does not say */
 
 /* text[step] holds that step's lines separated by '\n'; seconds[step] is how long each is shown (0 = default_s). */
 typedef struct {

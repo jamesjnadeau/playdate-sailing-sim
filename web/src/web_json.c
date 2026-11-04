@@ -397,7 +397,7 @@ static void hud(const Game *g, Ghost *ghost) {
 static void menu_json(void) {
     const Menu *m = app_menu();
     const Track *tracks = app_tracks();
-    char line[48], tbuf[16];
+    char tbuf[16];
     obj("menu");
     integer("screen", m->screen);
     integer("sel", m->sel);
@@ -418,9 +418,7 @@ static void menu_json(void) {
         raw("[");
         need_comma = 0;
         if (m->screen == MENU_MAIN) {
-            if (i == MENU_ITEM_SOUND) snprintf(line, sizeof line, "%s: %s", MENU_MAIN_NAMES[i], MENU_SOUND_NAMES[m->sound]);
-            else snprintf(line, sizeof line, "%s", MENU_MAIN_NAMES[i]);
-            str_v(line);
+            str_v(MENU_MAIN_NAMES[i]);
         } else if (m->screen == MENU_TRACKS) {
             str_v(tracks[i].name);
         } else if (m->screen == MENU_BOATS) {

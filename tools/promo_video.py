@@ -135,7 +135,57 @@ def weather_orbit(a):
     return shots
 
 
-SERIES = {"weather-orbit": weather_orbit}
+def buoy_pass(a):
+    """A caption over a buoy filling most of the screen; the boat sails by behind it, left to right, close
+    enough that the hull fills the frame and the masthead is cut off. The camera is fixed low beside the
+    buoy, on the far side from the boat's track, looking back across it."""
+    names = a.weathers.split(",") if a.weathers else ["sunny"]
+    for n in names:
+        if n not in WEATHERS:
+            die(f"unknown weather '{n}' (have {', '.join(WEATHERS)})", 2)
+    if len(a.caption) > 47 or any(not 32 <= ord(ch) <= 126 or ch == "#" for ch in a.caption):
+        die("--caption: at most 47 printable ASCII characters, no '#'", 2)
+    reef = parse_reef(a.reef)
+    gain, rate, nsails = boat_controls(a.boat)
+    settle = max(1, round(a.settle_s * FPS))
+    shots = []
+    for n in names:
+        name = f"{a.boat.replace('-', '_')}_buoy_pass_{n}{'_hud' if a.hud else ''}"
+        lines = [f"# {a.boat} sails past a buoy in {n}, caption '{a.caption}'",
+                 "wait 2",
+                 "press A                 # main menu -> free range",
+                 "wait 5",
+                 f"sysmenu boat {a.boat}",
+                 "wait 2"]
+        if n in reef:
+            crank = -(1.0 - reef[n]) / gain
+            for _ in range(nsails):
+                lines += ["press left", f"crank {crank / 10:.6g} for 10"]
+            lines += ["press up", f"wait {round((1.0 - reef[n]) / rate * FPS) + 15}"]
+        lines += [f"sysmenu weather {WEATHERS.index(n)}",
+                  f"wind {a.wind:g}",
+                  f"hud {'on' if a.hud else 'off'}",
+                  "ghost off               # no trailing ghost boat in the shot",
+                  "wait 1",
+                  "press A                 # autopilot holds the starting heading"]
+        if n not in reef:
+            lines += ["wait 1", "press B                 # auto trim"]
+        lines += [f"wait {settle}           # get up to speed",
+                  # laid close ahead and just to starboard: the boat makes leeway to port, away from the camera
+                  f"buoy {a.buoy_ahead:g} {a.buoy_side:g}",
+                  f"fixcam {a.cam_dist:g} {a.cam_height:g} {a.cam_aim:g} {a.cam_pitch:g}"]
+        if a.caption:
+            lines.append(f"caption {a.caption}")
+        lines += [f"record {name}",
+                  f"wait {round(a.length_s * FPS)}",
+                  "record off",
+                  "state",
+                  "end"]
+        shots.append((name, "\n".join(lines) + "\n"))
+    return shots
+
+
+SERIES = {"weather-orbit": weather_orbit, "buoy-pass": buoy_pass}
 
 
 # ---------------------------------------------------------------- players
@@ -389,7 +439,18 @@ def main():
     s = sub.add_parser("series", help="a ready-made series of shots")
     s.add_argument("series", choices=sorted(SERIES))
     s.add_argument("--boat", default="dinghy", help="boat file name without .json (default dinghy)")
-    s.add_argument("--weathers", help=f"comma-separated subset of {','.join(WEATHERS)} (default all)")
+    s.add_argument("--weathers", help=f"comma-separated subset of {','.join(WEATHERS)} "
+                                      "(default: all for weather-orbit, sunny for buoy-pass)")
+    s.add_argument("--caption", default="Are you ready to sail?",
+                   help="buoy-pass: text in the title font across the top ('' for none)")
+    s.add_argument("--length-s", type=float, default=9, help="buoy-pass: shot length (default 9)")
+    s.add_argument("--buoy-ahead", type=float, default=12, help="buoy-pass: buoy laid this far ahead, m (default 12)")
+    s.add_argument("--buoy-side", type=float, default=0.3, help="buoy-pass: ...and this far to starboard, m (default 0.3)")
+    s.add_argument("--cam-dist", type=float, default=3, help="buoy-pass: camera to buoy, m (default 3)")
+    s.add_argument("--cam-height", type=float, default=0.9, help="buoy-pass: camera height, m (default 0.9)")
+    s.add_argument("--cam-aim", type=float, default=15,
+                   help="buoy-pass: view turned this far right of the buoy, deg (default 15)")
+    s.add_argument("--cam-pitch", type=float, default=-5, help="buoy-pass: camera tilt, deg, - = down (default -5)")
     s.add_argument("--wind", type=float, default=60,
                    help="wind from this many degrees off the bow, + = starboard (default 60)")
     s.add_argument("--orbit-s", type=float, default=8, help="seconds for one camera orbit; the shot length (default 8)")

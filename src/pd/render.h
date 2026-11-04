@@ -18,6 +18,11 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam, Ghost *
 void render_set_hud(bool on);
 bool render_hud(void);
 
+/* A lone buoy at local (x, y), drawn in any mode in front of or behind the boat by depth (promo shots). */
+void render_set_prop_buoy(bool on, double x, double y);
+/* The trailing ghost of the player's recent track in free range and journey: on by default. */
+void render_set_follower(bool on);
+
 /* Ordered-dither fill: 0 = white .. 16 = black. Out-of-range levels are clamped. */
 LCDColor render_pattern(int level);
 

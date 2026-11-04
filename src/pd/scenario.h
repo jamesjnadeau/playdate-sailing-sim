@@ -19,6 +19,11 @@ typedef struct {
     ScHud hud;
     bool wind_now; float wind_deg;    /* `wind DEG`: blow from DEG off the bow, + = starboard */
     bool orbit_now; float orbit_dps;  /* `orbit DEG`: camera swings DEG per second round the boat; 0 stops */
+    bool caption_now; char caption[SC_NAME_MAX];   /* `caption TEXT`; "" for `caption off` */
+    bool buoy_now; float buoy_fwd, buoy_right;     /* `buoy FWD RIGHT`: a lone buoy, m ahead / to starboard */
+    int fixcam;                       /* `fixcam DIST HEIGHT AIM PITCH`: 1 = fix the camera by the buoy, 2 = `fixcam off` */
+    float fix_dist, fix_height, fix_aim, fix_pitch;
+    int ghost;                        /* `ghost on|off`: 1 on, 2 off, 0 unchanged */
 } ScShot;
 
 typedef struct {
@@ -32,7 +37,8 @@ typedef struct {
 
 typedef enum {
     SC_C_WAIT, SC_C_PRESS, SC_C_HOLD, SC_C_CRANK,
-    SC_C_SNAP, SC_C_STATE, SC_C_SYS, SC_C_PRAISE, SC_C_RECORD, SC_C_HUD, SC_C_WIND, SC_C_ORBIT, SC_C_END
+    SC_C_SNAP, SC_C_STATE, SC_C_SYS, SC_C_PRAISE, SC_C_RECORD, SC_C_HUD, SC_C_WIND, SC_C_ORBIT,
+    SC_C_CAPTION, SC_C_BUOY, SC_C_FIXCAM, SC_C_GHOST, SC_C_END
 } ScCmdKind;
 
 typedef struct {
@@ -40,6 +46,7 @@ typedef struct {
     uint32_t btn;
     int n;                            /* frames, sysmenu argument, or record / hud on (1) or off (0) */
     float deg;                        /* crank, wind or orbit degrees */
+    float v[4];                       /* buoy / fixcam arguments */
     ScSys sys;
     char name[SC_NAME_MAX];
 } ScCmd;

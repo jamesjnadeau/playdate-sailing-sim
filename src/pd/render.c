@@ -26,6 +26,11 @@ static inline float rsin(float a) { return fast_sinf(a); }
 static int sea_style = SEA_TRI;   /* the sea tiling; change here (or call render_set_sea_style) to try another */
 static bool hud_on = true;
 void render_set_hud(bool on) { hud_on = on; }
+static bool follower_on = true;
+void render_set_follower(bool on) { follower_on = on; }
+static bool prop_on;
+static double prop_x, prop_y;
+void render_set_prop_buoy(bool on, double x, double y) { prop_on = on; prop_x = x; prop_y = y; }
 bool render_hud(void) { return hud_on; }
 
 void render_set_sea_style(int style) { sea_style = style < 0 || style >= SEA_STYLES ? SEA_GRID : style; }
@@ -1616,6 +1621,14 @@ static void draw_marks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     draw_buoys(pd, dm, n, g->race.next);
 }
 
+/* The lone promo buoy if it is in view; its depth (m along the view) in *depth. */
+static bool prop_buoy(const Game *g, const CameraPose *c, MarkDraw *m) {
+    int n = 0;
+    if (!prop_on) return false;
+    add_mark(g, c, (float)fmod(g->t, g->sea.period), m, &n, 0, prop_x, prop_y);
+    return n == 1;
+}
+
 static void draw_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     MarkDraw dm[JOURNEY_MAX];
     int n = 0;
@@ -1699,9 +1712,14 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_spray(pd, g, c);
     if (ghost && g->mode == GAME_RACE) draw_ghost(pd, g, c, ghost);
     FollowPose follow_pose;
-    if (g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose) &&
+    if (follower_on && g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose) &&
         !follower_near_eye(&follow_pose, c->x, c->y, FOLLOW_EYE_MIN_M))
         draw_ghost_pose(pd, g, c, &follow_pose);
+    /* the promo buoy goes behind the boat when it is farther away than the boat's centre, else on top */
+    MarkDraw prop;
+    const bool prop_vis = prop_buoy(g, c, &prop);
+    const bool prop_front = prop_vis && prop.depth < (float)hypot(g->b.x - c->x, g->b.y - c->y);
+    if (prop_vis && !prop_front) draw_buoy(pd, &prop);
     draw_waterline(pd, g, c);
     /* heeled so far that the underside faces the eye: the rig is beyond the hull, which then hides it */
     bool rig_behind = !deck_faces_eye(g, c);
@@ -1709,6 +1727,7 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_hulls(pd, g, c);
     draw_rudder(pd, g, c);   /* head stands above the transom: the waterline sits behind the panel */
     if (!rig_behind) draw_rig(pd, g, c);
+    if (prop_front) draw_buoy(pd, &prop);
     if (!hud_on) return;
     hud_draw(pd, g);
     if (g->mode == GAME_RACE) hud_race(pd, g, c);

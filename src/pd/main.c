@@ -88,11 +88,43 @@ static void scenario_sys(const ScFrame *f) {
     }
 }
 
-/* Scripted shot settings: HUD, wind relative to the bow, and a steady camera orbit (deg/s). */
+/* Scripted shot settings: HUD, wind relative to the bow, a steady camera orbit (deg/s), a caption,
+ * a lone buoy, a camera fixed beside that buoy, and the trailing ghost. */
 static float orbit_dps;
+static char caption[SC_NAME_MAX];
+static bool buoy_set, fix_on;
+static double buoy_x, buoy_y;
+static float buoy_heading;          /* the boat's heading when the buoy was laid: the track it crosses */
+static CameraPose fix_cam;
 static void scenario_shot(const ScShot *s, float dt) {
     Game *g = app_game_mut();
     if (s->hud != SC_HUD_NONE) render_set_hud(s->hud == SC_HUD_ON);
+    if (s->caption_now) strcpy(caption, s->caption);
+    if (s->ghost) render_set_follower(s->ghost == 1);
+    if (s->buoy_now) {
+        const float h = g->b.heading, ch = cosf(h), sh = sinf(h);
+        buoy_x = g->b.x + (double)(s->buoy_fwd * ch - s->buoy_right * sh);
+        buoy_y = g->b.y + (double)(s->buoy_fwd * sh + s->buoy_right * ch);
+        buoy_heading = h;
+        buoy_set = true;
+        render_set_prop_buoy(true, buoy_x, buoy_y);
+    }
+    if (s->fixcam == 2) fix_on = false;
+    if (s->fixcam == 1 && buoy_set) {
+        /* DIST m from the buoy on the side away from the boat's track (starboard), looking back across the
+           track, so the boat crosses from left to right; AIM turns the view right (the buoy moves left) */
+        const float ch = cosf(buoy_heading), sh = sinf(buoy_heading);
+        memset(&fix_cam, 0, sizeof fix_cam);
+        fix_cam.x = buoy_x - (double)(s->fix_dist * sh);
+        fix_cam.y = buoy_y + (double)(s->fix_dist * ch);
+        fix_cam.height = s->fix_height;
+        fix_cam.yaw = wrap_pi(buoy_heading - (float)M_PI_2 + deg2rad(s->fix_aim));
+        fix_cam.pitch = deg2rad(s->fix_pitch);
+        fix_cam.trail = true;
+        fix_on = true;
+    } else if (s->fixcam == 1) {
+        pd->system->logToConsole("scenario: fixcam needs a buoy first");
+    }
     if (s->wind_now)
         wind_set_base(&g->wind, wrap_pi(g->b.heading + deg2rad(s->wind_deg) + (float)M_PI));
     if (s->orbit_now) orbit_dps = s->orbit_dps;
@@ -101,6 +133,34 @@ static void scenario_shot(const ScShot *s, float dt) {
         g->ctl.camera_yaw = wrap_pi(g->ctl.camera_yaw + deg2rad(orbit_dps) * dt);
         g->ctl.camera_target_yaw = g->ctl.camera_yaw;
     }
+}
+#endif
+
+#ifdef SCENARIO
+/* The caption in the home screen's title face (Jersey 10 at 2x), centred near the top, black with a
+   white halo so it reads on sky and sea alike. */
+static void draw_caption(void) {
+    static LCDFont *font;
+    static bool tried;
+    const struct playdate_graphics *gr = pd->graphics;
+    const size_t len = strlen(caption);
+    if (!tried) {
+        const char *err = NULL;
+        tried = true;
+        font = gr->loadFont("fonts/Jersey10-20", &err);
+        if (!font) pd->system->logToConsole("scenario: caption font: %s", err ? err : "?");
+    }
+    if (font) gr->setFont(font);
+    gr->setTextTracking(0);
+    const int w = gr->getTextWidth(font, caption, len, kASCIIEncoding, 0);
+    const int x = (CAM_W - w) / 2, y = 10;
+    gr->setDrawMode(kDrawModeFillWhite);
+    for (int dy = -2; dy <= 2; dy++)
+        for (int dx = -2; dx <= 2; dx++)
+            if ((dx || dy) && dx * dx + dy * dy <= 5) gr->drawText(caption, len, kASCIIEncoding, x + dx, y + dy);
+    gr->setDrawMode(kDrawModeFillBlack);
+    gr->drawText(caption, len, kASCIIEncoding, x, y);
+    gr->setDrawMode(kDrawModeCopy);
 }
 #endif
 
@@ -125,7 +185,11 @@ static int update(void *ud) {
     if (d == APP_DRAW_MENU) {
         menu_draw(pd, app_menu(), app_tracks(), app_best(), app_boat_best(), app_help());
     } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM) {
+#ifdef SCENARIO
+        render_frame(pd, app_game(), fix_on ? &fix_cam : app_camera(), app_ghost_opponent());
+#else
         render_frame(pd, app_game(), app_camera(), app_ghost_opponent());
+#endif
         const char *warn = app_warning();
         if (d == APP_DRAW_CONFIRM) {
             hud_back_confirm(pd);
@@ -137,6 +201,9 @@ static int update(void *ud) {
             pd->graphics->drawText(warn, len, kASCIIEncoding, 4, 39);
         }
     }
+#ifdef SCENARIO
+    if (caption[0] && (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM)) draw_caption();
+#endif
 #ifdef SHOW_FPS
     if (d == APP_DRAW_MENU || d == APP_DRAW_PLAY) pd->system->drawFPS(0, 0);
 #endif

@@ -66,6 +66,21 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
     int nt = 0;
     char *p = line;
     memset(c, 0, sizeof *c);
+    while (*p && is_ws(*p)) p++;
+    if (!strncmp(p, "caption", 7) && (is_ws(p[7]) || !p[7])) {
+        /* the rest of the line is the text, spaces and all */
+        char *t = p + 7, *e;
+        c->kind = SC_C_CAPTION;
+        while (*t && is_ws(*t)) t++;
+        e = t + strlen(t);
+        while (e > t && is_ws(e[-1])) *--e = 0;
+        if (!*t) return "usage: caption TEXT|off";
+        if (strlen(t) > SC_NAME_MAX - 1) return "caption too long";
+        for (e = t; *e; e++)
+            if (*e < 32 || *e > 126) return "caption: printable ASCII only";
+        if (strcmp(t, "off")) strcpy(c->name, t);
+        return NULL;
+    }
     while (*p) {
         while (*p && is_ws(*p)) p++;
         if (!*p) break;
@@ -146,6 +161,22 @@ static const char *parse_line(char *line, ScCmd *c, bool have_frame) {
     } else if (!strcmp(tok[0], "orbit")) {
         c->kind = SC_C_ORBIT;
         if (nt != 2 || !parse_float(tok[1], &c->deg)) return "usage: orbit DEG_PER_S";
+    } else if (!strcmp(tok[0], "buoy")) {
+        c->kind = SC_C_BUOY;
+        if (nt != 3 || !parse_float(tok[1], &c->v[0]) || !parse_float(tok[2], &c->v[1]))
+            return "usage: buoy FWD RIGHT";
+    } else if (!strcmp(tok[0], "fixcam")) {
+        c->kind = SC_C_FIXCAM;
+        if (nt == 2 && !strcmp(tok[1], "off")) return NULL;
+        c->n = 1;
+        if (nt != 5) return "usage: fixcam DIST HEIGHT AIM PITCH|off";
+        for (int k = 0; k < 4; k++)
+            if (!parse_float(tok[k + 1], &c->v[k])) return "usage: fixcam DIST HEIGHT AIM PITCH|off";
+        if (c->v[0] <= 0 || c->v[1] <= 0) return "fixcam: DIST and HEIGHT must be positive";
+    } else if (!strcmp(tok[0], "ghost")) {
+        c->kind = SC_C_GHOST;
+        if (nt != 2 || (strcmp(tok[1], "on") && strcmp(tok[1], "off"))) return "usage: ghost on|off";
+        c->n = !strcmp(tok[1], "on");
     } else if (!strcmp(tok[0], "end")) {
         c->kind = SC_C_END;
         if (nt != 1) return "usage: end";
@@ -202,6 +233,13 @@ static bool take_pending(Scenario *s, const ScCmd *c) {
     case SC_C_HUD: p->hud = c->n ? SC_HUD_ON : SC_HUD_OFF; return true;
     case SC_C_WIND: p->wind_now = true; p->wind_deg = c->deg; return true;
     case SC_C_ORBIT: p->orbit_now = true; p->orbit_dps = c->deg; return true;
+    case SC_C_CAPTION: p->caption_now = true; strcpy(p->caption, c->name); return true;
+    case SC_C_BUOY: p->buoy_now = true; p->buoy_fwd = c->v[0]; p->buoy_right = c->v[1]; return true;
+    case SC_C_FIXCAM:
+        p->fixcam = c->n ? 1 : 2;
+        p->fix_dist = c->v[0]; p->fix_height = c->v[1]; p->fix_aim = c->v[2]; p->fix_pitch = c->v[3];
+        return true;
+    case SC_C_GHOST: p->ghost = c->n ? 1 : 2; return true;
     default: return false;
     }
 }

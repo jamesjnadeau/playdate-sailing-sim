@@ -96,6 +96,10 @@ A scenario is `tests/scenarios/NAME.txt`: one command per line, `#` starts a com
 | `hud on\|off` | Draw or leave out the HUD (bar, markers, banners, prompts) from the next frame |
 | `wind DEG` | Turn the wind to blow from DEG degrees off the bow (+ = starboard) on the next frame; put it after any `sysmenu weather` |
 | `orbit DEG` | Swing the camera DEG degrees per second round the boat, every frame from the next one; `orbit 0` stops |
+| `caption TEXT` / `caption off` | Draw TEXT (the rest of the line, up to 47 characters) centred across the top in the home screen's title face, Jersey 10 at 2x |
+| `buoy FWD RIGHT` | Lay a lone buoy FWD m ahead of the boat and RIGHT m to starboard (any mode) |
+| `fixcam DIST HEIGHT AIM PITCH` / `fixcam off` | Fix the camera DIST m from that buoy on its starboard side, HEIGHT m up, looking back across the boat's track (so the boat crosses left to right), turned AIM degrees right and tilted PITCH degrees (+ up) |
+| `ghost on\|off` | Draw or leave out the trailing ghost of your recent track (free range and journey) |
 | `end` | Stop the scenario |
 
 Two `press A` lines in a row land on consecutive frames, so put a `wait 1` between them if the game should see two separate taps. A `sysmenu` with no frame after it is a parse error. The grammar is in `src/pd/scenario.c`.
@@ -153,7 +157,13 @@ tools/promo_video.py series weather-orbit --hud --boat j24 --weathers storm,hurr
 
 Each `weather-orbit` shot starts a free-range run, picks the boat and weather, turns the wind to come from `--wind` degrees off the bow (default 60, the same for every shot), engages the autopilot on the starting heading and the auto trim, sails for `--settle-s` seconds (default 12) and then records one full camera orbit of `--orbit-s` seconds (default 8). The camera ends at the angle it started from (the sea and boat keep moving, so it is not a seamless loop). In the hurricane the dinghy capsizes in under a second at full sail, and the auto trim hoists a reefed sail back up, so there the sails are reefed to 16% and the auto trim stays off (`--reef WEATHER=HOIST,...` changes this, `--reef none` turns it off). The tool warns when a shot ends capsized.
 
-Your own shots are ordinary scenarios using `record`, `hud`, `wind` and `orbit`; `tools/promo_video.py run my_shot.txt` writes one MP4 per `record NAME`. Common options: `--out DIR` (default `build/promo`), `--scale N`, `--palette playdate` (the real screen's grey tones instead of black and white), `--crf N` (quality, default 12), `--keep-frames` (keep the `.fb` frames; `tools/promo_video.py encode DIR OUT.mp4` re-encodes them) and `--keep-scenarios`. `--host` plays the shots on the host harness instead: about 5x faster, but it draws no text, so use it only to preview shots with the HUD off.
+```bash
+tools/promo_video.py series buoy-pass              # "Are you ready to sail?" over a buoy as the dinghy sails by behind it
+```
+
+`buoy-pass` sails up to speed like `weather-orbit` (sunny by default), then lays a buoy 12 m ahead, fixes the camera low beside it and records 9 s with the caption across the top: the buoy fills most of the frame and the boat passes behind it from left to right, close enough that the masthead is cut off. `--caption`, `--length-s`, `--buoy-ahead`, `--buoy-side`, `--cam-dist`, `--cam-height`, `--cam-aim` and `--cam-pitch` adjust it.
+
+Your own shots are ordinary scenarios using `record`, `hud`, `wind`, `orbit`, `caption`, `buoy`, `fixcam` and `ghost`; `tools/promo_video.py run my_shot.txt` writes one MP4 per `record NAME`. Common options: `--out DIR` (default `build/promo`), `--scale N`, `--palette playdate` (the real screen's grey tones instead of black and white), `--crf N` (quality, default 12), `--keep-frames` (keep the `.fb` frames; `tools/promo_video.py encode DIR OUT.mp4` re-encodes them) and `--keep-scenarios`. `--host` plays the shots on the host harness instead: about 5x faster, but it draws no text, so use it only to preview shots with the HUD off.
 
 Like `golden_refresh.sh`, it wipes `$SDK/Disk/Data/com.jamesnadeau.sailingsim` before every shot.
 

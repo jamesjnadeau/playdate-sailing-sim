@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "controls.h"
 
-const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Journey", "Racing", "Controls", "Sound" };
+const char *const MENU_MAIN_NAMES[MENU_MAIN_ITEMS] = { "Free Range", "Journey", "Racing", "Training", "Sound" };
 const char *const MENU_SOUND_NAMES[MENU_SOUND_LEVELS] = { "Off", "Low", "Med", "High" };
 
 void menu_init(Menu *m, int ntracks, int nboats) {
@@ -77,6 +77,7 @@ int menu_rows(const Menu *m) {
     case MENU_TRACKS: return m->ntracks;
     case MENU_BOATS: return m->nboats;
     case MENU_WEATHER: return m->nweather;
+    case MENU_TRAINING: return MENU_TRAINING_ROWS;
     default: return 0;
     }
 }
@@ -126,8 +127,8 @@ static MenuAction help_update(Menu *m, uint32_t pressed) {
     if (pressed & BTN_DOWN) m->help_top = m->help_top < last ? m->help_top + 1 : last;
     if (pressed & BTN_UP) m->help_top = m->help_top > 0 ? m->help_top - 1 : 0;
     if (pressed & (BTN_B | BTN_A)) {
-        m->screen = MENU_MAIN;
-        m->sel = MENU_ITEM_HELP;
+        m->screen = MENU_TRAINING;
+        m->sel = TRAIN_ROW_CONTROLS;
     }
     return MENU_NONE;
 }
@@ -156,6 +157,10 @@ static MenuAction update(Menu *m, uint32_t pressed) {
         } else if (m->screen == MENU_TRACKS) {
             m->screen = MENU_MAIN;
             m->sel = MENU_ITEM_RACE;
+        } else if (m->screen == MENU_TRAINING) {
+            m->screen = MENU_MAIN;
+            m->sel = MENU_ITEM_TRAINING;
+            return MENU_NONE;
         }
     }
 
@@ -194,10 +199,9 @@ static MenuAction update(Menu *m, uint32_t pressed) {
             m->sel = boat_start(m);
             return MENU_NONE;
         }
-        if (m->sel == MENU_ITEM_HELP) {
-            m->screen = MENU_HELP;
-            m->help_top = 0;
-            m->help_crank = 0;
+        if (m->sel == MENU_ITEM_TRAINING) {
+            m->screen = MENU_TRAINING;
+            m->sel = TRAIN_ROW_CONTROLS;
             return MENU_NONE;
         }
         if (m->sel == MENU_ITEM_SOUND) {
@@ -208,6 +212,13 @@ static MenuAction update(Menu *m, uint32_t pressed) {
         m->journey = false;
         m->screen = MENU_TRACKS;
         m->sel = 0;
+        return MENU_NONE;
+    }
+    if (m->screen == MENU_TRAINING) {
+        if (m->sel == TRAIN_ROW_LESSON) return MENU_START_TRAINING;
+        m->screen = MENU_HELP;
+        m->help_top = 0;
+        m->help_crank = 0;
         return MENU_NONE;
     }
     if (m->screen == MENU_TRACKS) {

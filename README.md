@@ -1,5 +1,7 @@
 # Crank'n Sail
 
+This game was first inspired by the many people who have tried to make sailing games for the Playdate, such as [The Big Pond](https://devforum.play.date/t/the-big-pond-a-chill-sailing-game-beta-available/8300) and [My Fishing Boat demo](https://devforum.play.date/t/my-fishing-boat-demo/12241). There are many more I can't find.
+
 A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunfish, a J/24, or a Reynolds 33 catamaran around a wind-shifting sea, or race a set of marked courses against the clock. The d-pad picks what the crank controls: helm, sail trim, hoist or camera.
 
 ## Features
@@ -22,6 +24,8 @@ A sailing simulator for the [Playdate](https://play.date). Sail a dinghy, a Sunf
 | A | Toggle autopilot (crank to nudge the heading) |
 | B | Toggle auto trim; stops the engine instead while it runs |
 | Hold B | Start the engine (1 knot, pushes along the rudder) |
+
+The controls were inspired by the game "At the Helm" from Reddit user pararar, in [this post](https://www.reddit.com/r/PlaydateConsole/comments/1xa39t4/im_making_a_sailing_game/).
 
 The full list is on the Controls screen in the main menu. The Playdate system menu has boat, weather and go back. Go back asks for confirmation, then returns to the home screen.
 

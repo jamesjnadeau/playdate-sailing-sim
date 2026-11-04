@@ -182,6 +182,12 @@ tools/promo_video.py series buoy-pass              # "Are you ready to sail?" ov
 
 `buoy-pass` sails up to speed like `weather-orbit` (sunny by default), then lays a buoy 12 m ahead, fixes the camera low beside it and records 9 s with the caption across the top: the buoy fills most of the frame and the boat passes behind it from left to right, close enough that the masthead is cut off. `--caption`, `--length-s`, `--buoy-ahead`, `--buoy-side`, `--cam-dist`, `--cam-height`, `--cam-aim` and `--cam-pitch` adjust it.
 
+```bash
+tools/promo_video.py trailer                       # render every shot, then cut build/promo/crank_sail_trailer.mp4
+```
+
+`trailer` renders the shots into `build/promo/clips/` and cuts a 30 s trailer with sound: the buoy-pass with its caption (in rollers; `--opening WEATHER`), then 3 s of each weather orbit, calmest first (`--clip-s`, `--clip-start`, `--weathers`). Hard cuts, with a short sound fade at each so nothing clicks. `--recut` re-cuts from the clips already there without rendering again; every `series` option (`--boat`, `--caption`, `--hud`, ...) works here too.
+
 Your own shots are ordinary scenarios using `record`, `hud`, `wind`, `orbit`, `caption`, `buoy`, `fixcam` and `ghost`; `tools/promo_video.py run my_shot.txt` writes one MP4 per `record NAME`. Common options: `--out DIR` (default `build/promo`), `--scale N`, `--palette playdate` (the real screen's grey tones instead of black and white), `--crf N` (quality, default 12), `--keep-frames` (keep the `.fb` frames; `tools/promo_video.py encode DIR OUT.mp4` re-encodes them) and `--keep-scenarios`. `--host` plays the shots on the host harness instead: about 5x faster, but it draws no text, so use it only to preview shots with the HUD off.
 
 Like `golden_refresh.sh`, it wipes `$SDK/Disk/Data/com.jamesnadeau.sailingsim` before every shot.

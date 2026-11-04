@@ -2,6 +2,7 @@
 """Shoot promo footage: play scripted shots in the Playdate simulator and encode each one as a video.
 
     tools/promo_video.py series weather-orbit [options]   the boat in every weather, camera circling it
+    tools/promo_video.py trailer [options]                 every shot, cut into OUT/crank_sail_trailer.mp4
     tools/promo_video.py run SCENARIO.txt [options]       any scenario; every `record NAME` becomes NAME.mp4
     tools/promo_video.py encode FRAMES_DIR OUT.mp4        re-encode frames kept with --keep-frames
 
@@ -398,6 +399,57 @@ def encode(frames_dir, out, scale, palette, crf):
 
 # ---------------------------------------------------------------- main
 
+def cut(parts, out, crf):
+    """Joins (clip, start_s, length_s) parts with hard cuts; the sound gets a short fade at each cut so
+    nothing clicks. Clips without sound get silence."""
+    args, f, cat = [], "", ""
+    for i, (clip, start, length) in enumerate(parts):
+        args += ["-i", clip]
+        has_audio = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
+                                    "stream=index", "-of", "csv=p=0", clip],
+                                   capture_output=True, text=True).stdout.strip() != ""
+        f += f"[{i}:v]trim=start={start}:duration={length},setpts=PTS-STARTPTS[v{i}];"
+        if has_audio:
+            f += (f"[{i}:a]atrim=start={start}:duration={length},asetpts=PTS-STARTPTS,aresample=48000,"
+                  f"afade=t=in:d=0.04,afade=t=out:st={max(0.0, length - 0.08):.3f}:d=0.08[a{i}];")
+        else:
+            f += f"anullsrc=r=48000:cl=stereo,atrim=duration={length}[a{i}];"
+        cat += f"[v{i}][a{i}]"
+    f += f"{cat}concat=n={len(parts)}:v=1:a=1[v][a]"
+    run(["ffmpeg", "-loglevel", "error", "-y", *args, "-filter_complex", f, "-map", "[v]", "-map", "[a]",
+         "-c:v", "libx264", "-preset", "slow", "-crf", str(crf), "-tune", "animation", "-pix_fmt", "yuv420p",
+         "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", out])
+    total = sum(p[2] for p in parts)
+    print(f"   {out}: {len(parts)} shots, {total:g} s", flush=True)
+
+
+def trailer(a):
+    """The opening buoy-pass with its caption, then clip_s of each weather orbit, calmest first."""
+    weathers = a.weathers.split(",") if a.weathers else WEATHERS
+    clips = os.path.join(a.out, "clips")
+    boat = a.boat.replace("-", "_")
+    opening = os.path.join(clips, f"{boat}_buoy_pass_{a.opening}{'_hud' if a.hud else ''}.mp4")
+    orbits = [os.path.join(clips, f"{boat}_{w}{'_hud' if a.hud else ''}.mp4") for w in weathers]
+    if not a.recut:
+        out = a.out
+        a.out = clips
+        a.weathers = a.opening
+        shots = buoy_pass(a)
+        a.weathers = ",".join(weathers)
+        shots += weather_orbit(a)
+        shoot(a, shots)
+        a.out = out
+    for c in [opening] + orbits:
+        if not os.path.isfile(c):
+            die(f"{c} is missing (run without --recut to render it)")
+    if not 0 <= a.clip_start < a.orbit_s or a.clip_s <= 0 or a.clip_start + a.clip_s > a.orbit_s:
+        die("--clip-start / --clip-s must fit inside one orbit", 2)
+    print("== cutting the trailer", flush=True)
+    parts = [(opening, 0, a.length_s)] + [(c, a.clip_start, a.clip_s) for c in orbits]
+    cut(parts, os.path.join(a.out, a.name), a.crf)
+
+
 def shoot(a, shots):
     if not shutil.which("ffmpeg"):
         die("ffmpeg not found")
@@ -445,27 +497,39 @@ def main():
 
     s = sub.add_parser("series", help="a ready-made series of shots")
     s.add_argument("series", choices=sorted(SERIES))
-    s.add_argument("--boat", default="dinghy", help="boat file name without .json (default dinghy)")
-    s.add_argument("--weathers", help=f"comma-separated subset of {','.join(WEATHERS)} "
-                                      "(default: all for weather-orbit, sunny for buoy-pass)")
-    s.add_argument("--caption", default="Are you ready to sail?",
-                   help="buoy-pass: text in the title font across the top ('' for none)")
-    s.add_argument("--length-s", type=float, default=9, help="buoy-pass: shot length (default 9)")
-    s.add_argument("--buoy-ahead", type=float, default=12, help="buoy-pass: buoy laid this far ahead, m (default 12)")
-    s.add_argument("--buoy-side", type=float, default=0.3, help="buoy-pass: ...and this far to starboard, m (default 0.3)")
-    s.add_argument("--cam-dist", type=float, default=3, help="buoy-pass: camera to buoy, m (default 3)")
-    s.add_argument("--cam-height", type=float, default=0.9, help="buoy-pass: camera height, m (default 0.9)")
-    s.add_argument("--cam-aim", type=float, default=15,
-                   help="buoy-pass: view turned this far right of the buoy, deg (default 15)")
-    s.add_argument("--cam-pitch", type=float, default=-5, help="buoy-pass: camera tilt, deg, - = down (default -5)")
-    s.add_argument("--wind", type=float, default=60,
-                   help="wind from this many degrees off the bow, + = starboard (default 60)")
-    s.add_argument("--orbit-s", type=float, default=8, help="seconds for one camera orbit; the shot length (default 8)")
-    s.add_argument("--settle-s", type=float, default=12, help="seconds of sailing before recording (default 12)")
-    s.add_argument("--hud", action="store_true", help="show the HUD (default off)")
-    s.add_argument("--reef", help="WEATHER=HOIST,... sails held at that hoist with auto trim off, or 'none' "
-                                  "(default hurricane=0.16: the dinghy capsizes there at full sail)")
+
+    def shot_args(s):
+        s.add_argument("--boat", default="dinghy", help="boat file name without .json (default dinghy)")
+        s.add_argument("--weathers", help=f"comma-separated subset of {','.join(WEATHERS)} "
+                                          "(default: all for weather-orbit, sunny for buoy-pass)")
+        s.add_argument("--caption", default="Are you ready to sail?",
+                       help="buoy-pass: text in the title font across the top ('' for none)")
+        s.add_argument("--length-s", type=float, default=9, help="buoy-pass: shot length (default 9)")
+        s.add_argument("--buoy-ahead", type=float, default=12, help="buoy-pass: buoy laid this far ahead, m (default 12)")
+        s.add_argument("--buoy-side", type=float, default=0.3, help="buoy-pass: ...and this far to starboard, m (default 0.3)")
+        s.add_argument("--cam-dist", type=float, default=3, help="buoy-pass: camera to buoy, m (default 3)")
+        s.add_argument("--cam-height", type=float, default=0.9, help="buoy-pass: camera height, m (default 0.9)")
+        s.add_argument("--cam-aim", type=float, default=15,
+                       help="buoy-pass: view turned this far right of the buoy, deg (default 15)")
+        s.add_argument("--cam-pitch", type=float, default=-5, help="buoy-pass: camera tilt, deg, - = down (default -5)")
+        s.add_argument("--wind", type=float, default=60,
+                       help="wind from this many degrees off the bow, + = starboard (default 60)")
+        s.add_argument("--orbit-s", type=float, default=8, help="seconds for one camera orbit; the shot length (default 8)")
+        s.add_argument("--settle-s", type=float, default=12, help="seconds of sailing before recording (default 12)")
+        s.add_argument("--hud", action="store_true", help="show the HUD (default off)")
+        s.add_argument("--reef", help="WEATHER=HOIST,... sails held at that hoist with auto trim off, or 'none' "
+                                      "(default hurricane=0.16: the dinghy capsizes there at full sail)")
+    shot_args(s)
     common(s)
+
+    t = sub.add_parser("trailer", help="render the shots and cut them into one trailer")
+    shot_args(t)
+    t.add_argument("--opening", default="rollers", help="weather of the opening buoy-pass (default rollers)")
+    t.add_argument("--clip-s", type=float, default=3, help="seconds of each weather orbit (default 3)")
+    t.add_argument("--clip-start", type=float, default=1.5, help="where in each orbit the cut starts, s (default 1.5)")
+    t.add_argument("--name", default="crank_sail_trailer.mp4", help="output file in --out (default crank_sail_trailer.mp4)")
+    t.add_argument("--recut", action="store_true", help="re-cut from the clips already in OUT/clips/")
+    common(t)
 
     r = sub.add_parser("run", help="play a scenario file and encode its recordings")
     r.add_argument("scenario")
@@ -483,7 +547,7 @@ def main():
         die("--scale must be at least 1", 2)
     if a.cmd == "encode":
         encode(a.frames_dir, a.output, a.scale, a.palette, a.crf)
-    elif a.cmd == "series":
+    elif a.cmd in ("series", "trailer"):
         if not re.fullmatch(r"[a-z0-9_-]{1,23}", a.boat):
             die(f"bad boat name '{a.boat}'", 2)
         if not os.path.isfile(os.path.join(ROOT, "boats", f"{a.boat}.json")):
@@ -491,7 +555,12 @@ def main():
         if a.orbit_s <= 0:
             die("--orbit-s must be positive", 2)
         a.out = os.path.abspath(a.out)
-        shoot(a, SERIES[a.series](a))
+        if a.cmd == "trailer":
+            if a.opening not in WEATHERS:
+                die(f"unknown weather '{a.opening}'", 2)
+            trailer(a)
+        else:
+            shoot(a, SERIES[a.series](a))
     else:
         with open(a.scenario) as f:
             text = f.read()

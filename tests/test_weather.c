@@ -165,6 +165,70 @@ static void test_set_base_keeps_offset(void) {
     T_ASSERT(fabsf(wrap_pi(w.dir - 1.0f)) < 1.0f);
 }
 
+static void test_blend_endpoints_exact(void) {
+    WeatherCfg w;
+    weather_default(&w);
+    for (int i = 0; i < WEATHER_PRESETS; i++)
+        for (int j = 0; j < WEATHER_PRESETS; j++) {
+            WeatherPreset o;
+            weather_blend(&o, &w.preset[i], &w.preset[j], 0.0f);
+            T_ASSERT(memcmp(&o, &w.preset[i], sizeof o) == 0);
+            weather_blend(&o, &w.preset[i], &w.preset[j], 1.0f);
+            T_ASSERT(memcmp(&o, &w.preset[j], sizeof o) == 0);
+            weather_blend(&o, &w.preset[i], &w.preset[j], -1.0f);
+            T_ASSERT(memcmp(&o, &w.preset[i], sizeof o) == 0);
+            weather_blend(&o, &w.preset[i], &w.preset[j], 2.0f);
+            T_ASSERT(memcmp(&o, &w.preset[j], sizeof o) == 0);
+        }
+}
+
+static void test_blend_lightning_as_rate(void) {
+    WeatherPreset a, b, o;
+    memset(&a, 0, sizeof a);
+    memset(&b, 0, sizeof b);
+    b.lightning_interval = 20.0f;
+    weather_blend(&o, &a, &b, 0.5f);
+    T_NEAR(o.lightning_interval, 40.0f, 1e-3);
+    b.lightning_interval = 0.0f;
+    weather_blend(&o, &a, &b, 0.5f);
+    T_ASSERT(o.lightning_interval == 0.0f);
+}
+
+static void test_blend_gust_as_rate(void) {
+    WeatherPreset a, b, o;
+    memset(&a, 0, sizeof a);
+    memset(&b, 0, sizeof b);
+    a.gust_interval = 10.0f;
+    b.gust_interval = 30.0f;
+    weather_blend(&o, &a, &b, 0.5f);
+    T_NEAR(o.gust_interval, 15.0f, 1e-3);
+}
+
+static void test_blend_midpoint_linear(void) {
+    WeatherCfg w;
+    weather_default(&w);
+    const WeatherPreset *a = &w.preset[WEATHER_SUNNY], *b = &w.preset[WEATHER_STORM];
+    WeatherPreset o;
+    weather_blend(&o, a, b, 0.25f);
+    T_NEAR(o.wind_base, a->wind_base + 0.25f * (b->wind_base - a->wind_base), 1e-4);
+    T_NEAR(o.wave_period, a->wave_period + 0.25f * (b->wave_period - a->wave_period), 1e-4);
+    T_NEAR(o.visibility, a->visibility + 0.25f * (b->visibility - a->visibility), 1e-2);
+    T_ASSERT(strcmp(o.name, a->name) == 0);
+    weather_blend(&o, a, b, 0.5f);
+    T_ASSERT(strcmp(o.name, b->name) == 0);
+}
+
+static void test_journey_default_mask(void) {
+    unsigned m = WEATHER_JOURNEY_DEFAULT;
+    T_ASSERT(m & (1u << WEATHER_SUNNY));
+    T_ASSERT(m & (1u << WEATHER_CLOUDY));
+    T_ASSERT(m & (1u << WEATHER_CHOPPY));
+    T_ASSERT(m & (1u << WEATHER_ROLLERS));
+    T_ASSERT(m & (1u << WEATHER_STORM));
+    T_ASSERT(!(m & (1u << WEATHER_MIST)));
+    T_ASSERT(!(m & (1u << WEATHER_HURRICANE)));
+}
+
 int main(void) {
     T_RUN(test_speed_bounded_per_preset);
     T_RUN(test_storm_stronger_than_sunny);
@@ -176,5 +240,10 @@ int main(void) {
     T_RUN(test_load_clamps_and_warns);
     T_RUN(test_load_sky_fields);
     T_RUN(test_set_base_keeps_offset);
+    T_RUN(test_blend_endpoints_exact);
+    T_RUN(test_blend_lightning_as_rate);
+    T_RUN(test_blend_gust_as_rate);
+    T_RUN(test_blend_midpoint_linear);
+    T_RUN(test_journey_default_mask);
     return T_DONE();
 }

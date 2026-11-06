@@ -8,6 +8,9 @@
 /* Lightest wind first, so the menus read in order of wind speed. */
 enum { WEATHER_MIST, WEATHER_SUNNY, WEATHER_CLOUDY, WEATHER_CHOPPY, WEATHER_ROLLERS, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_PRESETS };
 
+/* Journey's default ticked weathers: all but mist and hurricane. */
+#define WEATHER_JOURNEY_DEFAULT (((1u << WEATHER_PRESETS) - 1u) & ~((1u << WEATHER_MIST) | (1u << WEATHER_HURRICANE)))
+
 extern const char *const WEATHER_NAMES[WEATHER_PRESETS];
 
 typedef struct {
@@ -38,6 +41,10 @@ typedef struct { WeatherPreset preset[WEATHER_PRESETS]; } WeatherCfg;
 void weather_default(WeatherCfg *out);
 /* Always fills out (from the default). False if any warning was raised. */
 bool weather_load(WeatherCfg *out, const char *buf, size_t len, char *warn, size_t warnlen);
+
+/* out = a at w <= 0, b at w >= 1, a lerp between. lightning_interval and gust_interval blend as rates
+   (0 = none). name and any non-float field come from a below w = 0.5, else b. */
+void weather_blend(WeatherPreset *out, const WeatherPreset *a, const WeatherPreset *b, float w);
 
 /* dir = world angle (rad) the wind blows TOWARD; speed in m/s. */
 typedef struct {

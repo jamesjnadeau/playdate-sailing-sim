@@ -190,3 +190,36 @@ void wind_vec(const Wind *w, float *wx, float *wy) {
     *wx = w->speed * cosf(w->dir);
     *wy = w->speed * sinf(w->dir);
 }
+
+static float lerpf_(float a, float b, float w) { return a + (b - a) * w; }
+
+/* Blends mean intervals as rates so a preset with none (0) fades in smoothly instead of jumping. */
+static float lerp_interval(float a, float b, float w) {
+    float ra = a > 0.0f ? 1.0f / a : 0.0f, rb = b > 0.0f ? 1.0f / b : 0.0f;
+    float r = lerpf_(ra, rb, w);
+    return r > 0.0f ? 1.0f / r : 0.0f;
+}
+
+void weather_blend(WeatherPreset *out, const WeatherPreset *a, const WeatherPreset *b, float w) {
+    if (!(w > 0.0f)) { *out = *a; return; }
+    if (w >= 1.0f) { *out = *b; return; }
+    *out = w < 0.5f ? *a : *b;   /* name */
+    out->wind_base = lerpf_(a->wind_base, b->wind_base, w);
+    out->wind_var = lerpf_(a->wind_var, b->wind_var, w);
+    out->shift_rate_deg = lerpf_(a->shift_rate_deg, b->shift_rate_deg, w);
+    out->gust_speed = lerpf_(a->gust_speed, b->gust_speed, w);
+    out->gust_interval = lerp_interval(a->gust_interval, b->gust_interval, w);
+    out->wave_height = lerpf_(a->wave_height, b->wave_height, w);
+    out->wave_period = lerpf_(a->wave_period, b->wave_period, w);
+    out->wave_steepness = lerpf_(a->wave_steepness, b->wave_steepness, w);
+    out->visibility = lerpf_(a->visibility, b->visibility, w);
+    out->sky_top = lerpf_(a->sky_top, b->sky_top, w);
+    out->sky_horizon = lerpf_(a->sky_horizon, b->sky_horizon, w);
+    out->cloud_cover = lerpf_(a->cloud_cover, b->cloud_cover, w);
+    out->cloud_shade = lerpf_(a->cloud_shade, b->cloud_shade, w);
+    out->cloud_size = lerpf_(a->cloud_size, b->cloud_size, w);
+    out->cloud_speed = lerpf_(a->cloud_speed, b->cloud_speed, w);
+    out->rain = lerpf_(a->rain, b->rain, w);
+    out->lightning_interval = lerp_interval(a->lightning_interval, b->lightning_interval, w);
+    out->sun = lerpf_(a->sun, b->sun, w);
+}

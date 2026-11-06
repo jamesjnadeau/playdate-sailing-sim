@@ -20,6 +20,14 @@ A dinghy, a Sunfish, a J/24, a Hobie 16 and a Reynolds 33 catamaran. Each one is
 - `Backspace` opens the system menu: boat, weather, going back, and mouse settings.
 - In the main menu, point at a row to pick it and click to choose it.
 
+On a phone or tablet, hold it sideways:
+
+- The pad bottom left is the d-pad: press it, and slide your thumb round to change direction. `B` and `A` sit bottom right.
+- Drag a finger up and down anywhere else on the view to turn the crank; you can keep a thumb on the pad while you do.
+- `☰` top right opens the system menu. In the main menu, tap a row to choose it.
+
+The button top left switches full screen on and off. On an iPhone, where Safari has no full screen for pages, use Share › Add to Home Screen instead.
+
 Best times and ghosts are saved in this browser.
 
 ## Credits

@@ -173,7 +173,7 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
 .help-body .more { text-align: center; color: var(--muted); }
 
 /* ---- system menu ---- */
-#sysmenu { position: fixed; inset: 0; background: rgba(3, 8, 14, 0.45); display: flex; justify-content: flex-end; }
+#sysmenu { position: fixed; inset: 0; z-index: 5; background: rgba(3, 8, 14, 0.45); display: flex; justify-content: flex-end; }
 .sys-panel {
   width: min(380px, 100%); height: 100%; overflow: auto; background: var(--panel-solid); border-left: 1px solid var(--line);
   padding: 24px; display: flex; flex-direction: column; gap: 14px; user-select: auto;
@@ -232,4 +232,103 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
   .sail-bar { width: 80px; }
   .menu-card { grid-template-columns: 1fr; gap: 18px; padding: 24px 16px 12px; }
   .menu-hints { padding: 10px 16px; gap: 12px; }
+}
+
+/* ---- touch ---- */
+.touch-only { display: none; }
+body.touch .touch-only { display: inline; }
+body.touch .mouse-only { display: none; }
+body.touch #lock-hint { left: 50%; right: auto; transform: translateX(-50%); bottom: auto; top: 54px; font-size: 13px; }
+body.touch.dragged #lock-hint { opacity: 0; }
+body.touch #view { touch-action: none; }
+
+#touch { position: fixed; inset: 0; pointer-events: none; z-index: 2; --pad: min(152px, 38vh); --btn: min(66px, 17vh); }
+#touch > * { pointer-events: auto; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+#touch:not([data-play="1"]) .tc-pad, #touch:not([data-play="1"]) .tc-buttons { display: none; }
+.tc-pad {
+  position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(var(--hud-h) + 14px);
+  width: var(--pad); height: var(--pad); border-radius: 50%; background: rgba(10, 22, 34, 0.38);
+  border: 1px solid var(--line); box-shadow: inset 0 0 0 calc(var(--pad) * 0.11) rgba(255, 255, 255, 0.04);
+}
+.tc-arrow {
+  position: absolute; width: 34%; height: 34%; display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--pad) * 0.15); color: rgba(244, 247, 250, 0.8); border-radius: 12px; transition: background 0.08s;
+}
+.tc-arrow.up { left: 33%; top: 2%; }
+.tc-arrow.down { left: 33%; bottom: 2%; }
+.tc-arrow.left { left: 2%; top: 33%; }
+.tc-arrow.right { right: 2%; top: 33%; }
+.tc-pad[data-dir="4"] .up, .tc-pad[data-dir="8"] .down, .tc-pad[data-dir="1"] .left, .tc-pad[data-dir="2"] .right {
+  background: var(--accent); color: var(--accent-ink);
+}
+.tc-buttons {
+  position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(var(--hud-h) + 14px);
+  display: flex; align-items: flex-end; gap: 14px;
+}
+.tc-btn {
+  width: var(--btn); height: var(--btn); border-radius: 50%; border: 1px solid var(--line); padding: 0;
+  background: rgba(10, 22, 34, 0.5); color: var(--ink); font: 800 calc(var(--btn) * 0.36) var(--sans);
+  backdrop-filter: blur(3px); user-select: none; -webkit-user-select: none;
+}
+.tc-btn.a { margin-bottom: calc(var(--btn) * 0.5); }   /* B lower left of A, as on the Playdate */
+.tc-btn.down { background: var(--ink); color: #0b1622; }
+.tc-menu {
+  position: absolute; right: calc(12px + env(safe-area-inset-right)); top: calc(10px + env(safe-area-inset-top));
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); font-size: 22px; padding: 0;
+}
+body[data-draw="1"] #touch .tc-menu { display: none; }   /* the main menu has its own buttons */
+#rotate { display: none; }
+@media (orientation: portrait) {
+  body.touch #rotate {
+    position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: var(--bg); font-size: 18px; color: var(--ink); text-align: center; padding: 24px;
+  }
+  #rotate div { font-size: 56px; color: var(--accent); }
+}
+/* the sail, a game's worth of buttons and the d-pad share one short phone screen */
+body.touch .hud-clock { left: calc(12px + env(safe-area-inset-left)); }
+
+/* ---- full screen ---- */
+#fullscreen {
+  position: fixed; z-index: 4; left: calc(12px + env(safe-area-inset-left)); top: calc(10px + env(safe-area-inset-top));
+  width: 40px; height: 40px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#fullscreen:hover, #fullscreen:focus-visible { background: rgba(255, 255, 255, 0.14); }
+#fullscreen svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#fullscreen .fs-leave, #fullscreen.on .fs-enter { display: none; }
+#fullscreen.on .fs-leave { display: inline; }
+/* the race clock sits beside it, the warning line below it */
+body.can-fs .hud-clock { left: calc(62px + env(safe-area-inset-left)); }
+body.can-fs .hud-warning { top: calc(58px + env(safe-area-inset-top)); }
+body.touch .hud-bar { padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+
+@media (max-height: 500px) {
+  :root { --hud-h: 38px; }
+  .hud-bar { font-size: 14px; }
+  .hud-bar .cell { padding: 0 8px; }
+  .hud-bar .mode { min-width: 64px; }
+  .hud-bar .sail { padding: 0 8px; gap: 8px; font-size: 13px; }
+  .sail-bar { width: 80px; }
+  .hud-box { top: 38%; padding: 12px 18px; min-width: 240px; }
+  .hud-box .head { font-size: 20px; }
+  .hud-praise { top: 10%; }
+  /* one row that fits the screen, so the hint bar below always shows; the controls page scrolls inside it */
+  .menu-card { grid-template-rows: minmax(0, 1fr); min-height: 0; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.25fr); gap: 3vw; padding: 12px calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left)); }
+  .menu-title { padding: 12px 16px; }
+  .menu-title h1 { font-size: clamp(26px, 8vh, 44px); margin: 4px 0 8px; }
+  .menu-title .sub { font-size: 14px; margin-top: 8px; }
+  .menu-title .extra { margin-top: 12px; font-size: 13px; }
+  .menu-list { gap: 4px; }
+  .menu-list .item { padding: 8px 14px 8px 38px; font-size: 17px; }
+  .menu-list .item.sel::before { left: 14px; }
+  .menu-hints { padding: 8px calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left)); gap: 14px; }
+  .menu-preview canvas { min-height: 0; }
+  .pv-head h2 { font-size: 22px; }
+  .menu-help { padding: 12px 16px; max-height: 100%; overflow: auto; overscroll-behavior: contain; }
+  .menu-help h2 { font-size: 17px; margin-bottom: 6px; }
+  .help-body { font-size: 13px; }
+  .help-keys { font-size: 12px; line-height: 1.6; }
+  .sys-panel { padding: 16px; gap: 10px; }
 }

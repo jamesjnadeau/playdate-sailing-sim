@@ -1,5 +1,5 @@
 // Backspace: the Playdate's system menu. The run is paused while it is open. Boat and weather are offered in free
-// range only (as on the Playdate); "go back" asks the question in the game; mouse settings live here too.
+// range only (as on the Playdate); "go back" asks the question in the game; crank settings live here too.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export class SysMenu {
@@ -16,10 +16,10 @@ export class SysMenu {
           <label>Weather <select class="sys-weather"></select></label>
         </div>
         <button class="sys-back">Go back to the home screen</button>
-        <h3>Mouse crank</h3>
+        <h3>Crank (mouse or drag)</h3>
         <label class="range">Sensitivity <input class="sys-sens" type="range" min="0.1" max="3" step="0.05"><span class="sys-sens-v"></span></label>
-        <label class="check"><input class="sys-inv" type="checkbox"> Mouse up (or left) turns the crank clockwise</label>
-        <button class="sys-resume">Resume <span class="key">Backspace</span></button>
+        <label class="check"><input class="sys-inv" type="checkbox"> Up (or left) turns the crank clockwise</label>
+        <button class="sys-resume">Resume <span class="key mouse-only">Backspace</span></button>
       </div>`;
     this.q = (s) => root.querySelector(s);
     this.q('.sys-boat').addEventListener('change', (e) => this.cb.onBoat(Number(e.target.value)));

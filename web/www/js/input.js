@@ -1,7 +1,9 @@
-// Keyboard and mouse -> the Playdate's buttons and crank.
+// Keyboard, mouse and touch -> the Playdate's buttons and crank.
 //   W A S D (or the arrow keys) = d-pad, C = B, V = A (C sits left of V as B sits left of A),
 //   moving the mouse = the crank (the canvas takes pointer lock on click): left turns it as up does, right as down
 //   does; the wheel turns it too.
+//   On a touch screen the on-screen d-pad and A / B buttons press buttons, and dragging the view turns the
+//   crank the same way (see touch.js).
 // Codes are physical keys (KeyboardEvent.code), so other keyboard layouts get the same positions.
 
 export const BTN = { LEFT: 1, RIGHT: 2, UP: 4, DOWN: 8, B: 16, A: 32 };
@@ -26,11 +28,7 @@ export class Input {
   keyDown(code, repeat = false) {
     const bit = KEYMAP[code];
     if (!bit) return false;
-    if (!repeat && !(this.held & bit)) {
-      // taps that land between two frames (a slow frame, a fast typist) reach the game on successive
-      // frames, in order, rather than merging into one
-      if (this.queue.length < 16) this.queue.push(bit);
-    }
+    if (!repeat) this.buttonDown(bit);
     this.held |= bit;
     return true;
   }
@@ -38,11 +36,24 @@ export class Input {
   keyUp(code) {
     const bit = KEYMAP[code];
     if (!bit) return false;
-    this.held &= ~bit;
+    this.buttonUp(bit);
     return true;
   }
 
-  // Mouse moved dx, dy pixels (right and down are positive). Down, and right, turn the crank clockwise (+);
+  // A button goes down (a key, an on-screen button). Already held does nothing.
+  buttonDown(bit) {
+    if (!bit || (this.held & bit)) return;
+    // taps that land between two frames (a slow frame, a fast typist) reach the game on successive
+    // frames, in order, rather than merging into one
+    if (this.queue.length < 16) this.queue.push(bit);
+    this.held |= bit;
+  }
+
+  buttonUp(bit) {
+    this.held &= ~bit;
+  }
+
+  // Mouse (or a finger dragging the view) moved dx, dy pixels (right and down are positive). Down, and right, turn the crank clockwise (+);
   // up and left turn it back. Inverted, the other way round.
   mouseMove(dy, dx = 0) {
     const d = (Number.isFinite(dy) ? dy : 0) + (Number.isFinite(dx) ? dx : 0);

@@ -9,12 +9,18 @@ import { SysMenu } from './ui/sysmenu.js';
 import { MenuPointer } from './ui/menupointer.js';
 import { About } from './ui/about.js';
 import { SeaAudio } from './audio.js';
+import { TouchControls } from './touch.js';
+import { setupFullscreen } from './fullscreen.js';
 
 const DRAW = { NONE: 0, MENU: 1, PLAY: 2, CONFIRM: 3, DEMO_END: 4 };
 const KEYS = { A: 'V', B: 'C', updown: 'W / S',
   legend: '<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> d-pad, ' +
     '<span class="key">V</span> A, <span class="key">C</span> B, move the mouse to turn the crank (left works as up, right as down) ' +
     '(click the view first), <span class="key">Backspace</span> the system menu.' };
+const TOUCH_KEYS = { A: 'A', B: 'B', updown: '▲ / ▼', wheel: 'Drag',
+  legend: 'hold your phone sideways. The pad bottom left is the d-pad, <span class="key">B</span> and ' +
+    '<span class="key">A</span> are bottom right, drag up and down anywhere else on the view to turn the crank, ' +
+    'and <span class="key">☰</span> top right opens the system menu.' };
 const HUD_PX = 46;
 
 const $ = (s) => document.querySelector(s);
@@ -53,6 +59,23 @@ async function boot() {
   });
   const audio = new SeaAudio(sim);
 
+  // touch mode: on from the start on a touch-first device, and as soon as a finger lands on the view; a key
+  // on the keyboard turns it off again
+  const touch = new TouchControls($('#touch'), $('#view'), input, {
+    menu: () => { audio.start(); if (sys.open) sys.close(); else openSys(); },
+    touch: () => { audio.start(); setTouch(true); },
+  });
+  let touchMode = false;
+  const setTouch = (on) => {
+    if (on === touchMode) return;
+    touchMode = on;
+    document.body.classList.toggle('touch', on);
+    $('#touch').hidden = !on;
+    menu.last = '';   // redraw the hints with the touch labels
+  };
+  try { setTouch(window.matchMedia('(pointer: coarse)').matches); } catch { /* no matchMedia */ }
+  setupFullscreen($('#fullscreen'), () => audio.start());
+
   let stat = null, statGen = -1, frame = null, paused = false;
   const readStatic = () => {
     stat = JSON.parse(sim.UTF8ToString(sim._web_static_json()));
@@ -76,6 +99,7 @@ async function boot() {
     paused = true;
     audio.active = false;
     input.releaseAll();
+    touch.release();
     if (document.pointerLockElement) document.exitPointerLock();
     sys.show(frame, stat, input.settings);
   };
@@ -97,13 +121,13 @@ async function boot() {
       return;
     }
     if (sys.open) return;
-    if (input.keyDown(e.code, e.repeat)) { pointer.cancel(); e.preventDefault(); }
+    if (input.keyDown(e.code, e.repeat)) { pointer.cancel(); setTouch(false); e.preventDefault(); }
   });
   window.addEventListener('keyup', (e) => { if (input.keyUp(e.code)) e.preventDefault(); });
-  window.addEventListener('blur', () => input.releaseAll());
+  window.addEventListener('blur', () => { input.releaseAll(); touch.release(); });
   canvas.addEventListener('click', () => {
     audio.start();
-    if (!sys.open && !document.pointerLockElement && canvas.requestPointerLock) {
+    if (!touchMode && !sys.open && !document.pointerLockElement && canvas.requestPointerLock) {
       try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* unsupported */ }
     }
   });
@@ -141,17 +165,19 @@ async function boot() {
       sim.FS.syncfs(false, () => { saving = false; });
     }
     document.body.dataset.draw = String(d);
+    const keys = touchMode ? TOUCH_KEYS : KEYS;
+    touch.show(d === DRAW.PLAY || d === DRAW.CONFIRM);
     if (d === DRAW.MENU) {
       hud.hide();
       tMenu += dt;
       view.renderBackdrop(frame, stat, tMenu, dt);
-      menu.update(frame.menu, stat, KEYS);
+      menu.update(frame.menu, stat, keys);
       canvas.classList.add('dim');
     } else if (d === DRAW.PLAY || d === DRAW.CONFIRM || d === DRAW.DEMO_END) {
       menu.hide();
       canvas.classList.remove('dim');
       view.render(frame, stat, dt);
-      hud.update(frame, view, KEYS);
+      hud.update(frame, view, keys);
     }
     window.__cranksail = { frame, stat, draw: d };
   };

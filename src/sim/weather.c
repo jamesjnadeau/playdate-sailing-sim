@@ -38,10 +38,10 @@ static const Fld FLDS[] = {
    Wave heights are the WMO probable height for that force, periods for a fetch-limited sea. */
 static const WeatherPreset DEFAULTS[WEATHER_PRESETS] = {
     /* name        base var   shift gust  ivl  wh    wp    steep  vis    sky: top hz  cover shade size spd  rain ltng sun */
-    { "mist",      2,   0.5f, 0.5f, 0.8f, 30, 0.2f, 3,    0.07f, 150,   3,  1,  0.3f,  3,  1.5f, 0.3f, 0,   0,  0 },   /* F2, fog needs light air, ~4 kt */
-    { "sunny",     5,   1,    0.5f, 2,    25, 0.6f, 4,    0.05f, 2000,  0,  0,  0.3f,  2,  0.8f, 1,    0,   0,  1 },   /* F3 sea breeze, ~10 kt */
-    { "cloudy",    7,   1.5f, 1,    3,    20, 1.0f, 5,    0.1f,  1200,  4,  1,  0.85f, 6,  1.3f, 1,    0,   0,  0 },   /* F4, ~14 kt */
-    { "choppy",    10,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000,  1,  0,  0.5f,  5,  1,    2,    0,   0,  1 },   /* F5, ~19 kt, short steep sea */
+    { "mist",      4,   0.5f, 0.5f, 0.8f, 30, 0.2f, 3,    0.07f, 150,   3,  1,  0.3f,  3,  1.5f, 0.3f, 0,   0,  0 },   /* F3, fog in a light breeze, ~8 kt */
+    { "sunny",     7,   1,    0.5f, 2,    25, 0.6f, 4,    0.05f, 2000,  0,  0,  0.3f,  2,  0.8f, 1,    0,   0,  1 },   /* F4 sea breeze, ~14 kt */
+    { "cloudy",    9,   1.5f, 1,    3,    20, 1.0f, 5,    0.1f,  1200,  4,  1,  0.85f, 6,  1.3f, 1,    0,   0,  0 },   /* F5, ~17 kt */
+    { "choppy",    12,  1.5f, 0.5f, 3,    25, 2.0f, 5.5f, 0.45f, 2000,  1,  0,  0.5f,  5,  1,    2,    0,   0,  1 },   /* F6, ~23 kt, short steep sea */
     { "rollers",   14,  2,    1,    5,    15, 5.5f, 9,    0.25f, 1200,  5,  2,  0.75f, 8,  1.2f, 2.5f, 0,   0,  0 },   /* F6, ~27 kt wind over a storm-sized swell */
     { "storm",     20,  3,    2,    10,   10, 5.5f, 9,    0.25f, 400,   13, 8,  1,     9,  2.5f, 4,    0.5f, 20, 0 },   /* F8 gale, ~39 kt, squalls to ~58 kt */
     { "hurricane", 36,  5,    2,    12,   10, 9,    12,   0.45f, 400,   14, 10, 1,     11, 3,    6,    1,   8,  0 },   /* Cat 1, ~70 kt, gusts to ~93 kt */

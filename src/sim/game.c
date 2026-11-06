@@ -50,9 +50,7 @@ static void reset(Game *g) {
     g->praise_left = 0.0f;
     g->t = 0.0;
     g->run = RUN_SAILING;
-    g->last_hit = HIT_NONE;
     g->substeps = 0;
-    g->nrocks = 0;
 }
 
 void game_init(Game *g, const BoatCfg *boat, const WeatherCfg *weather, const WorldCfg *world,
@@ -199,10 +197,9 @@ static void aim_camera(Game *g) {
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
-    g->last_hit = HIT_NONE;
     if (g->mode != GAME_RACE) shift_weather(g, dt);
 
-    if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
+    if (g->run == RUN_SAILING) {   /* capsized: controls are frozen */
         aim_camera(g);
         controls_update(&g->ctl, &g->boat, pressed, held, crank_delta, dt, &g->in);
         autopilot_buttons(&g->ap, pressed, g->b.heading);
@@ -224,11 +221,6 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     g->wf = sea_hull_forces(&g->sea, &g->b, &g->boat, (float)fmod(g->t, g->sea.period));
     g->b.pitch = g->wf.pitch;
     g->b.heave = g->wf.heave;
-    /* Rocks are disabled for now (generation, collision and drawing). */
-    g->nrocks = 0;
-    /* g->nrocks = rocks_near(&g->world, g->seed, (float)g->b.x, (float)g->b.y,
-                              GAME_ROCK_RADIUS, g->rocks, ROCKS_MAX); */
-
     int n = (int)ceilf(dt / SIM_DT - 1e-4f);
     if (n < 1) n = 1;
     if (n > GAME_MAX_SUBSTEPS) n = GAME_MAX_SUBSTEPS;
@@ -237,14 +229,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
 
     const double x0 = g->b.x, y0 = g->b.y;
     for (int i = 0; i < n; i++) {
-        if (g->run == RUN_WRECKED) break;
         boat_step(&g->b, &g->boat, &g->wind, &g->in, &g->wf, h);
-        /* HitKind k = rocks_collide(&g->world, g->rocks, g->nrocks, &g->b, &g->boat, g->wf.heave);
-        if (k > g->last_hit) g->last_hit = k;
-        if (k == HIT_WRECK) {
-            g->run = RUN_WRECKED;
-            g->b.u = g->b.v = g->b.r = 0.0f;
-        } */
     }
     bool rounded = false;
     if (g->mode == GAME_RACE && g->run == RUN_SAILING)

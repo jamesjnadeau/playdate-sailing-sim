@@ -269,7 +269,7 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
-/* Asked before "go back" leaves the run; the same box as the finish and wreck panels. */
+/* Asked before "go back" leaves the run; the same box as the finish and capsize panels. */
 void hud_back_confirm(PlaydateAPI *pd) {
     pd->graphics->fillRect(90, 80, 220, 64, kColorBlack);
     pd->graphics->drawRect(94, 84, 212, 56, kColorWhite);

@@ -709,58 +709,6 @@ __attribute__((unused)) static void draw_streaks(PlaydateAPI *pd, const Game *g,
     }
 }
 
-/* ---- rocks ---- */
-
-__attribute__((unused)) static void draw_rocks(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
-    float vis = fvis(g);
-    int order[ROCKS_MAX];
-    float depth[ROCKS_MAX];
-    int n = 0;
-    for (int i = 0; i < g->nrocks; i++) {
-        float sx, sy, d;
-        if (!camera_project(c, g->rocks[i].x, g->rocks[i].y, 0.0f, &sx, &sy, &d)) continue;
-        depth[i] = d;
-        int j = n++;
-        while (j > 0 && depth[order[j - 1]] < d) { order[j] = order[j - 1]; j--; }
-        order[j] = i;                       /* far to near */
-    }
-    for (int k = 0; k < n; k++) {
-        const Rock *r = &g->rocks[order[k]];
-        float d = depth[order[k]];
-        if (d > vis) continue;
-        float h = sea_view_height(&sv, (float)((double)r->x - sv_ox), (float)((double)r->y - sv_oy));
-        float bx, by, tx, ty;
-        float top = r->awash ? 0.15f * r->r : 0.7f * r->r;
-        if (!camera_project(c, r->x, r->y, h, &bx, &by, NULL)) continue;
-        if (!camera_project(c, r->x, r->y, h + top, &tx, &ty, NULL)) continue;
-        float hw = r->r * CAM_FOCAL / d;
-        if (bx + hw < 0 || bx - hw > CAM_W) continue;
-        float rh = fmaxf(by - ty, 1.0f);
-        int fog = (int)(16.0f * clampf((d / vis - 0.5f) * 2.0f, 0.0f, 1.0f));
-        LCDColor body = fog > 0 ? render_pattern(16 - fog) : kColorBlack;
-        if (!r->awash) {
-            int pts[2 * 9];
-            for (int s = 0; s < 9; s++) {
-                float a = (float)PI_D * (float)s / 8.0f;
-                pts[2 * s] = (int)(bx - hw * cosf(a));
-                pts[2 * s + 1] = (int)(by - rh * sinf(a));
-            }
-            pd->graphics->fillPolygon(9, pts, body, kPolygonFillNonZero);
-        }
-        /* surf: a breaking skirt, bigger and busier when the rock is awash */
-        int rings = r->awash ? 3 : 1;
-        for (int q = 0; q < rings; q++) {
-            float w = hw * (1.0f + 0.25f * (float)q) + 2.0f;
-            float jit = sinf((float)(g->t * 4.0 + q * 2.0 + (double)r->x)) * 2.0f;
-            int ww = (int)(2 * w), hh = (int)fmaxf(rh * 0.5f, 3.0f) + q * 2;
-            pd->graphics->drawEllipse((int)(bx - w), (int)(by - hh / 2 + jit), ww, hh, 1, 0, 0, kColorWhite);
-        }
-        if (r->awash)
-            pd->graphics->fillEllipse((int)(bx - hw), (int)(by - rh), (int)(2 * hw), (int)fmaxf(rh, 2.0f), 0, 0,
-                                      render_pattern(fog > 0 ? 0 : 3));
-    }
-}
-
 /* ---- spray ---- */
 
 static void draw_spray(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
@@ -1729,7 +1677,6 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_sky(pd, g, c);
     draw_sea(pd, g, c);
     /* draw_streaks(pd, g, c);   wind streaks disabled for now */
-    /* draw_rocks(pd, g, c);   rocks disabled for now */
     if (g->mode == GAME_RACE) draw_marks(pd, g, c);
     if (g->mode == GAME_JOURNEY) draw_journey(pd, g, c);
     draw_rain(pd, g, c);

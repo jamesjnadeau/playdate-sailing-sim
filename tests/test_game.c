@@ -54,29 +54,6 @@ static void test_capsize_sets_state_and_freezes_controls(void) {
     T_NEAR(g.in.wheel_target, wheel_t, 1e-9f);
 }
 
-__attribute__((unused)) static void test_wreck_sets_state(void) {
-    fresh(3);
-    wc.rock_density = 1.0f;
-    game_init(&g, &bc, &wcfg, &wc, WEATHER_SUNNY, 3);
-    Rock r[8];
-    int n = rocks_near(&wc, 3, 0, 0, 200, r, 8);
-    T_ASSERT(n > 0);
-    /* just inside the contact ring on the rock's -x side, heading +x at wreck speed */
-    g.b.x = r[0].x - r[0].r - 0.5 * bc.hull.beam + 0.05;
-    g.b.y = r[0].y;
-    g.b.heading = 0.0f;
-    g.b.u = 3.2f;
-    g.b.v = 0.0f;
-    game_update(&g, 0, 0, 0, 1.0f / 30);
-    T_ASSERT(g.run == RUN_WRECKED);
-    T_ASSERT(g.last_hit == HIT_WRECK);
-    float wheel_t = g.in.wheel_target;
-    game_update(&g, BTN_UP, 0, 90.0f, 1.0f / 30);
-    T_ASSERT(g.run == RUN_WRECKED);
-    T_NEAR(g.in.wheel_target, wheel_t, 1e-9f);
-    T_ASSERT(finite_state(&g));
-}
-
 static void test_restart_restores_start_in_one_call(void) {
     fresh(5);
     Game start = g;
@@ -89,22 +66,6 @@ static void test_restart_restores_start_in_one_call(void) {
     T_ASSERT(g.b.u == start.b.u && g.b.heel == start.b.heel);
     T_ASSERT(g.t == 0.0);
     T_ASSERT(g.ctl.mode == start.ctl.mode);
-    T_ASSERT(g.last_hit == HIT_NONE);
-}
-
-__attribute__((unused)) static void test_same_seed_after_restart_same_rocks(void) {
-    fresh(9);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
-    Rock a[ROCKS_MAX];
-    int na = g.nrocks;
-    memcpy(a, g.rocks, sizeof a);
-    game_restart(&g, 9);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
-    T_ASSERT(g.nrocks == na);
-    T_ASSERT(memcmp(a, g.rocks, sizeof(Rock) * (size_t)na) == 0);
-    game_restart(&g, 10);
-    game_update(&g, 0, 0, 0, 1.0f / 30);
-    T_ASSERT(g.seed == 10);
 }
 
 static void test_set_preset_changes_weather(void) {
@@ -686,9 +647,7 @@ int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
     T_RUN(test_capsize_sets_state_and_freezes_controls);
-    /* T_RUN(test_wreck_sets_state);   rocks disabled in game_update for now */
     T_RUN(test_restart_restores_start_in_one_call);
-    /* T_RUN(test_same_seed_after_restart_same_rocks); */
     T_RUN(test_origin_recentres);
     T_RUN(test_set_preset_changes_weather);
     T_RUN(test_calm_start_sails_on);

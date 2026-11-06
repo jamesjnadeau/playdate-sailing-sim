@@ -103,13 +103,6 @@ void seasound_update(SeaSound *s, const Game *g, float dt) {
         if (l > luff) luff = l;
     }
     p->flutter = alive * luff * clampf(aws / 5.0f, 0.0f, 1.0f);
-
-    /* contact with a rock */
-    if (g->last_hit != HIT_NONE && s->prev_hit == HIT_NONE) {
-        float e = g->last_hit == HIT_WRECK ? 1.0f : g->last_hit == HIT_STRIKE ? 0.8f : 0.5f;
-        if (e > s->thump_ev) s->thump_ev = e;
-    }
-    s->prev_hit = g->last_hit;
 }
 
 static float rnd(SeaSound *s) {

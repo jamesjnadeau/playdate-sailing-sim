@@ -276,16 +276,6 @@ static void test_heel_and_wind_and_luff_map(void) {
     T_ASSERT(ss.p.flutter == 0.0f && ss.p.gurgle == 0.0f);
 }
 
-static void test_rock_strike_thumps_once(void) {
-    fresh(WEATHER_SUNNY, 3);
-    g.last_hit = HIT_STRIKE;
-    seasound_update(&ss, &g, 1.0f / 30);
-    T_ASSERT(ss.thump_ev > 0.7f);
-    ss.thump_ev = 0.0f;
-    seasound_update(&ss, &g, 1.0f / 30);   /* still touching: not a second thump */
-    T_ASSERT(ss.thump_ev == 0.0f);
-}
-
 static void test_bad_state_stays_finite(void) {
     fresh(WEATHER_CHOPPY, 3);
     g.b.u = NAN; g.b.v = INFINITY; g.b.heel = NAN; g.b.aws = NAN; g.b.luff[0] = NAN;
@@ -344,7 +334,6 @@ int main(void) {
     T_RUN(test_pause_fades_out_and_back);
     T_RUN(test_speed_drives_wash_and_swell_follows_sea);
     T_RUN(test_heel_and_wind_and_luff_map);
-    T_RUN(test_rock_strike_thumps_once);
     T_RUN(test_bad_state_stays_finite);
     T_RUN(test_slaps_in_a_seaway);
     T_RUN(test_no_slaps_when_stopped_or_flat);

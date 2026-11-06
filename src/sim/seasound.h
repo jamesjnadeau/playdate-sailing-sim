@@ -29,7 +29,6 @@ typedef struct {
     int level, active;
     float prev_heave, prev_pitch, hv, pr, pr_peak, cool;
     int primed;
-    HitKind prev_hit;
     /* render side */
     uint32_t rng;
     float master;

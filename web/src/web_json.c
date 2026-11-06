@@ -322,7 +322,7 @@ static void hud(const Game *g, Ghost *ghost) {
     arr_end();
     str("praise", g->praise_left > 0.0f ? praise_text(g->praise) : NULL);
 
-    /* the box in the middle of the screen: finished, capsized or wrecked */
+    /* the box in the middle of the screen: finished, or capsized */
     if (g->mode == GAME_RACE && g->run == RUN_SAILING && g->race.finished) {
         hud_fmt_time(g->race.t, time, sizeof time);
         obj("prompt");
@@ -333,7 +333,7 @@ static void hud(const Game *g, Ghost *ghost) {
         obj_end();
     } else if (g->run != RUN_SAILING) {
         obj("prompt");
-        str("head", g->run == RUN_CAPSIZED ? "CAPSIZED" : "WRECKED");
+        str("head", "CAPSIZED");
         str("line", "");
         str("action", "restart");
         obj_end();
@@ -535,18 +535,6 @@ const char *web_json_frame(AppDraw d) {
                 const JourneyBuoy *b = &g->journey.buoy[i];
                 mark_obj(g, c, b->x, b->y, b->gate, b->rounding, i == g->journey.next);
             }
-        }
-        arr_end();
-
-        arr("rocks");
-        for (int i = 0; i < g->nrocks; i++) {
-            const Rock *r = &g->rocks[i];
-            comma();
-            raw("[");
-            need_comma = 0;
-            num_v(r->x - c->x); num_v(r->y - c->y); num_v(r->r); int_v(r->awash);
-            raw("]");
-            need_comma = 1;
         }
         arr_end();
 

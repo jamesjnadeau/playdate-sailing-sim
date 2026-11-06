@@ -62,7 +62,7 @@ In the main menu the mouse works too: point at a row to select it, click to choo
 
 On a phone or tablet held sideways the page shows touch controls instead: a d-pad bottom left (press it and slide your thumb round to change direction), B and A bottom right, ☰ top right for the system menu, and dragging a finger up and down anywhere else on the view turns the crank. A thumb can stay on the d-pad while the other finger cranks. A button top left switches full screen on and off (on phones it also asks for landscape); browsers without the Fullscreen API, such as Safari on iPhone, don't show it.
 
-Best times and ghosts are saved in the browser (IndexedDB). On the web, rocks are drawn; the Playdate renderer leaves them out.
+Best times and ghosts are saved in the browser (IndexedDB).
 
 You need [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (`source emsdk_env.sh` so `emcc` is on `PATH`):
 

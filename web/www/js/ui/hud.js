@@ -94,7 +94,7 @@ export class Hud {
     this.show(e.ghost, 'ghostShow', !!h.ghostGap);
     if (h.ghostGap) this.text(e.ghost, 'ghost', `Ghost ${h.ghostGap}`);
 
-    // the box: go back? beats finished / capsized / wrecked
+    // the box: go back? beats finished / capsized
     let box = null;
     if (f.draw === 3) box = { head: 'GO BACK?', line: 'Return to the home screen', act: `${keys.A}: yes    ${keys.B}: no` };
     else if (f.draw === 4) box = { head: 'Thanks for playing the demo', line: 'Back to the home screen…', act: `${keys.A}: continue` };

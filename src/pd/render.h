@@ -9,7 +9,7 @@
 #include "race.h"
 #include "besttimes.h"
 
-/* Draws the whole frame: sky, sea, rocks, rig, deck, HUD and any restart prompt.
+/* Draws the whole frame: sky, sea, rig, deck, HUD and any restart prompt.
    Does not clear; callers clear to white first only if they draw behind it. `ghost` (may be NULL) is the
    run to race against: drawn as a light boat, with its gap on the HUD. */
 void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *cam, Ghost *ghost);

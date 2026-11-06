@@ -1,4 +1,4 @@
-// Buoys, the next mark's gate line and turn arrow, rocks and the wake. Sizes follow render.c.
+// Buoys, the next mark's gate line and turn arrow, and the wake. Sizes follow render.c.
 import * as THREE from 'three';
 import { seaHeight } from './sea.js';
 
@@ -25,23 +25,6 @@ function buoyMesh(color) {
   return g;
 }
 
-function rockGeometry(seed) {
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const p = g.attributes.position;
-  let s = seed * 9301 + 49297;
-  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-  const bumps = Array.from({ length: 6 }, () => [rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1, 0.15 + rnd() * 0.25]);
-  for (let i = 0; i < p.count; i++) {
-    const v = new THREE.Vector3().fromBufferAttribute(p, i);
-    let f = 1;
-    for (const [x, y, z, a] of bumps) f += a * Math.max(0, v.dot(new THREE.Vector3(x, y, z).normalize()));
-    v.multiplyScalar(f * 0.8);
-    p.setXYZ(i, v.x, v.y, v.z);
-  }
-  g.computeVertexNormals();
-  return g;
-}
-
 export class World {
   constructor(scene) {
     this.group = new THREE.Group();
@@ -62,11 +45,6 @@ export class World {
       new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }), MAX_DASHES);
     this.dashes.frustumCulled = false;
     this.group.add(this.dashes);
-
-    this.rockGeos = Array.from({ length: 5 }, (_, i) => rockGeometry(i + 1));
-    this.rockMat = new THREE.MeshStandardMaterial({ color: 0x4a4744, roughness: 0.95, flatShading: true });
-    this.foamMat = new THREE.MeshBasicMaterial({ color: 0xf2f6f8, transparent: true, opacity: 0.75, depthWrite: false });
-    this.rocks = [];
 
     const wg = new THREE.BufferGeometry();
     this.wakeMax = 128;
@@ -115,7 +93,6 @@ export class World {
     this.dashes.count = nd;
     this.dashes.instanceMatrix.needsUpdate = true;
 
-    this.updateRocks(f.rocks || [], k);
     this.updateWake(f.wake || [], k, stat.boat);
   }
 
@@ -163,31 +140,6 @@ export class World {
     head(m.gate, GATE_HEIGHT_M);
     head(a0, GATE_HEIGHT_M * 2);
     return n;
-  }
-
-  updateRocks(rocks, k) {
-    while (this.rocks.length < rocks.length) {
-      const i = this.rocks.length;
-      const g = new THREE.Group();
-      const m = new THREE.Mesh(this.rockGeos[i % this.rockGeos.length], this.rockMat);
-      const foam = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.35, 28), this.foamMat);
-      g.add(m, foam);
-      g.userData = { rock: m, foam };
-      this.group.add(g);
-      this.rocks.push(g);
-    }
-    rocks.forEach(([x, y, r, awash], i) => {
-      const g = this.rocks[i];
-      g.visible = true;
-      const z = seaHeight(k, x, y);
-      g.position.set(x, -y, 0);
-      g.userData.rock.scale.set(r, r, awash ? r * 0.35 : r * 0.75);
-      g.userData.rock.position.z = awash ? -0.25 * r : -0.1 * r;
-      g.userData.foam.scale.setScalar(r * 0.95);
-      g.userData.foam.position.z = z + 0.05;
-      g.userData.foam.material.opacity = awash ? 0.85 : 0.5;
-    });
-    for (let i = rocks.length; i < this.rocks.length; i++) this.rocks[i].visible = false;
   }
 
   // A foam ribbon along the boat's recent track, widening and fading astern.

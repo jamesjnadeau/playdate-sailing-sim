@@ -466,9 +466,9 @@ def shoot(a, shots):
             recorded, log = player.play(name, text, frames_root)
             if not recorded:
                 die(f"{name} recorded nothing (no `record NAME` line?)")
-            # a `state` line logs run=0 sailing, 1 capsized, 2 wrecked
+            # a `state` line logs run=0 sailing, 1 capsized
             if re.search(r"^run=[12]", log, re.M):
-                print(f"   WARNING: {name}: the boat capsized or was wrecked (see `state` in the log)", flush=True)
+                print(f"   WARNING: {name}: the boat capsized (see `state` in the log)", flush=True)
             for r in recorded:
                 encode(os.path.join(frames_root, r), os.path.join(a.out, f"{r}.mp4"), a.scale, a.palette, a.crf)
     finally:

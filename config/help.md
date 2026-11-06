@@ -15,7 +15,7 @@ Hold B for about half a second to switch auto trim on or off. A gear shows in th
 - Tap B once to drop or lift the anchor.
 - Mash B to paddle: a short push up to a slow speed, then a rest.
 
-# After a capsize or wreck
+# After a capsize
 Press A to start again.
 
 # Racing

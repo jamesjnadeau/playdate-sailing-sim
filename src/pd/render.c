@@ -450,18 +450,21 @@ static bool lat_inside(float a, float b, float r) {
     return a > CREST_NEAR - r && a < lat.dfar + r && fabsf(b) < CREST_SPREAD * (a + r) + r;
 }
 
+/* The lattice cell size: from the band width, but never so small that the polygon count runs away (a facet
+   covers k * size^2 of ground). */
+static float lat_size(float dfar, float bw) {
+    float area = 1.1f * (dfar * dfar - CREST_NEAR * CREST_NEAR);
+    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 200.0f : 260.0f;
+    float size = bw * (sea_style == SEA_HEX ? 0.8f : sea_style == SEA_HEXC ? 1.7f : 1.6f);
+    return fmaxf(size, sqrtf(area / (budget * kfacet)));
+}
+
 static void draw_lattice(PlaydateAPI *pd, const CameraPose *c, float dfar, float half, float sgain, float vis,
-                         float na, float nb, float bw, double s, double s2,
+                         float na, float nb, float size, double s, double s2,
                          float umin, float umax, float vmin, float vmax) {
     const float pa = -nb, pb = na;
     lat.c = c; lat.fx = (float)rcos(c->yaw); lat.fy = (float)rsin(c->yaw);
     lat.half = half; lat.sgain = sgain; lat.vis = vis; lat.dfar = dfar; lat.n = 0;
-
-    /* keep the polygon count roughly constant: a facet covers k * size^2 of ground */
-    float area = 1.1f * (dfar * dfar - CREST_NEAR * CREST_NEAR);
-    float kfacet = sea_style == SEA_HEX ? 2.598f : 0.433f, budget = sea_style == SEA_HEX ? 200.0f : 260.0f;
-    float size = bw * (sea_style == SEA_HEX ? 0.8f : sea_style == SEA_HEXC ? 1.7f : 1.6f);
-    size = fmaxf(size, sqrtf(area / (budget * kfacet)));
 
     if (sea_style == SEA_TRI) {
         const float L = size, du = L * 0.8660254f;
@@ -545,29 +548,45 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
         if (v < vmin) vmin = v;
         if (v > vmax) vmax = v;
     }
-    /* The grid hangs off a pivot, not the world origin: when the dominant swell turns (a weather blend), the
-       pivot is re-solved so the camera keeps its grid coords and the cells under it stay put instead of
-       swinging round the origin (at 2 km out a 3.6 deg turn would sweep them ~130 m). */
-    static double piv_x, piv_y;
-    static float pnx = 0.0f, pny = 0.0f;
-    if (wnx != pnx || wny != pny) {
-        double ox = c->x - piv_x, oy = c->y - piv_y;
-        double ps = ox * (double)pnx + oy * (double)pny, ps2 = ox * (double)-pny + oy * (double)pnx;
-        if (pnx == 0.0f && pny == 0.0f) ps = ps2 = 0.0;   /* first frame: pivot at the camera */
+    if (sea_style == SEA_GRID) {
+        int span = (int)ceilf((umax - umin) / bw) + 1;
+        if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.4f; }
+    }
+    const float cell = sea_style == SEA_GRID ? bw : lat_size(dfar, bw);
+    /* The grid hangs off a pivot, not the world origin, and the camera keeps its grid coords (in cells) as
+       the grid changes: when the dominant swell turns or the cells resize (a weather blend), the pivot is
+       re-solved so the cells under the camera stay put rather than swinging or scaling about a far-off
+       point (at 500 m out an 8%/s resize slides them 40 m/s). A floating-origin recentre moves the
+       pivot with the camera. */
+    static double piv_x, piv_y, pcx, pcy;
+    static float pnx = 0.0f, pny = 0.0f, pcell = 0.0f;
+    const bool first = pcell == 0.0f;
+    if (!first && fabs(c->x - pcx) + fabs(c->y - pcy) > 1000.0) {   /* recentre: the world jumped under us */
+        piv_x += c->x - pcx;
+        piv_y += c->y - pcy;
+    }
+    if (first || wnx != pnx || wny != pny || cell != pcell) {
+        double ps = 0.0, ps2 = 0.0;                   /* camera's grid coords, kept in cells */
+        if (!first) {
+            double ox = c->x - piv_x, oy = c->y - piv_y, k = (double)cell / (double)pcell;
+            ps = (ox * (double)pnx + oy * (double)pny) * k;
+            ps2 = (ox * (double)-pny + oy * (double)pnx) * k;
+        }
         piv_x = c->x - (ps * (double)wnx + ps2 * (double)-wny);
         piv_y = c->y - (ps * (double)wny + ps2 * (double)wnx);
         pnx = wnx;
         pny = wny;
+        pcell = cell;
     }
+    pcx = c->x;
+    pcy = c->y;
     double rx = c->x - piv_x, ry = c->y - piv_y;
     double s = rx * (double)wnx + ry * (double)wny;                   /* camera's position along the wave normal */
     double s2 = rx * (double)-wny + ry * (double)wnx;                 /* ... and along the crest line */
     if (sea_style != SEA_GRID) {
-        draw_lattice(pd, c, dfar, half, sgain, vis, na, nb, bw, s, s2, umin, umax, vmin, vmax);
+        draw_lattice(pd, c, dfar, half, sgain, vis, na, nb, cell, s, s2, umin, umax, vmin, vmax);
         return;
     }
-    int span = (int)ceilf((umax - umin) / bw) + 1;
-    if (span > CREST_BANDS_MAX) { bw *= ceilf((float)span / CREST_BANDS_MAX); vw = bw * 1.4f; }
     long k0 = (long)floor((s + (double)umin) / (double)bw), k1 = (long)floor((s + (double)umax) / (double)bw);
     long j0 = (long)floor((s2 + (double)vmin) / (double)vw), j1 = (long)floor((s2 + (double)vmax) / (double)vw);
     if (j1 - j0 > MOGUL_MAX_ACROSS) { long mid = (j0 + j1) / 2; j0 = mid - MOGUL_MAX_ACROSS / 2; j1 = mid + MOGUL_MAX_ACROSS / 2; }

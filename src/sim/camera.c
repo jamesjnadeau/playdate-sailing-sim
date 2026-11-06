@@ -5,6 +5,8 @@
 #define TRAIL_RIBBON 0.6f     /* m the ribbon streams above the masthead, allowing for flutter */
 #define MIN_EYE 0.5f          /* m, lowest the trailing eye may be lowered above the sea */
 #define FOLLOW_MIX_S 0.5f     /* s the eye takes to glide between the orbit and straight behind */
+#define FOLLOW_VIEW_LIM deg2rad(20.0f)   /* how far off the view axis the boat may sit before the eye swings round */
+#define FOLLOW_ZOOM 0.6f      /* extra distance (fraction) when the eye has swung half a turn round the boat */
 #define HUD_TOP_PX (CAM_H - HUD_H)   /* the status panel covers the screen below this row */
 
 /* Reachable orbit angles about the framed one: lo <= 0 keeps the eye MIN_EYE above sea level,
@@ -67,7 +69,6 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
 
     /* trailing view orbits the boat with the look yaw; the near view turns in place */
     float orbit = c->trail ? b->heading + g->ctl.camera_yaw : b->heading;
-    float fwd_x = cosf(orbit), fwd_y = sinf(orbit);
     /* heel_bias shifts the eye to the high side as the boat leans */
     float side = -k->heel_bias * sinf(b->heel);
     float xo = k->x_offset, trail_pitch = 0.0f, eye = k->height, look = g->ctl.camera_pitch;
@@ -87,11 +88,17 @@ void camera_update(CameraPose *c, const Game *g, const BoatCfg *cfg, float dt) {
         look = 0.0f;
     }
     if (c->trail) side = 0.0f;
-    /* buoy-follow keeps the eye behind the boat on its own heading, so the boat stays framed and the
-     * view turns in place to the buoy instead of orbiting round to the far side of the rig */
+    /* buoy-follow keeps the eye behind the boat on its own heading while the view turns in place, but once
+     * the view is turned far enough that the boat would leave the screen the eye swings round just enough
+     * to keep it within FOLLOW_VIEW_LIM of the view axis, and backs off so the boat stays framed */
     c->follow_mix = approach(c->follow_mix, c->trail && g->ctl.camera_follow ? 1.0f : 0.0f, FOLLOW_MIX_S, dt);
-    float m = c->follow_mix, hx = cosf(b->heading), hy = sinf(b->heading);
-    float ax = fwd_x + (hx - fwd_x) * m, ay = fwd_y + (hy - fwd_y) * m;
+    float m = c->follow_mix, turn = wrap_pi(g->ctl.camera_yaw);
+    float swing = turn - clampf(turn, -FOLLOW_VIEW_LIM, FOLLOW_VIEW_LIM);   /* eye azimuth off the heading */
+    float az = orbit + m * wrap_pi(b->heading + swing - orbit);
+    float back = 1.0f + m * FOLLOW_ZOOM * fabsf(swing) / (float)M_PI;
+    xo *= back;
+    eye *= back;
+    float ax = cosf(az), ay = sinf(az);
     c->x = b->x + (double)(ax * xo - ay * side);
     c->y = b->y + (double)(ay * xo + ax * side);
     c->height = eye + k->heave_gain * b->heave;

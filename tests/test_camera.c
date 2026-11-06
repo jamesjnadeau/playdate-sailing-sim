@@ -301,12 +301,12 @@ static void test_follow_keeps_the_eye_behind_the_boat_and_turns_in_place(void) {
     settle();
     float back = (float)hypot(cp.x - g.b.x, cp.y - g.b.y);   /* the framed distance */
     g.ctl.camera_follow = true;
-    g.ctl.camera_yaw = 1.0f;
+    g.ctl.camera_yaw = 0.3f;   /* a small turn keeps the boat in view without moving the eye */
     settle();
     T_NEAR(cp.x, g.b.x - cosf(0.3f) * back, 1e-3);
     T_NEAR(cp.y, g.b.y - sinf(0.3f) * back, 1e-3);
-    T_NEAR(cp.yaw, 1.3f, 1e-3);
-    g.ctl.camera_yaw = -0.8f;   /* turning the view never moves the eye */
+    T_NEAR(cp.yaw, 0.6f, 1e-3);
+    g.ctl.camera_yaw = -0.3f;   /* turning the view never moves the eye */
     settle();
     T_NEAR(cp.x, g.b.x - cosf(0.3f) * back, 1e-3);
     T_NEAR(cp.y, g.b.y - sinf(0.3f) * back, 1e-3);
@@ -316,7 +316,7 @@ static void test_follow_glides_the_eye_without_a_jump(void) {
     fresh();
     cp.trail = true;
     g.b.heading = 0;
-    g.ctl.camera_yaw = 1.0f;
+    g.ctl.camera_yaw = 0.3f;
     settle();
     double x0 = cp.x, y0 = cp.y;
     g.ctl.camera_follow = true;
@@ -328,6 +328,46 @@ static void test_follow_glides_the_eye_without_a_jump(void) {
     settle();
     T_NEAR(cp.x, x0, 1e-3);   /* and back out to the orbit when follow ends */
     T_NEAR(cp.y, y0, 1e-3);
+}
+
+/* the boat's masthead, waterline centre and stern, all on screen above the status panel */
+static bool boat_in_view(void) {
+    float h = g.b.heading, half = 0.5f * bc.hull.length;
+    double px[3] = { g.b.x + cos(h) * bc.look.mast_x, g.b.x, g.b.x - cos(h) * half };
+    double py[3] = { g.b.y + sin(h) * bc.look.mast_x, g.b.y, g.b.y - sin(h) * half };
+    float pz[3] = { bc.look.mast_height, 0.0f, 0.0f };
+    for (int i = 0; i < 3; i++) {
+        float sx, sy;
+        if (!camera_project(&cp, px[i], py[i], pz[i], &sx, &sy, NULL)) return false;
+        if (sx < 0 || sx > CAM_W || sy < 0 || sy > CAM_H - HUD_H) return false;
+    }
+    return true;
+}
+
+static void test_follow_keeps_the_boat_on_screen_whatever_the_buoy_bearing(void) {
+    for (int deg = -180; deg <= 180; deg += 15) {
+        fresh();
+        cp.trail = true;
+        g.b.heading = 0.3f;
+        g.ctl.camera_follow = true;
+        g.ctl.camera_yaw = deg * D2R;
+        settle();
+        if (!boat_in_view()) printf("  boat lost with the buoy %d deg off the heading\n", deg);
+        T_ASSERT(boat_in_view());
+    }
+}
+
+static void test_follow_zooms_out_as_the_buoy_swings_away(void) {
+    fresh();
+    cp.trail = true;
+    g.b.heading = 0.3f;
+    g.ctl.camera_follow = true;
+    g.ctl.camera_yaw = 0.0f;
+    settle();
+    float d0 = (float)hypot(cp.x - g.b.x, cp.y - g.b.y);
+    g.ctl.camera_yaw = 90 * D2R;
+    settle();
+    T_ASSERT(hypot(cp.x - g.b.x, cp.y - g.b.y) > 1.1f * d0);
 }
 
 int main(void) {
@@ -356,5 +396,7 @@ int main(void) {
     T_RUN(test_trail_dist_overrides_solved_distance);
     T_RUN(test_follow_keeps_the_eye_behind_the_boat_and_turns_in_place);
     T_RUN(test_follow_glides_the_eye_without_a_jump);
+    T_RUN(test_follow_keeps_the_boat_on_screen_whatever_the_buoy_bearing);
+    T_RUN(test_follow_zooms_out_as_the_buoy_swings_away);
     T_DONE();
 }

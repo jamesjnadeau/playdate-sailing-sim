@@ -31,6 +31,7 @@ typedef struct {
     int preset;
     uint32_t seed;
     uint32_t journey_weathers;  /* ticks for the next journey start; 0 = just `preset` */
+    uint32_t free_weathers;     /* Free Range shifts among these and `preset`; 0 = holds `preset` */
     GameMode mode;
     Track track;            /* copy; used when mode == GAME_RACE */
 
@@ -49,7 +50,7 @@ typedef struct {
     int substeps;           /* substeps run by the last update */
     Race race;
     Journey journey;        /* used when mode == GAME_JOURNEY */
-    WeatherShift shift;     /* used when mode == GAME_JOURNEY */
+    WeatherShift shift;     /* used when mode != GAME_RACE */
     WeatherPreset wx;       /* the weather in force: preset[preset], or the blend during a shift */
     Sea sea_from, sea_to;   /* the blend's endpoint seas */
     Follower follow;        /* player's recent track, for the trailing ghost (free range and journey) */
@@ -80,10 +81,13 @@ void game_set_journey(Game *g);
 /* Journey weather ticks (bit per preset); stored, applied at the next journey (re)start. */
 void game_set_journey_weathers(Game *g, uint32_t mask);
 
+/* Free Range weather ticks: stored, applied at the next Free Range (re)start or preset change. */
+void game_set_free_weathers(Game *g, uint32_t mask);
+
 /* The weather in force (&g->wx); every reader uses this. */
 const WeatherPreset *game_weather(const Game *g);
 
-/* The preset a journey shift is blending toward, else -1. */
+/* The preset a journey or Free Range shift is blending toward, else -1. */
 int game_weather_turning(const Game *g);
 
 /* Out-of-range presets are clamped; the wind and sea are re-seeded from the current seed.

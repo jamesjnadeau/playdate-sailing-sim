@@ -198,7 +198,10 @@ static void begin(bool reload) {
     const bool journeying = game.mode == GAME_JOURNEY;
     const Track trk = game.track;   /* game_init clears the mode; a boat change keeps the race */
     game_init(&game, &boat_cfg, &weather_cfg, &world_cfg, preset_index, fresh_seed());
+    const uint32_t free_w = game.free_weathers, journey_w = game.journey_weathers;   /* ... and the ticks */
     if (racing) game_set_track(&game, &trk);
+    game_set_free_weathers(&game, free_w);
+    game_set_journey_weathers(&game, journey_w);
     if (journeying) game_set_journey(&game);
     camera_snap();
     if (P->reset_time) P->reset_time();
@@ -346,6 +349,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             boat_index = menu.boat;
             preset_index = menu.weather;
             if (new_boat) begin(true);
+            game_set_free_weathers(&game, 0);   /* the lesson's weather holds */
             else game_set_preset(&game, preset_index);
             game_set_track(&game, &tracks[menu.track]);
             ghost_load();
@@ -355,6 +359,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             demo_left = APP_DEMO_SECONDS;
             demo_end_left = 0.0f;
             app = APP_PLAY;
+            game_set_free_weathers(&game, journey_weathers);   /* shifts among the journey ticks, for testing */
         } else if (act == MENU_START_JOURNEY) {
             const bool new_boat = menu.boat != boat_index;
             boat_index = menu.boat;

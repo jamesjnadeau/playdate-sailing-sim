@@ -7,11 +7,17 @@ static int clamp_preset(int p) {
     return p < 0 ? 0 : p >= WEATHER_PRESETS ? WEATHER_PRESETS - 1 : p;
 }
 
-/* mask: the ticks a journey picks its start weather from (and shifts between); unused in other modes. */
+/* mask: the ticks a journey picks its start weather from (and shifts between). Free Range starts on
+   `preset` and shifts among it and free_weathers (none ticked: it holds). Races hold their weather. */
 static void start_weather(Game *g, uint32_t mask) {
-    if (g->mode == GAME_JOURNEY)
+    if (g->mode == GAME_JOURNEY) {
         g->preset = wshift_init(&g->shift, mask, g->preset, g->seed,
                                 g->world.journey_shift_min_s, g->world.journey_shift_max_s);
+    } else if (g->mode == GAME_FREE) {
+        wshift_init(&g->shift, g->free_weathers | 1u << g->preset, g->preset, g->seed,
+                    g->world.journey_shift_min_s, g->world.journey_shift_max_s);
+        g->shift.from = g->shift.to = g->preset;
+    }
     g->wx = g->weather.preset[g->preset];
     const WeatherPreset *p = &g->wx;
     wind_init(&g->wind, p, g->seed);
@@ -91,15 +97,19 @@ void game_set_journey_weathers(Game *g, uint32_t mask) {
     g->journey_weathers = mask;
 }
 
+void game_set_free_weathers(Game *g, uint32_t mask) {
+    g->free_weathers = mask;
+}
+
 const WeatherPreset *game_weather(const Game *g) {
     return &g->wx;
 }
 
 int game_weather_turning(const Game *g) {
-    return g->mode == GAME_JOURNEY && g->shift.from != g->shift.to ? g->shift.to : -1;
+    return g->mode != GAME_RACE && g->shift.from != g->shift.to ? g->shift.to : -1;
 }
 
-/* Journey only: advances the shift scheduler and applies the blend to the weather, wind and sea. */
+/* Journey and Free Range: advances the shift scheduler and applies the blend to the weather, wind and sea. */
 static void shift_weather(Game *g, float dt) {
     WeatherShift *s = &g->shift;
     const WeatherPreset *ps = g->weather.preset;
@@ -166,7 +176,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
     g->last_hit = HIT_NONE;
-    if (g->mode == GAME_JOURNEY) shift_weather(g, dt);
+    if (g->mode != GAME_RACE) shift_weather(g, dt);
 
     if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
         aim_camera(g);

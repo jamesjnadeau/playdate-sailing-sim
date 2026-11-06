@@ -7,16 +7,15 @@ static int clamp_preset(int p) {
     return p < 0 ? 0 : p >= WEATHER_PRESETS ? WEATHER_PRESETS - 1 : p;
 }
 
-/* mask: the ticks a journey picks its start weather from (and shifts between). Free Range starts on
-   `preset` and shifts among it and free_weathers (none ticked: it holds). Races hold their weather. */
+/* mask: the ticks a journey picks its start weather from (and shifts between). Free Range holds `preset`
+   (game_turn_weather blends to another); races hold their weather. */
 static void start_weather(Game *g, uint32_t mask) {
     if (g->mode == GAME_JOURNEY) {
         g->preset = wshift_init(&g->shift, mask, g->preset, g->seed,
                                 g->world.journey_shift_min_s, g->world.journey_shift_max_s);
     } else if (g->mode == GAME_FREE) {
-        wshift_init(&g->shift, g->free_weathers | 1u << g->preset, g->preset, g->seed,
+        wshift_init(&g->shift, 1u << g->preset, g->preset, g->seed,
                     g->world.journey_shift_min_s, g->world.journey_shift_max_s);
-        g->shift.from = g->shift.to = g->preset;
     }
     g->wx = g->weather.preset[g->preset];
     const WeatherPreset *p = &g->wx;
@@ -97,10 +96,6 @@ void game_set_journey_weathers(Game *g, uint32_t mask) {
     g->journey_weathers = mask;
 }
 
-void game_set_free_weathers(Game *g, uint32_t mask) {
-    g->free_weathers = mask;
-}
-
 const WeatherPreset *game_weather(const Game *g) {
     return &g->wx;
 }
@@ -109,18 +104,50 @@ int game_weather_turning(const Game *g) {
     return g->mode != GAME_RACE && g->shift.from != g->shift.to ? g->shift.to : -1;
 }
 
+/* A shift from shift.from to shift.to begins: the endpoint seas, and the sea anchored to the boat. */
+static void begin_blend(Game *g) {
+    const WeatherShift *s = &g->shift;
+    sea_init(&g->sea_from, &g->weather.preset[s->from], g->seed);
+    sea_init(&g->sea_to, &g->weather.preset[s->to], g->seed);
+    sea_anchor(&g->sea, g->b.x, g->b.y, g->t);
+    g->preset = s->to;
+}
+
+/* The blend has settled on shift.to: the sea detaches and the weather is the preset itself. */
+static void end_blend(Game *g) {
+    sea_morph(&g->sea, &g->sea_from, &g->sea_to, 1.0f);   /* finish the morph before detaching */
+    sea_unanchor(&g->sea, &g->sea_to, g->t);
+    g->wx = g->weather.preset[g->shift.to];
+    g->wind.base = g->wx.wind_base;
+}
+
+void game_turn_weather(Game *g, int preset) {
+    preset = clamp_preset(preset);
+    if (g->mode != GAME_FREE) {
+        game_set_preset(g, preset);
+        return;
+    }
+    WeatherShift *s = &g->shift;
+    if (s->from != s->to) {   /* mid-blend: land the current one first */
+        s->from = s->to;
+        s->progress = 1.0f;
+        end_blend(g);
+    }
+    if (preset == s->to) return;
+    s->from = s->to;
+    s->to = preset;
+    s->progress = 0.0f;
+    s->mask = 1u << preset;   /* only the new weather ticked: it holds once settled */
+    begin_blend(g);
+}
+
 /* Journey and Free Range: advances the shift scheduler and applies the blend to the weather, wind and sea. */
 static void shift_weather(Game *g, float dt) {
     WeatherShift *s = &g->shift;
     const WeatherPreset *ps = g->weather.preset;
     WShiftEvent ev = wshift_step(s, dt, g->world.journey_shift_min_s, g->world.journey_shift_max_s,
                                  g->world.weather_blend_s);
-    if (ev == WSHIFT_START) {
-        sea_init(&g->sea_from, &ps[s->from], g->seed);
-        sea_init(&g->sea_to, &ps[s->to], g->seed);
-        sea_anchor(&g->sea, g->b.x, g->b.y, g->t);
-        g->preset = s->to;
-    }
+    if (ev == WSHIFT_START) begin_blend(g);
     if (s->from != s->to) {
         float w = wshift_weight(s);
         weather_blend(&g->wx, &ps[s->from], &ps[s->to], w);
@@ -128,10 +155,7 @@ static void shift_weather(Game *g, float dt) {
         sea_move_anchor(&g->sea, g->b.x, g->b.y);
         g->wind.base = g->wx.wind_base;
     } else if (ev == WSHIFT_END) {
-        sea_morph(&g->sea, &g->sea_from, &g->sea_to, 1.0f);   /* finish the morph before detaching */
-        sea_unanchor(&g->sea, &g->sea_to, g->t);
-        g->wx = ps[s->to];
-        g->wind.base = g->wx.wind_base;
+        end_blend(g);
     }
 }
 

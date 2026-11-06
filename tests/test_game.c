@@ -504,23 +504,50 @@ static void step_until_turning(void) {
     for (int i = 0; i < 30 * 30 && game_weather_turning(&g) < 0; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
 }
 
-static void test_free_range_shifts_from_picked_weather(void) {
-    jfresh(0, 1);
-    game_set_free_weathers(&g, (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY));
-    game_set_preset(&g, WEATHER_CLOUDY);
+static void free_on(int preset) {
+    jfresh(1u << WEATHER_SUNNY | 1u << WEATHER_CLOUDY | 1u << WEATHER_CHOPPY, 1);
+    game_set_preset(&g, preset);
     game_set_track(&g, NULL);
-    T_ASSERT(g.mode == GAME_FREE);
-    T_ASSERT(g.preset == WEATHER_CLOUDY);
-    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));
-    step_until_turning();
-    T_ASSERT(game_weather_turning(&g) == WEATHER_CHOPPY);
 }
 
-static void test_free_range_without_ticks_holds(void) {
-    jfresh(0, 1);
-    game_set_preset(&g, WEATHER_CLOUDY);
-    game_set_track(&g, NULL);
+static void test_free_range_holds_its_weather(void) {
+    free_on(WEATHER_CLOUDY);
+    T_ASSERT(g.mode == GAME_FREE);
     step_until_turning();
+    T_ASSERT(game_weather_turning(&g) == -1);
+    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));
+}
+
+static void test_free_range_turn_blends_then_holds(void) {
+    free_on(WEATHER_CLOUDY);
+    game_turn_weather(&g, WEATHER_CHOPPY);
+    T_ASSERT(game_weather_turning(&g) == WEATHER_CHOPPY);
+    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));   /* nothing moves until the next frame */
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(!wx_is(&g, WEATHER_CLOUDY) && !wx_is(&g, WEATHER_CHOPPY));   /* mid-blend */
+    for (int i = 0; i < 30 * 3; i++) game_update(&g, 0, 0, 0, 1.0f / 30);   /* blend is 2 s */
+    T_ASSERT(game_weather_turning(&g) == -1);
+    T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
+    T_ASSERT(g.preset == WEATHER_CHOPPY);
+    step_until_turning();
+    T_ASSERT(game_weather_turning(&g) == -1);
+    T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
+}
+
+static void test_free_range_turn_mid_blend_retargets(void) {
+    free_on(WEATHER_SUNNY);
+    game_turn_weather(&g, WEATHER_CLOUDY);
+    game_update(&g, 0, 0, 0, 0.5f);
+    game_turn_weather(&g, WEATHER_CHOPPY);
+    T_ASSERT(g.shift.from == WEATHER_CLOUDY);
+    T_ASSERT(game_weather_turning(&g) == WEATHER_CHOPPY);
+    for (int i = 0; i < 30 * 3; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
+}
+
+static void test_free_range_turn_to_same_is_noop(void) {
+    free_on(WEATHER_CLOUDY);
+    game_turn_weather(&g, WEATHER_CLOUDY);
     T_ASSERT(game_weather_turning(&g) == -1);
     T_ASSERT(wx_is(&g, WEATHER_CLOUDY));
 }
@@ -692,8 +719,10 @@ int main(void) {
     T_RUN(test_follow_camera_in_journey_uses_next_buoy);
     T_RUN(test_follow_camera_free_mode_holds_yaw);
     T_RUN(test_follow_resets_into_a_new_race_then_swings_to_first_mark);
-    T_RUN(test_free_range_shifts_from_picked_weather);
-    T_RUN(test_free_range_without_ticks_holds);
+    T_RUN(test_free_range_holds_its_weather);
+    T_RUN(test_free_range_turn_blends_then_holds);
+    T_RUN(test_free_range_turn_mid_blend_retargets);
+    T_RUN(test_free_range_turn_to_same_is_noop);
     T_RUN(test_journey_start_weather_from_ticks);
     T_RUN(test_journey_mask_zero_keeps_preset);
     T_RUN(test_journey_shift_blends_and_settles);

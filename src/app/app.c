@@ -298,7 +298,7 @@ static void journey_cull(Game *g, const CameraPose *c) {
         const JourneyBuoy *b = &g->journey.buoy[0];
         float sx, sy, d;
         const float z = sea_height(&g->sea, (float)b->x, (float)b->y, (float)fmod(g->t, g->sea.period));
-        const bool seen = camera_project(c, b->x, b->y, z, &sx, &sy, &d) && d <= g->weather.preset[g->preset].visibility &&
+        const bool seen = camera_project(c, b->x, b->y, z, &sx, &sy, &d) && d <= game_weather(g)->visibility &&
                           sx >= -margin && sx <= CAM_W + margin;
         if (seen || !journey_drop_oldest(&g->journey)) break;
     }

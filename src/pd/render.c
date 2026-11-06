@@ -110,8 +110,8 @@ static uint32_t hash32(uint32_t x) {
 }
 static float frand(uint32_t i, uint32_t salt) { return (float)(hash32(i * 2654435761u + salt) >> 8) / 16777216.0f; }
 
-static float fvis(const Game *g) { return g->weather.preset[g->preset].visibility; }
-static const WeatherPreset *wx(const Game *g) { return &g->weather.preset[g->preset]; }
+static float fvis(const Game *g) { return game_weather(g)->visibility; }
+static const WeatherPreset *wx(const Game *g) { return game_weather(g); }
 
 /* Sky shade the distance haze fades toward; set per frame from the preset. */
 static float haze;
@@ -609,7 +609,7 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
 static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float vis = fvis(g);
     float t = (float)fmod(g->t, g->sea.period);
-    const WeatherPreset *wp = &g->weather.preset[g->preset];
+    const WeatherPreset *wp = game_weather(g);
     /* scale the shading to this sea so even a light swell shows crests and troughs */
     float half = fmaxf(0.5f * wp->wave_height, 0.05f);
     float wl = 1.56f * wp->wave_period * wp->wave_period;

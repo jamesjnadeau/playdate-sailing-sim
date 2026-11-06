@@ -26,6 +26,7 @@ typedef struct {
     int nweather;   /* rows on the weather screen, shown after the boat; 0 skips the screen */
     int weather;    /* the weather row to start on; the chosen one once MENU_START_RACE is returned */
     bool journey;   /* the boats/weather screens were reached from Journey; the last A returns MENU_START_JOURNEY */
+    uint32_t weather_mask;   /* journey weather screen: bit per ticked weather row */
     int tick;       /* frames spent on the preview screen; drives its animation */
     int sound;      /* sea sound level 0..MENU_SOUND_LEVELS-1; A on the Sound row steps it round */
     int boat;       /* the boat row to start on; the chosen boat once MENU_START_RACE is returned */
@@ -39,6 +40,8 @@ typedef struct {
 void menu_init(Menu *m, int ntracks, int nboats);
 /* Sets how many weather rows follow the boat screen (0 skips it); weather < 0 or >= n -> 0. */
 void menu_set_weather(Menu *m, int n, int current);
+/* Sets the ticked weathers of the journey weather screen: bit i = weather row i. */
+void menu_set_weather_mask(Menu *m, uint32_t mask);
 /* Sets the sea sound level shown on the main screen; out of range -> the default (2). */
 void menu_set_sound(Menu *m, int level);
 /* Sets how many rows the help screen scrolls through. */

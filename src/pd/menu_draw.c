@@ -383,9 +383,24 @@ void menu_draw(PlaydateAPI *pd, const Menu *m, const Track *tracks, const BestTi
     } else if (m->screen == MENU_WEATHER) {
         char eyebrow[24];
         snprintf(eyebrow, sizeof eyebrow, "%s › Boat", mode);
-        title_block(pd, eyebrow, assets_boat_names()[m->boat], "Choose weather");
-        list(pd, m, WEATHER_NAMES);
-        hint_bar(pd, go, "BACK", "CHOOSE");
+        if (m->journey) {
+            /* one tick row per weather, then Set sail */
+            static char tick_labels[WEATHER_PRESETS][24];
+            static const char *rows[WEATHER_PRESETS + 1];
+            int nw = m->nweather < WEATHER_PRESETS ? m->nweather : WEATHER_PRESETS;
+            for (int i = 0; i < nw; i++) {
+                snprintf(tick_labels[i], sizeof tick_labels[i], "[%c] %s", m->weather_mask >> i & 1u ? 'x' : ' ', WEATHER_NAMES[i]);
+                rows[i] = tick_labels[i];
+            }
+            rows[nw] = "Set sail";
+            title_block(pd, eyebrow, assets_boat_names()[m->boat], "Choose weathers");
+            list(pd, m, rows);
+            hint_bar(pd, m->sel < m->nweather ? "TICK" : go, "BACK", "CHOOSE");
+        } else {
+            title_block(pd, eyebrow, assets_boat_names()[m->boat], "Choose weather");
+            list(pd, m, WEATHER_NAMES);
+            hint_bar(pd, go, "BACK", "CHOOSE");
+        }
     } else {
         for (int i = 0; i < m->ntracks && i < 64; i++) labels[i] = tracks[i].name;
         title_block(pd, "Menu › Racing", "Racing", "Choose a course");

@@ -222,6 +222,7 @@ static void test_menu_journey_flow(void) {
     Menu m;
     menu_init(&m, 2, 3);
     menu_set_weather(&m, 4, 1);
+    menu_set_weather_mask(&m, 1u << 2);   /* the weather screen starts only with something ticked */
     m.sel = MENU_ITEM_JOURNEY;
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE && m.screen == MENU_BOATS);
     T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE && m.screen == MENU_WEATHER);

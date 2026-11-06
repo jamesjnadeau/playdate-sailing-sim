@@ -118,6 +118,7 @@ static void shift_weather(Game *g, float dt) {
         sea_move_anchor(&g->sea, g->b.x, g->b.y);
         g->wind.base = g->wx.wind_base;
     } else if (ev == WSHIFT_END) {
+        sea_morph(&g->sea, &g->sea_from, &g->sea_to, 1.0f);   /* finish the morph before detaching */
         sea_unanchor(&g->sea, &g->sea_to, g->t);
         g->wx = ps[s->to];
         g->wind.base = g->wx.wind_base;

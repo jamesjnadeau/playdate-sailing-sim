@@ -545,8 +545,23 @@ static void draw_crest_bands(PlaydateAPI *pd, const Game *g, const CameraPose *c
         if (v < vmin) vmin = v;
         if (v > vmax) vmax = v;
     }
-    double s = c->x * (double)wnx + c->y * (double)wny;               /* camera's position along the wave normal */
-    double s2 = c->x * (double)-wny + c->y * (double)wnx;             /* ... and along the crest line */
+    /* The grid hangs off a pivot, not the world origin: when the dominant swell turns (a weather blend), the
+       pivot is re-solved so the camera keeps its grid coords and the cells under it stay put instead of
+       swinging round the origin (at 2 km out a 3.6 deg turn would sweep them ~130 m). */
+    static double piv_x, piv_y;
+    static float pnx = 0.0f, pny = 0.0f;
+    if (wnx != pnx || wny != pny) {
+        double ox = c->x - piv_x, oy = c->y - piv_y;
+        double ps = ox * (double)pnx + oy * (double)pny, ps2 = ox * (double)-pny + oy * (double)pnx;
+        if (pnx == 0.0f && pny == 0.0f) ps = ps2 = 0.0;   /* first frame: pivot at the camera */
+        piv_x = c->x - (ps * (double)wnx + ps2 * (double)-wny);
+        piv_y = c->y - (ps * (double)wny + ps2 * (double)wnx);
+        pnx = wnx;
+        pny = wny;
+    }
+    double rx = c->x - piv_x, ry = c->y - piv_y;
+    double s = rx * (double)wnx + ry * (double)wny;                   /* camera's position along the wave normal */
+    double s2 = rx * (double)-wny + ry * (double)wnx;                 /* ... and along the crest line */
     if (sea_style != SEA_GRID) {
         draw_lattice(pd, c, dfar, half, sgain, vis, na, nb, bw, s, s2, umin, umax, vmin, vmax);
         return;

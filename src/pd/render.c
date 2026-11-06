@@ -287,24 +287,11 @@ static uint32_t fleck_hash(int32_t a, int32_t b) {
     return h;
 }
 
-/* Dominant wave: unit travel direction (nx, ny) and wavelength in metres. */
-static bool dominant_wave(const Sea *sea, float *nx, float *ny, float *wl) {
-    if (sea->n == 0) return false;
-    int dom = 0;
-    for (int k = 1; k < sea->n; k++) if (sea->c[k].amp > sea->c[dom].amp) dom = k;
-    float wm = (float)sea->c[dom].m, wn = (float)sea->c[dom].n;
-    float wk = hypotf(wm, wn);
-    if (wk < 1e-3f) return false;
-    *nx = wm / wk; *ny = wn / wk;
-    *wl = (float)SEA_WRAP / wk;
-    return true;
-}
-
 __attribute__((unused)) static void draw_sea_flecks(PlaydateAPI *pd, const Game *g, const CameraPose *c, float t,
                             float half, float vis) {
     const Sea *sea = &g->sea;
     float wnx, wny, wl;
-    if (!dominant_wave(sea, &wnx, &wny, &wl)) return;
+    if (!sea_dominant(sea, &wnx, &wny, &wl)) return;
     float cx = -wny, cy = wnx;                        /* along the crest line */
     double fx = rcos(c->yaw), fy = rsin(c->yaw);
     float maxd = fminf(vis * 0.8f, FLECK_CELL * FLECK_RADIUS);
@@ -628,7 +615,7 @@ static void draw_sea(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
     float wl = 1.56f * wp->wave_period * wp->wave_period;
     float sgain = 5.0f / fmaxf((float)PI_D * wp->wave_height / wl, 0.03f);
     float wnx, wny, wlen;
-    bool crest = dominant_wave(&g->sea, &wnx, &wny, &wlen);
+    bool crest = sea_dominant(&g->sea, &wnx, &wny, &wlen);
     sv_ox = c->x; sv_oy = c->y;
     sea_view_init(&sv, &g->sea, c->x, c->y, t);
     float fy0, fy1;

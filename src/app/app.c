@@ -18,6 +18,7 @@ static BoatCfg boat_cfg;
 static WeatherCfg weather_cfg;
 static WorldCfg world_cfg;
 static int boat_index, preset_index = WEATHER_CHOPPY;
+static uint32_t journey_weathers = WEATHER_JOURNEY_DEFAULT;   /* session-only */
 static int sound_level = 2;   /* kept here because the menu is rebuilt on every visit */
 static uint32_t restart_count;
 static bool back_asked;   /* "go back" picked in the system menu; the run waits for A (home) or B (stay) */
@@ -253,6 +254,7 @@ static void show_menu(void) {
     P->audio_update(NULL, 0);
     P->audio_set_active(true);
     menu_set_weather(&menu, WEATHER_PRESETS, preset_index);
+    menu_set_weather_mask(&menu, journey_weathers);
     menu_set_help(&menu, nhelp);
     if (DEMO_BUILD) {
         for (int i = 0; i < ntracks; i++) track_demo_ok[i] = strcmp(tracks[i].name, APP_DEMO_TRACK) == 0;
@@ -332,6 +334,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_FREE) {
+            game_set_preset(&game, preset_index);
             game_set_track(&game, NULL);
             sys_menu_build(false);
             camera_snap();
@@ -355,9 +358,9 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
         } else if (act == MENU_START_JOURNEY) {
             const bool new_boat = menu.boat != boat_index;
             boat_index = menu.boat;
-            preset_index = menu.weather;
+            journey_weathers = menu.weather_mask;
             if (new_boat) begin(true);
-            else game_set_preset(&game, preset_index);
+            game_set_journey_weathers(&game, journey_weathers);
             game_set_journey(&game);
             sys_menu_build(true);
             camera_snap();

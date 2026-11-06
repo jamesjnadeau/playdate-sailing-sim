@@ -7,8 +7,13 @@ static int clamp_preset(int p) {
     return p < 0 ? 0 : p >= WEATHER_PRESETS ? WEATHER_PRESETS - 1 : p;
 }
 
-static void start_weather(Game *g) {
-    const WeatherPreset *p = &g->weather.preset[g->preset];
+/* mask: the ticks a journey picks its start weather from (and shifts between); unused in other modes. */
+static void start_weather(Game *g, uint32_t mask) {
+    if (g->mode == GAME_JOURNEY)
+        g->preset = wshift_init(&g->shift, mask, g->preset, g->seed,
+                                g->world.journey_shift_min_s, g->world.journey_shift_max_s);
+    g->wx = g->weather.preset[g->preset];
+    const WeatherPreset *p = &g->wx;
     wind_init(&g->wind, p, g->seed);
     if (g->mode == GAME_RACE)
         wind_set_base(&g->wind, wrap_pi(g->track.wind_from + (float)M_PI));
@@ -32,7 +37,7 @@ static void reset(Game *g) {
     }
     race_init(&g->race);
     follower_clear(&g->follow);
-    start_weather(g);
+    start_weather(g, g->journey_weathers);
     if (g->mode == GAME_JOURNEY)
         journey_init(&g->journey, g->world.journey_min_m, g->world.journey_max_m, g->seed,
                      g->b.x, g->b.y, g->b.heading, wrap_pi(g->wind.dir + (float)M_PI),
@@ -79,7 +84,44 @@ void game_restart(Game *g, uint32_t new_seed) {
 
 void game_set_preset(Game *g, int preset) {
     g->preset = clamp_preset(preset);
-    start_weather(g);
+    start_weather(g, 1u << g->preset);
+}
+
+void game_set_journey_weathers(Game *g, uint32_t mask) {
+    g->journey_weathers = mask;
+}
+
+const WeatherPreset *game_weather(const Game *g) {
+    return &g->wx;
+}
+
+int game_weather_turning(const Game *g) {
+    return g->mode == GAME_JOURNEY && g->shift.from != g->shift.to ? g->shift.to : -1;
+}
+
+/* Journey only: advances the shift scheduler and applies the blend to the weather, wind and sea. */
+static void shift_weather(Game *g, float dt) {
+    WeatherShift *s = &g->shift;
+    const WeatherPreset *ps = g->weather.preset;
+    WShiftEvent ev = wshift_step(s, dt, g->world.journey_shift_min_s, g->world.journey_shift_max_s,
+                                 g->world.weather_blend_s);
+    if (ev == WSHIFT_START) {
+        sea_init(&g->sea_from, &ps[s->from], g->seed);
+        sea_init(&g->sea_to, &ps[s->to], g->seed);
+        sea_anchor(&g->sea, g->b.x, g->b.y, g->t);
+        g->preset = s->to;
+    }
+    if (s->from != s->to) {
+        float w = wshift_weight(s);
+        weather_blend(&g->wx, &ps[s->from], &ps[s->to], w);
+        sea_morph(&g->sea, &g->sea_from, &g->sea_to, w);
+        sea_move_anchor(&g->sea, g->b.x, g->b.y);
+        g->wind.base = g->wx.wind_base;
+    } else if (ev == WSHIFT_END) {
+        sea_unanchor(&g->sea, &g->sea_to, g->t);
+        g->wx = ps[s->to];
+        g->wind.base = g->wx.wind_base;
+    }
 }
 
 /* Floating origin: keep the boat near (0,0) so float maths on world positions (sea phase, fleck cells,
@@ -94,6 +136,7 @@ static void recentre(Game *g) {
     if (g->mode == GAME_RACE) race_shift(&g->race, dx, dy);   /* marks move with the boat */
     if (g->mode == GAME_JOURNEY) journey_shift(&g->journey, dx, dy);
     follower_shift(&g->follow, dx, dy);
+    if (g->sea.anchored) sea_shift_anchor(&g->sea, dx, dy);
 }
 
 /* Tells the buoy-follow camera where the next buoy lies, relative to the bow; NAN when there is none. */
@@ -122,6 +165,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
     g->last_hit = HIT_NONE;
+    if (g->mode == GAME_JOURNEY) shift_weather(g, dt);
 
     if (g->run == RUN_SAILING) {   /* capsized or wrecked: controls are frozen */
         aim_camera(g);
@@ -141,7 +185,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
     }
     g->in.engine = g->en.on && g->run == RUN_SAILING;
 
-    wind_step(&g->wind, &g->weather.preset[g->preset], dt);
+    wind_step(&g->wind, &g->wx, dt);
     g->wf = sea_hull_forces(&g->sea, &g->b, &g->boat, (float)fmod(g->t, g->sea.period));
     g->b.pitch = g->wf.pitch;
     g->b.heave = g->wf.heave;
@@ -181,6 +225,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;
     g->t += (double)dt;
+    if (g->sea.anchored) sea_advance(&g->sea, dt);   /* the anchored phase always means "at time g->t" */
     recentre(g);
     if (g->mode != GAME_RACE) follower_record(&g->follow, &g->b);
 }

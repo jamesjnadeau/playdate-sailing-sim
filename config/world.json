@@ -7,5 +7,8 @@
   "rock_wreck_speed": 2.8,
   "start_clear_radius": 60,
   "journey_min_m": 60,
-  "journey_max_m": 150
+  "journey_max_m": 150,
+  "journey_shift_min_s": 60,
+  "journey_shift_max_s": 180,
+  "weather_blend_s": 10
 }

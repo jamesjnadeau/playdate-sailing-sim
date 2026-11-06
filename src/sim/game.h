@@ -13,6 +13,7 @@
 #include "rocks.h"
 #include "sea.h"
 #include "weather.h"
+#include "weathershift.h"
 
 #define GAME_MAX_SUBSTEPS 12
 #define GAME_DT_MIN 0.005f
@@ -29,6 +30,7 @@ typedef struct {
     WorldCfg world;
     int preset;
     uint32_t seed;
+    uint32_t journey_weathers;  /* ticks for the next journey start; 0 = just `preset` */
     GameMode mode;
     Track track;            /* copy; used when mode == GAME_RACE */
 
@@ -47,6 +49,9 @@ typedef struct {
     int substeps;           /* substeps run by the last update */
     Race race;
     Journey journey;        /* used when mode == GAME_JOURNEY */
+    WeatherShift shift;     /* used when mode == GAME_JOURNEY */
+    WeatherPreset wx;       /* the weather in force: preset[preset], or the blend during a shift */
+    Sea sea_from, sea_to;   /* the blend's endpoint seas */
     Follower follow;        /* player's recent track, for the trailing ghost (free range and journey) */
     uint32_t praise_rng;    /* picks each praise message */
     int praise;             /* index of the message on screen, see praise.h */
@@ -72,7 +77,17 @@ void game_set_track(Game *g, const Track *t);
 /* Endless buoys from the world's journey_min_m..journey_max_m. Restarts the run. */
 void game_set_journey(Game *g);
 
-/* Out-of-range presets are clamped; the wind and sea are re-seeded from the current seed. */
+/* Journey weather ticks (bit per preset); stored, applied at the next journey (re)start. */
+void game_set_journey_weathers(Game *g, uint32_t mask);
+
+/* The weather in force (&g->wx); every reader uses this. */
+const WeatherPreset *game_weather(const Game *g);
+
+/* The preset a journey shift is blending toward, else -1. */
+int game_weather_turning(const Game *g);
+
+/* Out-of-range presets are clamped; the wind and sea are re-seeded from the current seed.
+   In a journey the weather settles on this preset (no shifts) until the next journey (re)start. */
 void game_set_preset(Game *g, int preset);
 
 #endif

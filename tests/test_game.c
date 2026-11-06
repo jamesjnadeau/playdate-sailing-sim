@@ -483,6 +483,157 @@ static void test_follow_resets_into_a_new_race_then_swings_to_first_mark(void) {
     T_NEAR(g.ctl.camera_yaw, race_mark_rel(0), 0.05);
 }
 
+/* ---- journey weather shifts ---- */
+
+static void jfresh(uint32_t mask, uint32_t seed) {
+    boatcfg_default(&bc);
+    weather_default(&wcfg);
+    world_default(&wc);
+    wc.journey_shift_min_s = wc.journey_shift_max_s = 5.0f;
+    wc.weather_blend_s = 2.0f;
+    game_init(&g, &bc, &wcfg, &wc, WEATHER_SUNNY, seed);
+    game_set_journey_weathers(&g, mask);
+    game_set_journey(&g);
+}
+
+static int wx_is(const Game *x, int preset) {
+    return memcmp(game_weather(x), &x->weather.preset[preset], sizeof(WeatherPreset)) == 0;
+}
+
+static void step_until_turning(void) {
+    for (int i = 0; i < 30 * 30 && game_weather_turning(&g) < 0; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+}
+
+static void test_journey_start_weather_from_ticks(void) {
+    const uint32_t mask = (1u << WEATHER_SUNNY) | (1u << WEATHER_STORM);
+    int seen_sunny = 0, seen_storm = 0;
+    for (uint32_t seed = 1; seed <= 30; seed++) {
+        jfresh(mask, seed);
+        T_ASSERT(g.preset == WEATHER_SUNNY || g.preset == WEATHER_STORM);
+        seen_sunny |= g.preset == WEATHER_SUNNY;
+        seen_storm |= g.preset == WEATHER_STORM;
+        T_ASSERT(game_weather_turning(&g) == -1);
+        T_ASSERT(wx_is(&g, g.preset));
+    }
+    T_ASSERT(seen_sunny && seen_storm);
+}
+
+static void test_journey_mask_zero_keeps_preset(void) {
+    fresh(1);
+    game_init(&g, &bc, &wcfg, &wc, WEATHER_CHOPPY, 1);
+    game_set_journey(&g);
+    T_ASSERT(g.preset == WEATHER_CHOPPY);
+    T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
+    T_ASSERT(game_weather(&g) == &g.wx);
+}
+
+static void test_journey_shift_blends_and_settles(void) {
+    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    jfresh(mask, 1);
+    const int start = g.preset;
+    const int other = start == WEATHER_CLOUDY ? WEATHER_CHOPPY : WEATHER_CLOUDY;
+    const float lo = fminf(g.weather.preset[start].wind_base, g.weather.preset[other].wind_base);
+    const float hi = fmaxf(g.weather.preset[start].wind_base, g.weather.preset[other].wind_base);
+    const float dir0 = g.wind.dir0;
+    game_update(&g, 0, 0, 0, 1.0f / 30);   /* the first frame lifts heave from 0 to the sea: not measured */
+    float prev = g.wf.heave, worst = 0.0f;
+    int mid_checked = 0;
+    for (int i = 1; i < 216; i++) {   /* to 7.2 s */
+        double t0 = g.t;
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        if (t0 < 4.95) T_ASSERT(game_weather_turning(&g) == -1);
+        if (t0 > 5.05 && t0 < 6.95) {
+            T_ASSERT(game_weather_turning(&g) == other);
+            T_ASSERT(g.sea.anchored);
+        }
+        if (!mid_checked && t0 > 5.9) {
+            T_ASSERT(game_weather(&g)->wind_base > lo && game_weather(&g)->wind_base < hi);
+            mid_checked = 1;
+        }
+        T_ASSERT(g.wind.dir0 == dir0);
+        float d = fabsf(g.wf.heave - prev);
+        if (d > worst) worst = d;
+        prev = g.wf.heave;
+    }
+    T_ASSERT(mid_checked);
+    T_ASSERT(game_weather_turning(&g) == -1);
+    T_ASSERT(g.preset == other);
+    T_ASSERT(wx_is(&g, other));
+    T_ASSERT(!g.sea.anchored);
+    T_ASSERT(g.wind.base == g.weather.preset[other].wind_base);
+    T_ASSERT(worst <= 0.3f);
+}
+
+static void test_restart_mid_blend_is_clean(void) {   /* RF1 */
+    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    jfresh(mask, 1);
+    step_until_turning();
+    for (int i = 0; i < 20; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(game_weather_turning(&g) >= 0 && g.sea.anchored);
+    game_restart(&g, 77);
+    T_ASSERT(game_weather_turning(&g) == -1);
+    T_ASSERT(!g.sea.anchored);
+    T_ASSERT(wx_is(&g, g.preset));
+    T_ASSERT(mask & (1u << g.preset));
+}
+
+static void test_leaving_journey_mid_blend(void) {   /* RF2 */
+    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    jfresh(mask, 1);
+    step_until_turning();
+    for (int i = 0; i < 20; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(game_weather_turning(&g) >= 0 && g.sea.anchored);
+    game_set_preset(&g, WEATHER_SUNNY);
+    game_set_track(&g, NULL);
+    T_ASSERT(g.mode == GAME_FREE);
+    T_ASSERT(!g.sea.anchored);
+    T_ASSERT(wx_is(&g, WEATHER_SUNNY));
+    for (int i = 0; i < 600; i++) {
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        T_ASSERT(game_weather_turning(&g) == -1);
+        T_ASSERT(!g.sea.anchored);
+    }
+    T_ASSERT(g.preset == WEATHER_SUNNY && wx_is(&g, WEATHER_SUNNY));
+}
+
+static void test_recentre_during_blend(void) {   /* RF3 */
+    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    jfresh(mask, 1);
+    step_until_turning();
+    for (int i = 0; i < 27; i++) game_update(&g, 0, 0, 0, 1.0f / 30);   /* near mid-blend, where k is furthest from both seas */
+    g.b.x = 5119.0;
+    g.b.y = 0.0;
+    g.b.u = 5.0f;
+    g.b.v = g.b.r = 0.0f;
+    g.b.heading = 0.0f;
+    game_update(&g, 0, 0, 0, 1.0f / 30);   /* the teleport itself moves the boat to new water: not measured */
+    T_ASSERT(g.sea.anchored && g.b.x > 5119.0);
+    float prev = g.wf.heave, worst = 0.0f;
+    int recentred = 0;
+    for (int i = 0; i < 30 && game_weather_turning(&g) >= 0; i++) {
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        if (g.b.x < 100.0 && g.sea.anchored) recentred = 1;
+        if (g.sea.anchored) T_ASSERT(fabs(g.sea.ax - g.b.x) < 1.0);   /* the anchor moved with the origin */
+        float d = fabsf(g.wf.heave - prev);
+        if (d > worst) worst = d;
+        prev = g.wf.heave;
+    }
+    T_ASSERT(recentred);
+    T_ASSERT(worst <= 0.3f);
+}
+
+static void test_race_weather_untouched(void) {
+    fresh(1);
+    game_set_journey_weathers(&g, WEATHER_JOURNEY_DEFAULT);
+    track_default(&tr);
+    game_set_track(&g, &tr);
+    for (int i = 0; i < 400 * 30; i++) {
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        T_ASSERT(wx_is(&g, g.preset));
+        T_ASSERT(game_weather_turning(&g) == -1);
+    }
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -520,5 +671,12 @@ int main(void) {
     T_RUN(test_follow_camera_in_journey_uses_next_buoy);
     T_RUN(test_follow_camera_free_mode_holds_yaw);
     T_RUN(test_follow_resets_into_a_new_race_then_swings_to_first_mark);
+    T_RUN(test_journey_start_weather_from_ticks);
+    T_RUN(test_journey_mask_zero_keeps_preset);
+    T_RUN(test_journey_shift_blends_and_settles);
+    T_RUN(test_restart_mid_blend_is_clean);
+    T_RUN(test_leaving_journey_mid_blend);
+    T_RUN(test_recentre_during_blend);
+    T_RUN(test_race_weather_untouched);
     T_DONE();
 }

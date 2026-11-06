@@ -26,10 +26,13 @@ static const Fld FLDS[] = {
     F(start_clear_radius, 0, 2000),
     F(journey_min_m, 20, 5000),
     F(journey_max_m, 20, 5000),
+    F(journey_shift_min_s, 5, 3600),
+    F(journey_shift_max_s, 5, 3600),
+    F(weather_blend_s, 1, 120),
 };
 #define NFLD ((int)(sizeof FLDS / sizeof FLDS[0]))
 
-static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f, 60.0f, 150.0f };
+static const WorldCfg DEFAULTS = { 40.0f, 0.25f, 1.5f, 5.0f, 1.0f, 2.8f, 60.0f, 60.0f, 150.0f, 60.0f, 180.0f, 10.0f };
 
 void world_default(WorldCfg *out) { *out = DEFAULTS; }
 
@@ -66,6 +69,10 @@ static void enforce(WorldCfg *c, char *buf, size_t cap, size_t *n, bool *any) {
     if (c->journey_max_m < c->journey_min_m) {
         wadd(buf, cap, n, any, "journey_max_m: %g below journey_min_m, raised", (double)c->journey_max_m);
         c->journey_max_m = c->journey_min_m;
+    }
+    if (c->journey_shift_max_s < c->journey_shift_min_s) {
+        wadd(buf, cap, n, any, "journey_shift_max_s: %g below journey_shift_min_s, raised", (double)c->journey_shift_max_s);
+        c->journey_shift_max_s = c->journey_shift_min_s;
     }
 }
 

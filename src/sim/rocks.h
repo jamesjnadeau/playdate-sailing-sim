@@ -17,6 +17,8 @@ typedef struct {
     float rock_wreck_speed;    /* m/s; impact speed at or above this is a WRECK */
     float start_clear_radius;  /* m; no rock reaches within this distance of the origin */
     float journey_min_m, journey_max_m;   /* m; each journey buoy lies this far (random in the range) from the last */
+    float journey_shift_min_s, journey_shift_max_s;   /* s; gap between journey weather shifts (random in the range) */
+    float weather_blend_s;     /* s; how long a journey weather shift takes to blend */
 } WorldCfg;
 
 typedef struct { float x, y, r; uint8_t awash; } Rock;   /* awash: breaking water over it */

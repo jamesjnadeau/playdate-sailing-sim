@@ -214,6 +214,144 @@ static void test_monohull_wave_forces_unchanged(void) {
     
 }
 
+/* ---- boat-anchored sea ---- */
+
+#define AX 5123.7
+#define AY (-4096.2)
+
+/* Heights at offsets up to 50 m around (x, y): sea_height, a SeaView and the hull heave. */
+#define N_PROBE 11
+static void probe(const Sea *s, double x, double y, float t, float out[3][N_PROBE]) {
+    BoatCfg cfg; boatcfg_default(&cfg);
+    SeaView v; sea_view_init(&v, s, x, y, t);
+    for (int i = 0; i < N_PROBE; i++) {
+        float dx = -50.0f + 10.0f * i, dy = 50.0f - 7.3f * i;
+        out[0][i] = sea_height(s, (float)(x + dx), (float)(y + dy), t);
+        out[1][i] = sea_view_height(&v, dx, dy);
+        BoatState b = boat_at(x + dx, y + dy, 0.4f, 2.0f);
+        out[2][i] = sea_hull_forces(s, &b, &cfg, t).heave;
+    }
+}
+
+static void expect_same(float a[3][N_PROBE], float b[3][N_PROBE], float eps) {
+    for (int k = 0; k < 3; k++)
+        for (int i = 0; i < N_PROBE; i++) T_NEAR(a[k][i], b[k][i], eps);
+}
+
+static void test_anchor_preserves_heights_far_from_origin(void) {
+    Sea s; sea_init(&s, &wc.preset[WEATHER_CHOPPY], 9);
+    float t = 37.3f;
+    float before[3][N_PROBE], after[3][N_PROBE];
+    probe(&s, AX, AY, t, before);
+    sea_anchor(&s, AX, AY, t);
+    T_ASSERT(s.anchored);
+    probe(&s, AX, AY, t, after);
+    expect_same(before, after, 2e-3f);
+}
+
+static void test_move_anchor_preserves_heights(void) {
+    Sea s; sea_init(&s, &wc.preset[WEATHER_CHOPPY], 9);
+    float t = 37.3f;
+    float before[3][N_PROBE], after[3][N_PROBE];
+    probe(&s, AX, AY, t, before);
+    sea_anchor(&s, AX, AY, t);
+    sea_move_anchor(&s, AX + 37.0, AY - 12.0);
+    T_NEAR(s.ax, AX + 37.0, 1e-9);
+    probe(&s, AX, AY, t, after);
+    expect_same(before, after, 2e-3f);
+}
+
+static void test_advance_matches_world_time(void) {
+    Sea orig; sea_init(&orig, &wc.preset[WEATHER_CHOPPY], 9);
+    Sea s = orig;
+    float t = 37.3f;
+    sea_anchor(&s, AX, AY, t);
+    for (int i = 0; i < 300; i++) sea_advance(&s, 1.0f / 30.0f);
+    float want[3][N_PROBE], got[3][N_PROBE];
+    probe(&orig, AX, AY, t + 10.0f, want);
+    probe(&s, AX, AY, 0.0f, got);                /* t is ignored while anchored */
+    expect_same(want, got, 2e-3f);
+}
+
+static void test_unanchor_roundtrip(void) {
+    Sea orig; sea_init(&orig, &wc.preset[WEATHER_CHOPPY], 9);
+    Sea s = orig;
+    float t = 37.3f;
+    sea_anchor(&s, AX, AY, t);
+    for (int i = 0; i < 300; i++) sea_advance(&s, 1.0f / 30.0f);
+    sea_unanchor(&s, &orig, t + 10.0f);
+    T_ASSERT(!s.anchored);
+    T_ASSERT(s.n == orig.n);
+    for (int i = 0; i < s.n; i++) {
+        T_ASSERT(s.c[i].m == orig.c[i].m && s.c[i].n == orig.c[i].n);
+        T_ASSERT(s.c[i].omega == orig.c[i].omega && s.c[i].amp == orig.c[i].amp);
+    }
+    float want[3][N_PROBE], got[3][N_PROBE];
+    probe(&orig, AX, AY, t + 10.0f, want);
+    probe(&s, AX, AY, t + 10.0f, got);
+    expect_same(want, got, 2e-3f);
+}
+
+static float smooth(float x) { return x * x * (3.0f - 2.0f * x); }
+
+static void test_morph_continuous_far_from_origin(void) {
+    Sea a, b, s;
+    sea_init(&a, &wc.preset[WEATHER_CHOPPY], 9);
+    sea_init(&b, &wc.preset[WEATHER_ROLLERS], 9);
+    s = a;
+    float t = 12.0f, dt = 1.0f / 30.0f;
+    double x = 5000.0, y = 5000.0, hx = 0.6, hy = 0.8;   /* heading, unit */
+    sea_anchor(&s, x, y, t);
+    float h0 = sea_height(&s, (float)x, (float)y, 0), f0 = sea_height(&s, (float)(x + 40 * hx), (float)(y + 40 * hy), 0);
+    float worst = 0.0f;
+    for (int k = 1; k <= 300; k++) {
+        sea_morph(&s, &a, &b, smooth(k / 300.0f));
+        x += 2.0 * dt * hx; y += 2.0 * dt * hy;
+        sea_move_anchor(&s, x, y);
+        sea_advance(&s, dt);
+        float h1 = sea_height(&s, (float)x, (float)y, 0);
+        float f1 = sea_height(&s, (float)(x + 40 * hx), (float)(y + 40 * hy), 0);
+        worst = fmaxf(worst, fmaxf(fabsf(h1 - h0), fabsf(f1 - f0)));
+        h0 = h1; f0 = f1;
+    }
+    T_ASSERT(worst <= 0.15f);
+    float tw = t + 300 * dt;
+    sea_unanchor(&s, &b, tw);
+    T_ASSERT(!s.anchored);
+    T_NEAR(sea_height(&s, (float)x, (float)y, tw), h0, 2e-3f);
+    T_NEAR(sea_height(&s, (float)(x + 40 * hx), (float)(y + 40 * hy), tw), f0, 2e-3f);
+}
+
+static void test_morph_same_length_scales_height(void) {
+    Sea a, b, s;
+    sea_init(&a, &wc.preset[WEATHER_CHOPPY], 9);
+    b = a;
+    for (int i = 0; i < b.n; i++) b.c[i].amp *= 2.0f;
+    float t = 37.3f;
+    Sea ref = a;
+    sea_anchor(&ref, AX, AY, t);
+    s = ref;
+    sea_morph(&s, &a, &b, 0.5f);
+    for (int i = 0; i < N_PROBE; i++) {
+        float dx = -50.0f + 10.0f * i, dy = 50.0f - 7.3f * i;
+        float x = (float)(AX + dx), y = (float)(AY + dy);
+        T_NEAR(sea_height(&s, x, y, t), 1.5f * sea_height(&ref, x, y, t), 2e-3f);
+    }
+}
+
+static void test_dominant_anchored_matches_world(void) {
+    Sea s; sea_init(&s, &wc.preset[WEATHER_CHOPPY], 9);
+    float nx0, ny0, wl0, nx1, ny1, wl1;
+    T_ASSERT(sea_dominant(&s, &nx0, &ny0, &wl0));
+    sea_anchor(&s, AX, AY, 37.3f);
+    T_ASSERT(sea_dominant(&s, &nx1, &ny1, &wl1));
+    T_NEAR(nx1, nx0, 1e-5f);
+    T_NEAR(ny1, ny0, 1e-5f);
+    T_NEAR(wl1, wl0, 1e-3f);
+    Sea e; memset(&e, 0, sizeof e);
+    T_ASSERT(!sea_dominant(&e, &nx0, &ny0, &wl0));
+}
+
 int main(void) {
     setup();
     T_RUN(test_height_amplitude_matches_preset);
@@ -227,5 +365,12 @@ int main(void) {
     T_RUN(test_bad_input_stays_finite);
     T_RUN(test_cat_sea_heights_under_each_hull);
     T_RUN(test_monohull_wave_forces_unchanged);
+    T_RUN(test_anchor_preserves_heights_far_from_origin);
+    T_RUN(test_move_anchor_preserves_heights);
+    T_RUN(test_advance_matches_world_time);
+    T_RUN(test_unanchor_roundtrip);
+    T_RUN(test_morph_continuous_far_from_origin);
+    T_RUN(test_morph_same_length_scales_height);
+    T_RUN(test_dominant_anchored_matches_world);
     T_DONE();
 }

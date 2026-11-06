@@ -162,6 +162,89 @@ static void test_weather_follows_boat(void) {
     T_ASSERT(m.weather == 4);
 }
 
+/* Journey: main -> boats -> weather screen, with nweather weathers. */
+static void open_journey_weather(Menu *m, int nweather) {
+    menu_init(m, 2, 3);
+    menu_set_weather(m, nweather, 0);
+    m->sel = MENU_ITEM_JOURNEY;
+    menu_update(m, BTN_A);   /* boats */
+    menu_update(m, BTN_A);   /* weather */
+}
+
+static void test_journey_weather_rows_and_start_row(void) {
+    Menu m;
+    open_journey_weather(&m, 7);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    T_ASSERT(menu_rows(&m) == 8);
+    T_ASSERT(m.sel == 7);
+}
+
+static void test_journey_weather_toggle(void) {
+    Menu m;
+    open_journey_weather(&m, 7);
+    m.sel = 0;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.weather_mask == 1u);
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.weather_mask == 0u);
+}
+
+static void test_set_sail_refused_when_none_ticked(void) {
+    Menu m;
+    open_journey_weather(&m, 7);
+    menu_set_weather_mask(&m, 0);
+    T_ASSERT(!menu_row_enabled(&m, 7));
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_NONE);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    menu_set_weather_mask(&m, 1u << 3);
+    T_ASSERT(menu_row_enabled(&m, 7));
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_JOURNEY);
+}
+
+static void test_ticks_survive_back_and_reenter(void) {
+    Menu m;
+    open_journey_weather(&m, 7);
+    m.sel = 2;
+    menu_update(&m, BTN_A);
+    m.sel = 5;
+    menu_update(&m, BTN_A);
+    uint32_t mask = m.weather_mask;
+    T_ASSERT(mask == (1u << 2 | 1u << 5));
+    menu_update(&m, BTN_B);
+    T_ASSERT(m.screen == MENU_BOATS);
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    T_ASSERT(m.weather_mask == mask);
+}
+
+static void test_journey_toggle_leaves_race_pick(void) {
+    Menu m;
+    open_journey_weather(&m, 7);
+    int before = m.weather;
+    m.sel = 4;
+    menu_update(&m, BTN_A);
+    m.sel = 1;
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.weather == before);
+}
+
+static void test_race_weather_path_unchanged(void) {
+    Menu m;
+    menu_init(&m, 2, 3);
+    menu_set_weather(&m, 7, 0);
+    m.sel = MENU_ITEM_RACE;
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_A);
+    menu_update(&m, BTN_A);
+    T_ASSERT(m.screen == MENU_WEATHER);
+    T_ASSERT(menu_rows(&m) == 7);
+    m.sel = 3;
+    T_ASSERT(menu_update(&m, BTN_A) == MENU_START_RACE);
+    T_ASSERT(m.weather == 3);
+}
+
 static void test_no_boats_starts_race_after_track(void) {
     Menu m;
     menu_init(&m, 2, 0);
@@ -491,5 +574,11 @@ int main(void) {
     T_RUN(test_a_on_a_locked_row_does_nothing);
     T_RUN(test_locking_moves_cursor_off_a_locked_row);
     T_RUN(test_locked_tracks_are_skipped_and_unselectable);
+    T_RUN(test_journey_weather_rows_and_start_row);
+    T_RUN(test_journey_weather_toggle);
+    T_RUN(test_set_sail_refused_when_none_ticked);
+    T_RUN(test_ticks_survive_back_and_reenter);
+    T_RUN(test_journey_toggle_leaves_race_pick);
+    T_RUN(test_race_weather_path_unchanged);
     return T_DONE();
 }

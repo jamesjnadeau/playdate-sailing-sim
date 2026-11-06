@@ -1,5 +1,6 @@
 #ifndef SEA_H
 #define SEA_H
+#include <stdbool.h>
 #include <stdint.h>
 #include "boat.h"
 #include "boatcfg.h"
@@ -20,6 +21,13 @@ typedef struct {
     float slam_speed;   /* m/s; the bow slams only above this speed */
     float slam_gain;    /* 0 disables slamming */
     float surf_gain;    /* fraction of the downslope weight component applied as surge */
+    /* Boat-anchored form, for morphing between seas without a jump far from the origin.
+       While anchored the phase at (x, y) is phb[i] + kx*(x - ax) + ky*(y - ay) (in double),
+       time comes only from sea_advance, and c[i].m/n/phase are unused. */
+    bool anchored;                    /* phases held at (ax, ay); t is ignored while set */
+    double ax, ay;                    /* anchor, world m */
+    float kx[SEA_MAX_COMPONENTS], ky[SEA_MAX_COMPONENTS];   /* rad/m, used while anchored */
+    double phb[SEA_MAX_COMPONENTS];   /* phase at the anchor, wrapped to [0, 2pi) */
 } Sea;
 
 /* Amplitudes sum to wave_height / 2, so crest-to-trough peaks at wave_height. Components
@@ -45,5 +53,23 @@ float sea_view_height(const SeaView *v, float dx, float dy);
    once per frame; the caller holds the result across substeps. All zero on a flat sea.
    pitch is + bow up (rad) and heave is the mean elevation under the hull (m), both for the camera. */
 WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg, float t);
+
+/* World form -> anchored at (x, y) at time t; heights are unchanged. */
+void sea_anchor(Sea *s, double x, double y, double t);
+/* Moves the anchor (phb follows k·delta, in double); heights are unchanged. */
+void sea_move_anchor(Sea *s, double x, double y);
+/* The world origin moved by (dx, dy) (recentre): anchor -= (dx, dy), phases untouched. */
+void sea_shift_anchor(Sea *s, double dx, double dy);
+/* Anchored only: phb -= omega * dt. */
+void sea_advance(Sea *s, float dt);
+/* Anchored only: k (as a vector), omega, amp and period lerp from a to b by w; phb untouched.
+   a and b must be sea_init'ed with the same seed (component i is the same wave). */
+void sea_morph(Sea *s, const Sea *a, const Sea *b, float w);
+/* Back to world form as `target` (m, n, omega, amp, period, gains), with phases solved so heights
+   at time t are unchanged: phase = phb - 2pi·fmod(m·xw + n·yw, WRAP)/WRAP + fmod(omega·t, 2pi). */
+void sea_unanchor(Sea *s, const Sea *target, double t);
+/* Dominant component (largest amp, first on a tie): unit travel direction and wavelength (m);
+   false on an empty sea. Uses kx/ky when anchored. */
+bool sea_dominant(const Sea *s, float *nx, float *ny, float *wl);
 
 #endif

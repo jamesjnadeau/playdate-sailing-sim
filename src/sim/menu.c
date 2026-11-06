@@ -13,6 +13,7 @@ void menu_init(Menu *m, int ntracks, int nboats) {
     m->boat = 0;
     m->nweather = 0;
     m->weather = 0;
+    m->weather_mask = 0;   /* the app seeds the journey default */
     m->tick = 0;
     m->help_rows = 0;
     m->help_top = 0;
@@ -97,13 +98,16 @@ int menu_rows(const Menu *m) {
     case MENU_MAIN: return MENU_MAIN_ITEMS;
     case MENU_TRACKS: return m->ntracks;
     case MENU_BOATS: return m->nboats;
-    case MENU_WEATHER: return m->nweather;
+    case MENU_WEATHER: return m->nweather + (m->journey ? 1 : 0);   /* journey adds the Set sail row */
     case MENU_TRAINING: return MENU_TRAINING_ROWS;
     default: return 0;
     }
 }
 
+static uint32_t weather_bits(const Menu *m) { return m->weather_mask & ((1u << m->nweather) - 1u); }
+
 bool menu_row_enabled(const Menu *m, int row) {
+    if (m->screen == MENU_WEATHER && m->journey && row == m->nweather) return weather_bits(m) != 0;
     if (m->screen == MENU_MAIN) return row >= 0 && row < MENU_MAIN_ITEMS && main_open(m, row);
     if (m->screen == MENU_TRACKS) return row >= 0 && row < m->ntracks && track_open(m, row);
     return m->screen != MENU_BOATS || row_ok(m, row);
@@ -112,6 +116,10 @@ bool menu_row_enabled(const Menu *m, int row) {
 void menu_set_weather(Menu *m, int n, int current) {
     m->nweather = n < 0 ? 0 : n;
     m->weather = current >= 0 && current < m->nweather ? current : 0;
+}
+
+void menu_set_weather_mask(Menu *m, uint32_t mask) {
+    m->weather_mask = mask;
 }
 
 void menu_set_help(Menu *m, int rows) {
@@ -132,7 +140,7 @@ void menu_crank(Menu *m, float d) {
 static MenuAction enter_weather(Menu *m) {
     if (m->nweather < 1) return m->journey ? MENU_START_JOURNEY : MENU_START_RACE;
     m->screen = MENU_WEATHER;
-    m->sel = m->weather;
+    m->sel = m->journey ? m->nweather : m->weather;   /* a journey opens on Set sail */
     return MENU_NONE;
 }
 
@@ -249,9 +257,16 @@ static MenuAction update(Menu *m, uint32_t pressed) {
         m->tick = 0;
         return MENU_NONE;
     }
+    if (m->screen == MENU_WEATHER && m->journey) {
+        if (m->sel < m->nweather) {
+            m->weather_mask ^= 1u << m->sel;
+            return MENU_NONE;
+        }
+        return weather_bits(m) ? MENU_START_JOURNEY : MENU_NONE;
+    }
     if (m->screen == MENU_WEATHER) {
         m->weather = m->sel;
-        return m->journey ? MENU_START_JOURNEY : MENU_START_RACE;
+        return MENU_START_RACE;
     }
     m->boat = m->sel;
     return enter_weather(m);

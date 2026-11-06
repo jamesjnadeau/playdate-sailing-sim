@@ -220,6 +220,22 @@ static void test_load_clamps_and_warns(void) {
     T_ASSERT(!world_load(&l, NULL, 0, warn, sizeof warn));
 }
 
+static void test_weather_shift_fields_load_and_clamp(void) {
+    WorldCfg d, l;
+    world_default(&d);
+    T_ASSERT(d.journey_shift_min_s == 60.0f);
+    T_ASSERT(d.journey_shift_max_s == 180.0f);
+    T_ASSERT(d.weather_blend_s == 10.0f);
+    char warn[256];
+    const char *s = "{\"journey_shift_min_s\":1,\"weather_blend_s\":999}";
+    T_ASSERT(!world_load(&l, s, strlen(s), warn, sizeof warn));
+    T_ASSERT(l.journey_shift_min_s == 5.0f);
+    T_ASSERT(l.weather_blend_s == 120.0f);
+    s = "{\"journey_shift_min_s\":200,\"journey_shift_max_s\":100}";
+    T_ASSERT(!world_load(&l, s, strlen(s), warn, sizeof warn));
+    T_ASSERT(l.journey_shift_max_s == 200.0f);
+}
+
 int main(void) {
     world_default(&wc);
     boatcfg_default(&cfg);
@@ -236,5 +252,6 @@ int main(void) {
     T_RUN(test_bad_input_stays_finite);
     T_RUN(test_shipped_config_equals_default);
     T_RUN(test_load_clamps_and_warns);
+    T_RUN(test_weather_shift_fields_load_and_clamp);
     T_DONE();
 }

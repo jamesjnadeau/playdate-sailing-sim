@@ -210,8 +210,15 @@ void hud_journey(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
 }
 
 /* Praise after a buoy is rounded, drawn by message(), cleared once its time is up. No box behind it, so it
-   reads over sea and sky alike. */
+   reads over sea and sky alike. While a journey weather shift blends, "Weather turning" takes the slot. */
 void hud_praise(PlaydateAPI *pd, const Game *g) {
+    const int turning = game_weather_turning(g);
+    if (turning >= 0) {
+        char buf[40];
+        snprintf(buf, sizeof buf, "Weather turning: %s", WEATHER_NAMES[turning]);
+        message(pd, buf, 26);
+        return;
+    }
     if (g->praise_left <= 0.0f) return;
     message(pd, praise_text(g->praise), 26);
 }

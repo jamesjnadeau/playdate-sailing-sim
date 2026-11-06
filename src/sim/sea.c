@@ -16,7 +16,17 @@
 static float fin(float x) { return isfinite(x) ? x : 0.0f; }
 static double find(double x) { return isfinite(x) ? x : 0.0; }
 
+/* Phase of component i at (x, y) while anchored. */
+static double anchored_phase(const Sea *s, int i, double x, double y) {
+    return s->phb[i] + (double)s->kx[i] * (x - s->ax) + (double)s->ky[i] * (y - s->ay);
+}
+
 static double height(const Sea *s, double x, double y, double t) {
+    if (s->anchored) {
+        double h = 0;
+        for (int i = 0; i < s->n; i++) h += (double)s->c[i].amp * cos(anchored_phase(s, i, x, y));
+        return h;
+    }
     double xw = fmod(x, SEA_WRAP), yw = fmod(y, SEA_WRAP);
     double h = 0;
     for (int i = 0; i < s->n; i++) {
@@ -80,6 +90,15 @@ void sea_view_init(SeaView *v, const Sea *s, double ox, double oy, float t) {
     double xw = fmod(find(ox), SEA_WRAP), yw = fmod(find(oy), SEA_WRAP), td = find(t);
     if (!cos_ready) cos_tab_init();
     v->n = s->n;
+    if (s->anchored) {
+        for (int i = 0; i < s->n; i++) {
+            v->kx[i] = s->kx[i];
+            v->ky[i] = s->ky[i];
+            v->ph[i] = (float)fmod(anchored_phase(s, i, find(ox), find(oy)), TWO_PI);
+            v->amp[i] = s->c[i].amp;
+        }
+        return;
+    }
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
         v->kx[i] = (float)(TWO_PI * c->m / SEA_WRAP);
@@ -114,6 +133,10 @@ typedef struct { float h[HULL_SAMPLES + 2]; } Samples;
 typedef struct { float ph[SEA_MAX_COMPONENTS]; } BasePhase;
 
 static void base_phase(const Sea *s, double x, double y, double t, BasePhase *out) {
+    if (s->anchored) {
+        for (int i = 0; i < s->n; i++) out->ph[i] = (float)fmod(anchored_phase(s, i, x, y), TWO_PI);
+        return;
+    }
     double xw = fmod(x, SEA_WRAP), yw = fmod(y, SEA_WRAP);
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
@@ -125,6 +148,13 @@ static void base_phase(const Sea *s, double x, double y, double t, BasePhase *ou
 static float height_at(const Sea *s, const BasePhase *bp, float dx, float dy, float dt) {
     const float k = (float)(TWO_PI / SEA_WRAP);
     float h = 0.0f;
+    if (s->anchored) {
+        for (int i = 0; i < s->n; i++) {
+            const SeaComp *c = &s->c[i];
+            h += c->amp * fast_cosf(bp->ph[i] + s->kx[i] * dx + s->ky[i] * dy - c->omega * dt);
+        }
+        return h;
+    }
     for (int i = 0; i < s->n; i++) {
         const SeaComp *c = &s->c[i];
         h += c->amp * fast_cosf(bp->ph[i] + k * ((float)c->m * dx + (float)c->n * dy) - c->omega * dt);
@@ -211,4 +241,106 @@ WaveForces sea_hull_forces(const Sea *s, const BoatState *b, const BoatCfg *cfg,
     f.heel = fin(f.heel); f.pitch = fin(f.pitch); f.heave = fin(f.heave);
     f.sea_port = fin(f.sea_port); f.sea_stbd = fin(f.sea_stbd);
     return f;
+}
+
+/* ---- boat-anchored form ---- */
+
+static double wrap2pi(double p) {
+    p = fmod(p, TWO_PI);
+    return p < 0.0 ? p + TWO_PI : p;
+}
+
+static float world_kx(const SeaComp *c) { return (float)(TWO_PI * c->m / SEA_WRAP); }
+static float world_ky(const SeaComp *c) { return (float)(TWO_PI * c->n / SEA_WRAP); }
+
+void sea_anchor(Sea *s, double x, double y, double t) {
+    if (s->anchored) return;
+    x = find(x); y = find(y); t = find(t);
+    double xw = fmod(x, SEA_WRAP), yw = fmod(y, SEA_WRAP);
+    for (int i = 0; i < s->n; i++) {
+        const SeaComp *c = &s->c[i];
+        s->kx[i] = world_kx(c);
+        s->ky[i] = world_ky(c);
+        s->phb[i] = wrap2pi(TWO_PI * fmod((double)c->m * xw + (double)c->n * yw, SEA_WRAP) / SEA_WRAP
+                            - fmod((double)c->omega * t, TWO_PI) + (double)c->phase);
+    }
+    s->ax = x; s->ay = y;
+    s->anchored = true;
+}
+
+void sea_move_anchor(Sea *s, double x, double y) {
+    if (!s->anchored) return;
+    x = find(x); y = find(y);
+    for (int i = 0; i < s->n; i++) s->phb[i] = wrap2pi(anchored_phase(s, i, x, y));
+    s->ax = x; s->ay = y;
+}
+
+void sea_shift_anchor(Sea *s, double dx, double dy) {
+    if (!s->anchored) return;
+    s->ax -= find(dx); s->ay -= find(dy);
+}
+
+void sea_advance(Sea *s, float dt) {
+    if (!s->anchored) return;
+    double d = find(dt);
+    for (int i = 0; i < s->n; i++) s->phb[i] = wrap2pi(s->phb[i] - (double)s->c[i].omega * d);
+}
+
+/* Exact at both ends: w = 0 gives a, w = 1 gives b. */
+static float lerp_w(float a, float b, float w) { return a * (1.0f - w) + b * w; }
+
+void sea_morph(Sea *s, const Sea *a, const Sea *b, float w) {
+    if (!s->anchored) return;
+    w = clampf(fin(w), 0.0f, 1.0f);
+    int n = a->n < b->n ? a->n : b->n;
+    if (n > s->n) n = s->n;
+    for (int i = 0; i < n; i++) {
+        const SeaComp *ca = &a->c[i], *cb = &b->c[i];
+        s->kx[i] = lerp_w(world_kx(ca), world_kx(cb), w);
+        s->ky[i] = lerp_w(world_ky(ca), world_ky(cb), w);
+        s->c[i].omega = lerp_w(ca->omega, cb->omega, w);
+        s->c[i].amp = lerp_w(ca->amp, cb->amp, w);
+    }
+    s->period = lerp_w(a->period, b->period, w);
+}
+
+void sea_unanchor(Sea *s, const Sea *target, double t) {
+    if (!s->anchored) return;
+    t = find(t);
+    double ax = s->ax, ay = s->ay, phb[SEA_MAX_COMPONENTS];
+    int n = s->n;
+    memcpy(phb, s->phb, sizeof phb);
+    *s = *target;
+    s->anchored = false;
+    s->ax = s->ay = 0.0;
+    memset(s->kx, 0, sizeof s->kx);
+    memset(s->ky, 0, sizeof s->ky);
+    memset(s->phb, 0, sizeof s->phb);
+    if (n > s->n) n = s->n;
+    double xw = fmod(ax, SEA_WRAP), yw = fmod(ay, SEA_WRAP);
+    for (int i = 0; i < n; i++) {
+        SeaComp *c = &s->c[i];
+        c->phase = (float)wrap2pi(phb[i] - TWO_PI * fmod((double)c->m * xw + (double)c->n * yw, SEA_WRAP) / SEA_WRAP
+                                  + fmod((double)c->omega * t, TWO_PI));
+    }
+}
+
+bool sea_dominant(const Sea *s, float *nx, float *ny, float *wl) {
+    if (s->n == 0) return false;
+    int dom = 0;
+    for (int k = 1; k < s->n; k++) if (s->c[k].amp > s->c[dom].amp) dom = k;
+    if (s->anchored) {
+        float kx = s->kx[dom], ky = s->ky[dom];
+        float kk = hypotf(kx, ky);
+        if (kk < 1e-6f) return false;
+        *nx = kx / kk; *ny = ky / kk;
+        *wl = (float)TWO_PI / kk;
+        return true;
+    }
+    float wm = (float)s->c[dom].m, wn = (float)s->c[dom].n;
+    float wk = hypotf(wm, wn);
+    if (wk < 1e-3f) return false;
+    *nx = wm / wk; *ny = wn / wk;
+    *wl = (float)SEA_WRAP / wk;
+    return true;
 }

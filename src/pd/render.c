@@ -153,11 +153,14 @@ static void draw_sky(PlaydateAPI *pd, const Game *g, const CameraPose *c) {
             strip(pd, hy0 - up[i + 1], hy1 - up[i + 1], hy0 - up[i], hy1 - up[i], level);
         }
     }
-    if (p->sun > 0.5f && !flash) {
+    if (p->sun > 0.0f && !flash) {
         float sx, sy, d;
         if (camera_project_rel(c, 3000.0f * rcos(0.6f), 3000.0f * rsin(0.6f), 1100.0f, &sx, &sy, &d)) {
             int r = 11;
-            if (sx > -2 * r && sx < CAM_W + 2 * r) {
+            /* a weather turning sunny lowers the sun from above the top of the screen (eased) */
+            float k = p->sun >= 1.0f ? 1.0f : p->sun * p->sun * (3.0f - 2.0f * p->sun);
+            sy -= (1.0f - k) * (sy + (float)(r + 10));
+            if (sx > -2 * r && sx < CAM_W + 2 * r && sy > -(float)(r + 9)) {
                 for (int i = 0; i < 8; i++) {
                     float a = (float)i * (float)PI_D / 4.0f, ca = rcos(a), sa = rsin(a);
                     pd->graphics->drawLine((int)(sx + ca * (r + 3)), (int)(sy + sa * (r + 3)),

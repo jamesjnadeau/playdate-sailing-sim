@@ -29,8 +29,8 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, r));
 const url = `http://localhost:${server.address().port}/`;
 
-const base = { mode: 'TRIM', vertical: false, speed: '6.2', hdg: '231', heel: '+14', awsKn: '27', sail: 'Main', sailFrac: 0.6,
-  sailIndex: 0, sails: 1, sailMode: true, autotrim: true, autopilot: true, apTarget: '231', windDial: 0.9, bowDial: 0,
+const base = { mode: 'TRIM', vertical: false, speed: '6.2', hdg: '231', heel: '+14', twsKn: '27', sail: 'Main', sailFrac: 0.6,
+  sailIndex: 0, sails: 1, sailMode: true, autotrim: true, autopilot: true, apTarget: '231', windDial: 0.9, bowDial: 0, noGo: 0.785,
   banners: [], praise: null };
 
 let failed = 0;
@@ -44,20 +44,22 @@ for (const [w, h] of [[1280, 720], [667, 375], [390, 844]]) {
   await page.goto(url);
   await page.waitForFunction(() => window.show);
   for (const [name, patch] of [['TRIM, AT+AP on', {}], ['HELM', { mode: 'HELM', sailMode: false, autotrim: false, autopilot: false }],
-                               ['HOIST, 3-digit wind, negative heel', { mode: 'HOIST', awsKn: '100', heel: '-14' }]]) {
+                               ['HOIST, 3-digit wind, negative heel', { mode: 'HOIST', twsKn: '100', heel: '-14' }]]) {
     await page.evaluate((hh) => window.show(hh), { ...base, ...patch });
     const r = await page.evaluate(() => {
       const vis = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, w: b.width, h: b.height }; };
       const bar = document.querySelector('.hud-bar');
-      return { speed: vis('.speed'), hdg: vis('.hdg'), heel: vis('.heel'), aws: vis('.aws'), dial: vis('.dial'),
+      return { speed: vis('.speed'), hdg: vis('.hdg'), heel: vis('.heel'), tws: vis('.tws'), dial: vis('.dial'),
                hdgIcon: vis('.hdg-icon'), heelIcon: vis('.heel-icon'), sail: vis('.sail'),
-               overflow: bar.scrollWidth - bar.clientWidth, sailHidden: document.querySelector('.sail').hidden };
+               overflow: bar.scrollWidth - bar.clientWidth, sailHidden: document.querySelector('.sail').hidden,
+               nogo: vis('.dial .nogo'), nogoD: document.querySelector('.dial .nogo')?.getAttribute('d') || '' };
     });
     const tag = `${w}px ${name}`;
-    for (const k of ['speed', 'hdg', 'heel', 'aws', 'dial', 'hdgIcon', 'heelIcon']) check(r[k] && r[k].w > 0 && r[k].h > 0, `${tag}: ${k} is visible`);
+    for (const k of ['speed', 'hdg', 'heel', 'tws', 'dial', 'hdgIcon', 'heelIcon']) check(r[k] && r[k].w > 0 && r[k].h > 0, `${tag}: ${k} is visible`);
     check(r.hdgIcon && r.heelIcon && r.hdgIcon.r <= r.hdg.l + 1 && r.heelIcon.r <= r.heel.l + 1, `${tag}: icons sit left of their numbers`);
-    check(r.speed && r.hdg && r.heel && r.aws && r.speed.r <= r.hdgIcon.l + 1 && r.hdg.r <= r.heelIcon.l + 1 && r.heel.r <= r.aws.l + 1 && r.aws.r <= r.dial.l + 1,
+    check(r.speed && r.hdg && r.heel && r.tws && r.speed.r <= r.hdgIcon.l + 1 && r.hdg.r <= r.heelIcon.l + 1 && r.heel.r <= r.tws.l + 1 && r.tws.r <= r.dial.l + 1,
           `${tag}: order is speed, heading, heel, wind, dial`);
+    check(r.nogo && r.nogo.w > 0 && r.nogo.h > 0 && r.nogoD.length > 0, `${tag}: the dial shades the no-go wedge`);
     check(r.overflow <= 0, `${tag}: the bar does not overflow (${r.overflow}px)`);
     check(patch.mode === 'HELM' ? r.sailHidden : !r.sailHidden, `${tag}: sail block ${patch.mode === 'HELM' ? 'hidden' : 'shown'}`);
     if (patch.mode !== 'HELM') check(r.sail && r.sail.w >= 40, `${tag}: the sail bar keeps room (${r.sail && Math.round(r.sail.w)}px)`);

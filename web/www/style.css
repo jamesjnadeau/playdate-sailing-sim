@@ -51,9 +51,9 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
 .hud-bar small { font: 500 11px var(--sans); color: var(--muted); letter-spacing: 0.04em; }
 .hud-bar .mode { background: var(--accent); color: var(--accent-ink); min-width: 92px; justify-content: center; letter-spacing: 0.08em; }
 .hud-bar .ico { width: 14px; height: 14px; flex: none; }
-.hud-bar .speed, .hud-bar .hdg, .hud-bar .heel, .hud-bar .aws, .hud-bar .ap-target { display: inline-block; text-align: right; }
+.hud-bar .speed, .hud-bar .hdg, .hud-bar .heel, .hud-bar .tws, .hud-bar .ap-target { display: inline-block; text-align: right; }
 .hud-bar .speed { min-width: 3ch; }
-.hud-bar .hdg, .hud-bar .aws, .hud-bar .ap-target { min-width: 3ch; }
+.hud-bar .hdg, .hud-bar .tws, .hud-bar .ap-target { min-width: 3ch; }
 .hud-bar .heel { min-width: 4ch; }   /* "+14°": the cells keep one width as the digits change */
 .hud-bar .sail { display: flex; align-items: center; gap: 12px; padding: 0 14px; font-size: 15px; }
 .sail-bar { width: 150px; height: 10px; border: 1px solid var(--ink); border-radius: 3px; padding: 1px; }
@@ -63,6 +63,7 @@ body[data-draw="2"]:not(.locked) #lock-hint { opacity: 1; }
 .hud-bar .ap .needle { display: inline-block; transform: rotate(-90deg); font-size: 15px; }
 .hud-bar .dial-cell { border-left: 1px solid var(--line); border-right: 0; }
 .dial { width: 34px; height: 34px; }
+.dial .nogo { fill: var(--ink); opacity: 0.3; stroke: none; }
 .dial .ring { fill: none; stroke: var(--ink); stroke-width: 1.4; }
 .dial .bow { stroke: var(--accent); stroke-width: 2; }
 .dial .wind { stroke: #7fd0ff; stroke-width: 2.4; stroke-linecap: round; }

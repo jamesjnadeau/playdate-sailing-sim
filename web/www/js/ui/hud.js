@@ -5,6 +5,14 @@ const EDGE_PAD = 18;
 
 const $ = (root, sel) => root.querySelector(sel);
 
+// SVG path for a sector of the dial (radius just inside the ring) centred on `center` (0 = up, clockwise), +/- half
+function noGoPath(center, half) {
+  if (!(half > 0) || !Number.isFinite(center)) return '';
+  const r = 9.4, h = Math.min(half, Math.PI);
+  const pt = (a) => `${(r * Math.sin(a)).toFixed(2)} ${(-r * Math.cos(a)).toFixed(2)}`;
+  return `M0 0L${pt(center - h)}A${r} ${r} 0 ${2 * h > Math.PI ? 1 : 0} 1 ${pt(center + h)}Z`;
+}
+
 export class Hud {
   constructor(root) {
     this.root = root;
@@ -38,8 +46,9 @@ export class Hud {
           </svg><span class="heel"></span>
         </div>
         <div class="cell dial-cell">
-          <span class="aws"></span><small>kn</small>
-          <svg class="dial" viewBox="-12 -12 24 24" aria-label="apparent wind">
+          <span class="tws"></span><small>kn</small>
+          <svg class="dial" viewBox="-12 -12 24 24" aria-label="true wind">
+            <path class="nogo"/>
             <circle r="10" class="ring"/>
             <line class="bow" x1="0" y1="-8" x2="0" y2="-12"/>
             <line class="wind" x1="0" y1="0" x2="0" y2="-9"/>
@@ -51,7 +60,7 @@ export class Hud {
       speed: $(root, '.speed'), hdg: $(root, '.hdg'), heel: $(root, '.heel'),
       sail: $(root, '.sail'), sailName: $(root, '.sail-name'), sailFill: $(root, '.sail-bar .fill'),
       at: $(root, '.at'), ap: $(root, '.ap'), apTarget: $(root, '.ap-target'),
-      aws: $(root, '.aws'), dialWind: $(root, '.dial .wind'), dialBow: $(root, '.dial .bow'),
+      tws: $(root, '.tws'), dialNoGo: $(root, '.dial .nogo'), dialWind: $(root, '.dial .wind'), dialBow: $(root, '.dial .bow'),
       banners: $(root, '.hud-banners'), praise: $(root, '.hud-praise'), warning: $(root, '.hud-warning'),
       box: $(root, '.hud-box'), clock: $(root, '.hud-clock'), ghost: $(root, '.hud-ghost'),
       marker: $(root, '.hud-marker'), ghostArrow: $(root, '.hud-ghost-arrow'),
@@ -85,9 +94,11 @@ export class Hud {
     this.show(e.at, 'at', h.autotrim);
     this.show(e.ap, 'ap', h.autopilot);
     this.text(e.apTarget, 'apT', h.apTarget);
-    this.text(e.aws, 'aws', h.awsKn);
+    this.text(e.tws, 'tws', h.twsKn);
     const deg = (a) => (a * 180 / Math.PI).toFixed(1);
     this.set(e.dialWind, 'dw', deg(h.windDial), (n, v) => n.setAttribute('transform', `rotate(${v})`));
+    // no-go wedge: a sector opposite the downwind needle, the boat's no-go angle each side of the wind
+    this.set(e.dialNoGo, 'ng', `${deg(h.windDial)}/${deg(h.noGo)}`, (n) => n.setAttribute('d', noGoPath(h.windDial + Math.PI, h.noGo)));
     this.set(e.dialBow, 'db', deg(h.bowDial), (n, v) => n.setAttribute('transform', `rotate(${v})`));
     this.text(e.banners, 'banners', h.banners.join('\n'));
     this.show(e.banners, 'bannersShow', h.banners.length > 0);

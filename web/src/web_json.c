@@ -301,10 +301,10 @@ static void hud(const Game *g, Ghost *ghost) {
     str("hdg", line);
     snprintf(line, sizeof line, "%+.0f", b->heel * 57.29578f);
     str("heel", line);
-    snprintf(line, sizeof line, "%.0f", b->aws);
-    str("aws", line);
-    snprintf(line, sizeof line, "%.0f", b->aws * 1.94384f);
-    str("awsKn", line);
+    snprintf(line, sizeof line, "%.0f", g->wind.speed);   /* true wind, like the dial */
+    str("tws", line);
+    snprintf(line, sizeof line, "%.0f", g->wind.speed * 1.94384f);
+    str("twsKn", line);
     str("sail", n > 0 ? g->boat.sails[si].name : "");
     numx("sailFrac", n > 0 ? hud_sail_fraction(g->ctl.mode, &g->boat.sails[si], b->trims[si], b->hoists[si]) : 0.0f);
     integer("sailIndex", si);
@@ -313,7 +313,9 @@ static void hud(const Game *g, Ghost *ghost) {
     boolean("autopilot", g->ap.on);
     snprintf(line, sizeof line, "%03d", hud_heading_deg(g->ap.target));
     str("apTarget", line);
-    numx("windDial", hud_dial_angle(b->awa + 3.14159265f, g->ctl.camera_yaw));
+    const float from = hud_true_wind_from_bow(b->heading, g->wind.dir);
+    numx("windDial", hud_dial_angle(from + 3.14159265f, g->ctl.camera_yaw));
+    numx("noGo", g->boat.controls.no_go_deg * (3.14159265f / 180.0f));
     numx("bowDial", hud_dial_angle(0.0f, g->ctl.camera_yaw));
     numx("awa", b->awa);
     arr("banners");

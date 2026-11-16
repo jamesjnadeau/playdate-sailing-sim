@@ -229,6 +229,8 @@ static void lesson_place(void) {
     game.b.heading = game.wind.dir;
     lesson.held = 0.0f;
     lesson.seen = 0;
+    lesson.visiting = -1;
+    lesson.miss = 0.0f;
     lesson_text_t = 0.0f;
     camera_snap();
 }
@@ -329,6 +331,7 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             game_set_track(&game, NULL);
             lesson_weather();
             training_init(&lesson);
+            lesson.goals = lesson_text.goal;   /* the goals config/training.md sets, else the built-in ones */
             lesson_text_step = lesson.step;
             lesson_on = true;
             lesson_place();
@@ -479,6 +482,7 @@ void app_init(const Platform *p) {
     {
         char *md;
         trainingtext_parse(assets_read_file(P, "config/training.md", &md) > 0 ? md : NULL, &lesson_text);
+        if (lesson_text.bad_line) P->log("config/training.md: line %d not understood", lesson_text.bad_line);
     }
     begin(true);
     if (track_warn[0]) {
@@ -518,6 +522,8 @@ const char *app_warning(void) { return warn_shown ? warn : NULL; }
 const Training *app_training(void) { return lesson_on ? &lesson : NULL; }
 const char *app_training_text(void) {
     if (!lesson_on || app != APP_PLAY) return NULL;
+    const char *hint = trainingtext_hint(&lesson_text, lesson.step, lesson_text_t, lesson.miss);
+    if (hint) return hint;   /* the player has not been doing what the step asks */
     trainingtext_page(&lesson_text, lesson.step, lesson_text_t, lesson_page, sizeof lesson_page);
     return lesson_page;
 }

@@ -160,6 +160,19 @@ static void load_boat(const char *path, BoatCfg *c) {
     free(buf);
 }
 
+/* one no-go angle per boat: the irons warning, autopilot, Journey, baseline ghost and wind dial all use it */
+static void test_shipped_no_go_angles(void) {
+    static const struct { const char *f; float deg; } want[] = {
+        { "../boats/j24.json", 42 }, { "../boats/dinghy.json", 45 }, { "../boats/sunfish.json", 45 },
+        { "../boats/hobie16.json", 50 }, { "../boats/reynolds33.json", 50 },
+        { "../boats/disabled/tp52.json", 45 }, { "../boats/disabled/longship.json", 65 },
+    };
+    for (size_t i = 0; i < sizeof want / sizeof want[0]; i++) {
+        BoatCfg c; load_boat(want[i].f, &c);
+        T_NEAR(c.controls.no_go_deg, want[i].deg, 1e-6);
+    }
+}
+
 static void test_j24_json(void) {
     BoatCfg c; load_boat("../boats/j24.json", &c);
     T_ASSERT(c.hull.length >= 7.3f);
@@ -378,6 +391,7 @@ int main(void) {
     T_RUN(test_tp52_json);
     T_RUN(test_wake_fade_default_and_clamp);
     T_RUN(test_sunfish_json);
+    T_RUN(test_shipped_no_go_angles);
     T_RUN(test_square_shape_accepted);
     T_RUN(test_boat_class_defaults_to_racer);
     T_RUN(test_boat_class_cruiser_accepted);

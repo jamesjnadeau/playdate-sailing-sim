@@ -149,6 +149,16 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         }
     }
 
+    /* HELM: the rudder position in the same gap, a thin track with a short fixed centre tick and a taller
+       marker that moves right when the bow is turning right */
+    int hx, hw;
+    if (mode == MODE_WHEEL && hud_helm_span(cl.left, &hx, &hw)) {
+        const int my = top + HUD_H / 2, hc = hx + hw / 2, mx = hud_helm_marker_x(hx, hw, b->wheel);
+        pd->graphics->drawLine(hx, my, hx + hw - 1, my, 1, kColorWhite);
+        pd->graphics->fillRect(hc, my - 3, 2, 6, kColorWhite);
+        pd->graphics->fillRect(mx - 1, my - 6, 3, 12, kColorWhite);
+    }
+
     /* true wind dial, relative to the view: up is where the camera looks, the notch marks the bow, the
        needle points where the wind is going (downwind), and a checkered wedge on the upwind side shades
        the headings this boat cannot point (its no-go angle each side of the wind); the bow in the wedge

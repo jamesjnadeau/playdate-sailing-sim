@@ -110,13 +110,13 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     /* every instrument, right-justified, in every mode, left to right: AT and AP icons, heading, heel,
        boat speed, wind speed; positions come from the measured text widths */
     pd->graphics->setDrawMode(kDrawModeFillWhite);
-    char spd[16], hdg[8], heel[8], aws[8], apt[8];
+    char spd[16], hdg[8], heel[8], tws[8], apt[8];
     snprintf(spd, sizeof spd, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
     snprintf(hdg, sizeof hdg, "%03d", hud_heading_deg(b->heading));
     /* two digits each: heel is unsigned and held to 99 (a J/24 knocked flat can reach 105); the wind never
        reaches 100 */
     snprintf(heel, sizeof heel, "%.0f", (double)fminf(99.0f, fabsf(b->heel) * 57.29578f));
-    snprintf(aws, sizeof aws, "%.0f", (double)fminf(99.0f, b->aws));
+    snprintf(tws, sizeof tws, "%.0f", (double)fminf(99.0f, g->wind.speed));   /* true wind, like the dial */
     snprintf(apt, sizeof apt, "%03d", hud_heading_deg(g->ap.target));
     /* slots are sized for the widest value of each instrument, so the cluster does not move as digits change;
        each live number is right-aligned in its slot */
@@ -125,7 +125,7 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     const HudCluster cl = hud_cluster_layout(w_aws, w_heel, w_hdg, w_spd, w_hdg, g->at.on, g->ap.on);
     const int iy = top + HUD_H / 2;
     for (int i = 0; i < cl.nsep; i++) pd->graphics->drawLine(cl.sep[i], top, cl.sep[i], CAM_H - 1, 1, kColorWhite);
-    text(pd, aws, hud_slot_text_x(cl.aws_x, w_aws, text_w(pd, aws)), ty);
+    text(pd, tws, hud_slot_text_x(cl.aws_x, w_aws, text_w(pd, tws)), ty);
     text(pd, heel, hud_slot_text_x(cl.heel_x, w_heel, text_w(pd, heel)), ty);
     icon_heel(pd, cl.heel_icon_x, iy);
     text(pd, hdg, hud_slot_text_x(cl.hdg_x, w_hdg, text_w(pd, hdg)), ty);
@@ -149,12 +149,19 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         }
     }
 
-    /* apparent wind dial, relative to the view: up is where the camera looks, the notch marks the bow and
-       the needle points where the wind is going (downwind) */
+    /* true wind dial, relative to the view: up is where the camera looks, the notch marks the bow, the
+       needle points where the wind is going (downwind), and a checkered wedge on the upwind side shades
+       the headings this boat cannot point (its no-go angle each side of the wind); the bow in the wedge
+       means head to wind */
     const int cx = CAM_W - 12, cy = top + HUD_H / 2, R = 8;
     const float look = g->ctl.camera_yaw;
+    const float from = hud_true_wind_from_bow(b->heading, g->wind.dir);
+    const float wc = hud_dial_angle(from, look), half = g->boat.controls.no_go_deg * (3.14159265f / 180.0f);
+    for (int dy = -R; dy <= R; dy++)
+        for (int dx = -R; dx <= R; dx++)
+            if (hud_no_go_pixel(dx, dy, R, wc, half)) pd->graphics->fillRect(cx + dx, cy + dy, 1, 1, kColorWhite);
     pd->graphics->drawEllipse(cx - R, cy - R, 2 * R, 2 * R, 1, 0, 0, kColorWhite);
-    float a = hud_dial_angle(b->awa + 3.14159265f, look);
+    float a = hud_dial_angle(from + 3.14159265f, look);
     pd->graphics->drawLine(cx, cy, (int)(cx + R * sinf(a)), (int)(cy - R * cosf(a)), 2, kColorWhite);
     float bow = hud_dial_angle(0.0f, look);
     pd->graphics->drawLine((int)lroundf(cx + (R - 2) * sinf(bow)), (int)lroundf(cy - (R - 2) * cosf(bow)),

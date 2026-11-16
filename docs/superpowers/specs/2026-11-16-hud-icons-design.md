@@ -41,3 +41,12 @@ heel always visible, so the player can watch them while adjusting sails.
 - Final bitmaps for the two icons at the sizes above; keep the heading arrow visually distinct from the AP compass.
 - Update `tests/` / golden frames and `web/www/js/ui/hud.js`, which mirrors the HUD in the web build.
 - `hud_shows_nav()` becomes unused for the HUD; remove it and its test if nothing else calls it.
+
+## Follow-ups before merge (could not be done in the build container)
+- Re-baseline the host goldens: `make -C harness update-golden` (this container already fails `check-regression` on the base commit, so they were not regenerated here).
+- Update the HUD text-strip rows in `tests/scenarios/*.masks` (they still cover the old HDG/HEEL/AWS text positions) and refresh `tests/golden/real` with the golden-refresh workflow.
+
+## Built differently from the design above (implementation rulings)
+- Real-font digits are wider than the mockup's, so the cluster is sized from the widest values (`888`, `+88`, `88.8kn`) and each live number is right-aligned in its slot; the cluster and the bar therefore do not move as digits change.
+- In TRIM/HOIST the sail name is shown only when a bar of at least 24 px still fits after it; otherwise the name is dropped and the bar starts at x 60.
+- Web: under 480 px the sail name is hidden and cells are tightened; under 720 px the unit labels are hidden.

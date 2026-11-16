@@ -115,27 +115,30 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
     snprintf(heel, sizeof heel, "%+.0f", (double)(b->heel * 57.29578f));
     snprintf(aws, sizeof aws, "%.0f", (double)b->aws);
     snprintf(apt, sizeof apt, "%03d", hud_heading_deg(g->ap.target));
-    const HudCluster cl = hud_cluster_layout(text_w(pd, aws), text_w(pd, heel), text_w(pd, hdg), text_w(pd, spd),
-                                             text_w(pd, apt), g->at.on, g->ap.on);
+    /* slots are sized for the widest value of each instrument, so the cluster does not move as digits change;
+       each live number is right-aligned in its slot */
+    const int w_aws = text_w(pd, "888"), w_hdg = text_w(pd, "888"), w_spd = text_w(pd, "88.8kn");
+    const int w_heel = text_w(pd, "+88") > text_w(pd, "-88") ? text_w(pd, "+88") : text_w(pd, "-88");
+    const HudCluster cl = hud_cluster_layout(w_aws, w_heel, w_hdg, w_spd, w_hdg, g->at.on, g->ap.on);
     const int iy = top + HUD_H / 2;
     for (int i = 0; i < cl.nsep; i++) pd->graphics->drawLine(cl.sep[i], top, cl.sep[i], CAM_H - 1, 1, kColorWhite);
-    text(pd, aws, cl.aws_x, ty);
-    text(pd, heel, cl.heel_x, ty);
+    text(pd, aws, hud_slot_text_x(cl.aws_x, w_aws, text_w(pd, aws)), ty);
+    text(pd, heel, hud_slot_text_x(cl.heel_x, w_heel, text_w(pd, heel)), ty);
     icon_heel(pd, cl.heel_icon_x, iy);
-    text(pd, hdg, cl.hdg_x, ty);
+    text(pd, hdg, hud_slot_text_x(cl.hdg_x, w_hdg, text_w(pd, hdg)), ty);
     icon_heading(pd, cl.hdg_icon_x, iy);
-    text(pd, spd, cl.speed_x, ty);
+    text(pd, spd, hud_slot_text_x(cl.speed_x, w_spd, text_w(pd, spd)), ty);
     if (g->at.on) icon_gear(pd, cl.at_icon_x + HUD_ICON_AT_W / 2, iy);
     if (g->ap.on) {
         icon_compass(pd, cl.ap_icon_x + HUD_ICON_AP_W / 2, iy);
-        text(pd, apt, cl.ap_x, ty);
+        text(pd, apt, hud_slot_text_x(cl.ap_x, w_hdg, text_w(pd, apt)), ty);
     }
     if ((mode == MODE_TRIM || mode == MODE_HOIST) && n > 0) {
-        /* selected sail: its name, then the trim or hoist bar, in the room left of the cluster */
+        /* selected sail: its name (when it fits) and the trim or hoist bar, in the room left of the cluster;
+           `cl.left` no longer changes with the digits, so the bar keeps one width */
         snprintf(line, sizeof line, "%.8s", g->boat.sails[si].name);
-        text(pd, line, HUD_MODE_W + HUD_PAD, ty);
         int bx, bw;
-        hud_sail_bar_span(text_w(pd, line), cl.left, &bx, &bw);
+        if (hud_sail_bar_span(text_w(pd, line), cl.left, &bx, &bw)) text(pd, line, HUD_MODE_W + HUD_PAD, ty);
         if (bw > 0) {
             const float f = hud_sail_fraction(mode, &g->boat.sails[si], b->trims[si], b->hoists[si]);
             pd->graphics->drawRect(bx, top + 6, bw, 8, kColorWhite);

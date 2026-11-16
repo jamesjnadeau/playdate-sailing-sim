@@ -27,9 +27,16 @@ typedef struct {
 } HudCluster;
 HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int w_ap, bool at, bool ap);
 
-/* Start and width of the trim/hoist bar: after the sail name (width name_w, which starts at x 60), at x 100
- * or later, at most 64 wide, ending 6 px before `left`. Width 0 (no bar) when under 24 px would be left. */
-void hud_sail_bar_span(int name_w, int left, int *x, int *w);
+/* Trim/hoist bar placement. The sail name starts at x 60. Returns true when the name is shown: it fits with
+ * a bar of at least 24 px after it (bar at x 100 or later, at most 64 wide, ending 6 px before `left`).
+ * Otherwise the name is dropped and the bar starts at x 60 and takes the room (at most 64 wide); width 0
+ * (no bar) when under 16 px would be left. */
+bool hud_sail_bar_span(int name_w, int left, int *x, int *w);
+
+/* Left edge for a live text of width text_w right-aligned in a slot [slot_x, slot_x + slot_w): the slot is
+ * sized for the widest value, so the numbers stay put as the digits change. A text wider than the slot
+ * starts at the slot's left edge. */
+int hud_slot_text_x(int slot_x, int slot_w, int text_w);
 
 /* Radians to whole degrees 0..359: rounded, wrapped, non-finite -> 0. */
 int hud_heading_deg(float rad);

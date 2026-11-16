@@ -155,12 +155,28 @@ static void test_cluster_never_overlaps(void) {
 
 static void test_sail_bar_span(void) {
     int x, w;
-    hud_sail_bar_span(24, 173, &x, &w);
+    T_ASSERT(hud_sail_bar_span(24, 173, &x, &w));          /* name shown */
     T_ASSERT(x == 100 && w == 64);
-    hud_sail_bar_span(50, 173, &x, &w);
-    T_ASSERT(x >= 60 + 50 + 4 && x + w <= 173 - 6);
-    hud_sail_bar_span(50, 150, &x, &w);
-    T_ASSERT(w == 0 || w >= 24);
+    T_ASSERT(hud_sail_bar_span(50, 150, &x, &w));
+    T_ASSERT(x >= 60 + 50 + 4 && x + w <= 150 - 6 && w >= 24);
+}
+
+static void test_sail_bar_span_name_yields_to_bar(void) {
+    int x, w;
+    /* "spinnake" is 65 px in the real font; with AP and AT on the cluster starts near x 105..140 */
+    T_ASSERT(!hud_sail_bar_span(65, 140, &x, &w));         /* name dropped, bar keeps room */
+    T_ASSERT(x == 60 && w == 64);
+    T_ASSERT(!hud_sail_bar_span(65, 105, &x, &w));
+    T_ASSERT(x == 60 && w == 39);
+    T_ASSERT(!hud_sail_bar_span(65, 70, &x, &w));          /* no room at all: no bar */
+    T_ASSERT(w == 0);
+}
+
+static void test_slot_text_is_right_aligned_and_stable(void) {
+    /* a number narrower than its slot hugs the slot's right edge; the slot never moves with the digits */
+    T_ASSERT(hud_slot_text_x(100, 30, 14) == 116);
+    T_ASSERT(hud_slot_text_x(100, 30, 30) == 100);
+    T_ASSERT(hud_slot_text_x(100, 30, 40) == 100);         /* wider than the slot: starts at the slot's left */
 }
 
 int main(void) {
@@ -168,6 +184,8 @@ int main(void) {
     T_RUN(test_cluster_worst_case_left_edge);
     T_RUN(test_cluster_never_overlaps);
     T_RUN(test_sail_bar_span);
+    T_RUN(test_sail_bar_span_name_yields_to_bar);
+    T_RUN(test_slot_text_is_right_aligned_and_stable);
     T_RUN(test_heading_wraps_and_rounds);
     T_RUN(test_heading_non_finite_is_zero);
     T_RUN(test_sail_fraction_trim);

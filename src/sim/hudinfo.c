@@ -39,12 +39,23 @@ HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int
     return c;
 }
 
-void hud_sail_bar_span(int name_w, int left, int *x, int *w) {
-    *x = 60 + name_w + 4;
-    if (*x < 100) *x = 100;
-    *w = left - 6 - *x;
-    if (*w > 64) *w = 64;
-    if (*w < 24) *w = 0;
+bool hud_sail_bar_span(int name_w, int left, int *x, int *w) {
+    const int avail = left - 6 - 60;
+    if (name_w + 4 + 24 <= avail) {
+        *x = 60 + name_w + 4;
+        if (*x < 100) *x = 100;
+        *w = left - 6 - *x;
+        if (*w > 64) *w = 64;
+        if (*w >= 24) return true;
+    }
+    *x = 60;
+    *w = avail > 64 ? 64 : avail;
+    if (*w < 16) *w = 0;
+    return false;
+}
+
+int hud_slot_text_x(int slot_x, int slot_w, int text_w) {
+    return text_w >= slot_w ? slot_x : slot_x + slot_w - text_w;
 }
 
 int hud_heading_deg(float rad) {

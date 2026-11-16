@@ -109,12 +109,104 @@ static void s_fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, LCDCo
     s_fillPolygon(3, p, c, kPolygonFillNonZero);
 }
 /* text is masked out of the goldens, so nothing is drawn */
-/* fonts: a dummy handle, and an 8 px per character width so layout code has something to measure */
-static LCDFont *s_loadFont(const char *path, const char **err) { (void)path; if (err) *err = NULL; return (LCDFont *)&gfx_api; }
-static void s_setFont(LCDFont *f) { (void)f; }
+/* fonts: widths come from the real .fnt metrics the harness stages under <assets>/fonts (the game's own
+   fonts as fonts/NAME.fnt, the SDK's system fonts as fonts/system/NAME.fnt), so layout that measures text
+   lines up with the device. A font whose .fnt is missing measures 8 px per character. */
+#define MAX_FONTS 8
+#define MAX_GLYPHS 512
+#define MAX_KERNS 512
+struct LCDFont {
+    char name[64];
+    int ok, tracking, nglyph, nkern;
+    uint32_t cp[MAX_GLYPHS];
+    int adv[MAX_GLYPHS];
+    uint32_t kl[MAX_KERNS], kr[MAX_KERNS];
+    int kv[MAX_KERNS];
+};
+static void join(char *dst, const char *dir, const char *name);
+static LCDFont fonts[MAX_FONTS];
+static int nfonts;
+static LCDFont *cur_font;
+
+/* next UTF-8 code point at *s (ASCII passes through), advancing *s */
+static uint32_t utf8_next(const unsigned char **s, const unsigned char *end) {
+    const unsigned char *p = *s;
+    uint32_t c = *p++;
+    int more = c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : c >= 0xC0 ? 1 : 0;
+    if (more) c &= 0x3Fu >> more;
+    while (more-- && p < end) c = (c << 6) | (*p++ & 0x3Fu);
+    *s = p;
+    return c;
+}
+static void font_parse(LCDFont *f, const char *path) {
+    FILE *fp = fopen(path, "r");
+    if (!fp) return;
+    char line[256];
+    while (fgets(line, sizeof line, fp)) {
+        if (strncmp(line, "tracking=", 9) == 0) { f->tracking = atoi(line + 9); continue; }
+        char *tab = strchr(line, '\t');
+        if (!tab) continue;
+        const unsigned char *s = (const unsigned char *)line, *end = (const unsigned char *)tab;
+        int v = atoi(tab);
+        if (strncmp(line, "space\t", 6) == 0) {
+            if (f->nglyph < MAX_GLYPHS) { f->cp[f->nglyph] = ' '; f->adv[f->nglyph++] = v; }
+            continue;
+        }
+        uint32_t a = utf8_next(&s, end);
+        if (s == end) {
+            if (f->nglyph < MAX_GLYPHS) { f->cp[f->nglyph] = a; f->adv[f->nglyph++] = v; }
+        } else {
+            uint32_t b = utf8_next(&s, end);
+            if (s == end && f->nkern < MAX_KERNS) { f->kl[f->nkern] = a; f->kr[f->nkern] = b; f->kv[f->nkern++] = v; }
+        }
+    }
+    fclose(fp);
+    f->ok = f->nglyph > 0;
+}
+static LCDFont *s_loadFont(const char *path, const char **err) {
+    if (err) *err = NULL;
+    const char *base = strrchr(path, '/');
+    base = base ? base + 1 : path;
+    char name[64];
+    snprintf(name, sizeof name, "%s", base);
+    char *dot = strrchr(name, '.');
+    if (dot) *dot = 0;
+    for (int i = 0; i < nfonts; i++) if (strcmp(fonts[i].name, name) == 0) return &fonts[i];
+    if (nfonts == MAX_FONTS) return &fonts[0];
+    LCDFont *f = &fonts[nfonts++];
+    memset(f, 0, sizeof *f);
+    snprintf(f->name, sizeof f->name, "%s", name);
+    char rel[MAX_PATH], full[MAX_PATH];
+    snprintf(rel, sizeof rel, strncmp(path, "/System/", 8) == 0 ? "fonts/system/%s.fnt" : "fonts/%s.fnt", name);
+    join(full, assets_dir, rel);
+    font_parse(f, full);
+    return f;
+}
+static void s_setFont(LCDFont *f) { cur_font = f; }
 static void s_setTextTracking(int t) { (void)t; }
+static int glyph_adv(const LCDFont *f, uint32_t c) {
+    for (int i = 0; i < f->nglyph; i++) if (f->cp[i] == c) return f->adv[i];
+    return 0;   /* the device skips a missing glyph */
+}
+static int kern(const LCDFont *f, uint32_t a, uint32_t b) {
+    for (int i = 0; i < f->nkern; i++) if (f->kl[i] == a && f->kr[i] == b) return f->kv[i];
+    return 0;
+}
 static int s_getTextWidth(LCDFont *f, const void *t, size_t l, PDStringEncoding e, int tracking) {
-    (void)f; (void)t; (void)e; return (int)l * (8 + tracking);
+    (void)e;
+    if (!f) f = cur_font ? cur_font : s_loadFont("/System/Fonts/Asheville-Sans-14-Bold.pft", NULL);
+    if (!f->ok) return (int)l * (8 + tracking);
+    const unsigned char *s = t, *end = s + l;
+    int w = 0, n = 0;
+    uint32_t prev = 0;
+    while (s < end && *s) {
+        uint32_t c = utf8_next(&s, end);
+        if (n) w += kern(f, prev, c);
+        w += glyph_adv(f, c) + f->tracking + tracking;
+        prev = c;
+        n++;
+    }
+    return n ? w - (f->tracking + tracking) : 0;   /* the device counts tracking between glyphs, not after the last */
 }
 static int s_drawText(const void *t, size_t l, PDStringEncoding e, int x, int y) { (void)t; (void)e; (void)x; (void)y; return (int)l; }
 static LCDBitmapDrawMode s_setDrawMode(LCDBitmapDrawMode m) { return m; }

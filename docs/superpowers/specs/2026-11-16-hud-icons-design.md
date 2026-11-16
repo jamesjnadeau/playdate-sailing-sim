@@ -1,0 +1,52 @@
+# HUD: heading and heel as right-justified icons
+
+Status: awaiting approval. Mockup: `hud_mock.png` (sent in the session; 4x of the 400x20 bar).
+
+## Intent
+Heading and heel vanish from the bottom bar in TRIM and HOIST modes, because the bar space is
+reused for the sail name and trim/hoist bar (`hud_shows_nav()` is false there). Make heading and
+heel always visible, so the player can watch them while adjusting sails.
+
+## Goals
+- Heading and heel are drawn in every mode, as an icon plus number, right-justified next to the wind dial.
+- The "HDG" and "HEEL" text labels are replaced by icons.
+- Sail info (name + bar) keeps enough room in TRIM/HOIST, even with autotrim and autopilot on.
+
+## Non-goals
+- No change to the numbers shown, the wind dial, the mode cell, banners or any sim logic.
+- No live-tilting heel icon.
+
+## Constraints
+- Playdate 400x240, 1-bit; bar is rows 220..239 (`HUD_H` = 20), mode cell is x 0..53.
+- Icons drawn with the graphics primitives in `src/pd/hud.c` like `icon_gear`/`icon_compass` (the system font has no such glyphs).
+
+## Approaches
+1. **Right-justified cluster, always drawn (chosen).** Cluster order right to left: dial, wind speed, heel, heading, then AP and AT icons, with 1 px separators.
+2. Keep labels, shrink to fit: too wide for the trim bar; rejected.
+3. Heel icon that tilts with the real heel: cramped at 5-20 degrees; rejected by the user in favour of a fixed icon.
+
+## Design (pixels, from the mockup; builder re-measures with the real font)
+- Heading icon: glyph ➢ rotated to point up, ~11x11 px, left half filled, right half outlined. Number is 3 digits (`hud_heading_deg`), ~21 px. Cell about x 279..313.
+- Heel icon: glyph ∢ with a horizontal base, ~12x12 px, second leg fixed at 30 degrees, small arc between the legs. Number is signed (`%+.0f`), ~19 px. Cell about x 322..355.
+- Wind speed number moves to x 364..376 (right edge 376), adjoining the dial (x 380..396, unchanged).
+- Boat speed (`6.2kn`) joins the cluster, left of heading: ~36 px, x 234..270, with a 1 px separator at about x 274 (user requirement: every instrument visible in every mode).
+- Separators: 1 px lines at about x 359, 317 and 274, plus one more left of speed when AP/AT is shown.
+- AP (compass + target heading) and AT (gear) icons sit left of the speed cell; worst case they start at x 173.
+- Sail info area (TRIM/HOIST): x 54..234 normally, x 54..173 with AP and AT on. Today's trim bar (x 108..181) is too wide for the worst case, so the bar moves to x 100..163 (64 px wide, my call), leaving ~10 px clear.
+- All instruments (boat speed, heading, heel, wind speed, wind dial, AP, AT) are visible in every mode, including camera mode. Nothing is hidden by mode any more.
+- In wheel and camera mode the left area x 54..234 is empty (was speed/heading/heel). Left as is; the builder may propose a use.
+
+## Left to the builder
+- Exact pixel positions: compute from `getTextWidth` at run time and right-align, don't hard-code the mockup's numbers.
+- Final bitmaps for the two icons at the sizes above; keep the heading arrow visually distinct from the AP compass.
+- Update `tests/` / golden frames and `web/www/js/ui/hud.js`, which mirrors the HUD in the web build.
+- `hud_shows_nav()` becomes unused for the HUD; remove it and its test if nothing else calls it.
+
+## Follow-ups before merge (could not be done in the build container)
+- Re-baseline the host goldens: `make -C harness update-golden` (this container already fails `check-regression` on the base commit, so they were not regenerated here).
+- Update the HUD text-strip rows in `tests/scenarios/*.masks` (they still cover the old HDG/HEEL/AWS text positions) and refresh `tests/golden/real` with the golden-refresh workflow.
+
+## Built differently from the design above (implementation rulings)
+- Real-font digits are wider than the mockup's, so the cluster is sized from the widest values (`888`, `+88`, `88.8kn`) and each live number is right-aligned in its slot; the cluster and the bar therefore do not move as digits change.
+- In TRIM/HOIST the sail name is shown only when a bar of at least 24 px still fits after it; otherwise the name is dropped and the bar starts at x 60.
+- Web: under 480 px the sail name is hidden and cells are tightened; under 720 px the unit labels are hidden.

@@ -7,12 +7,14 @@
 #include "praise.h"
 
 #define HUD_MODE_W 54          /* inverted mode-name cell at the left of the bar */
-#define HUD_SPEED_END (HUD_MODE_W + 52)   /* right edge of the speed cell */
-#define HUD_HDG_END (HUD_SPEED_END + 82)  /* right edge of the heading cell */
 #define HUD_PAD 6              /* text inset inside a cell */
 
 static void text(PlaydateAPI *pd, const char *s, int x, int y) {
     pd->graphics->drawText(s, strlen(s), kASCIIEncoding, x, y);
+}
+
+static int text_w(PlaydateAPI *pd, const char *s) {
+    return pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
 }
 
 #define MSG_BACK_DX 1          /* offset of the white layer behind an on-screen message */
@@ -46,6 +48,30 @@ static void icon_compass(PlaydateAPI *pd, int cx, int cy) {
     pd->graphics->drawLine(cx + 2, cy, cx, cy + 5, 1, kColorWhite);
 }
 
+/* Heading: the arrowhead glyph pointing up, left half filled and right half outlined. `x` is the left edge. */
+static void icon_heading(PlaydateAPI *pd, int x, int cy) {
+    const int cx = x + HUD_ICON_HDG_W / 2;
+    pd->graphics->fillTriangle(cx, cy - 5, x, cy + 5, cx, cy + 2, kColorWhite);
+    pd->graphics->drawLine(cx, cy - 5, x + HUD_ICON_HDG_W - 1, cy + 5, 1, kColorWhite);
+    pd->graphics->drawLine(x + HUD_ICON_HDG_W - 1, cy + 5, cx, cy + 2, 1, kColorWhite);
+    pd->graphics->drawLine(cx, cy + 2, cx, cy - 5, 1, kColorWhite);
+}
+
+/* Heel: the angle glyph with a horizontal base, the second leg fixed at about 30 degrees and an arc between. */
+static void icon_heel(PlaydateAPI *pd, int x, int cy) {
+    const int vx = x, vy = cy + 4;
+    pd->graphics->drawLine(vx, vy, vx + HUD_ICON_HEEL_W - 1, vy, 1, kColorWhite);
+    pd->graphics->drawLine(vx, vy, vx + 10, vy - 6, 1, kColorWhite);
+    int px = vx + 5, py = vy;   /* arc of radius 5 from the base up to the leg, as short segments */
+    for (int i = 1; i <= 4; i++) {
+        const float a = 0.5410f * (float)i / 4.0f;   /* 31 degrees, the angle of the leg, in radians */
+        const int qx = vx + (int)lroundf(5.0f * cosf(a)), qy = vy - (int)lroundf(5.0f * sinf(a));
+        pd->graphics->drawLine(px, py, qx, qy, 1, kColorWhite);
+        px = qx;
+        py = qy;
+    }
+}
+
 /* Sailing term for what each d-pad mode controls. */
 static const char *mode_word(Mode m) {
     switch (m) {
@@ -57,7 +83,8 @@ static const char *mode_word(Mode m) {
     return "?";
 }
 
-/* One-row status bar: mode glyph, then the mode's cells, then autopilot/autotrim icons and the wind dial. */
+/* One-row status bar: the mode cell, the selected sail's name and bar in TRIM/HOIST, and on the right every
+   instrument in every mode. */
 void hud_draw(PlaydateAPI *pd, const Game *g) {
     const BoatState *b = &g->b;
     const Mode mode = g->ctl.mode;
@@ -79,34 +106,44 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         pd->graphics->drawLine(hx, top + 4, hx + 3, top + 8, 1, kColorBlack);
     }
 
+    /* every instrument, right-justified, in every mode: boat speed, heading, heel, wind speed, then AP and AT
+       icons to their left; positions come from the measured text widths */
     pd->graphics->setDrawMode(kDrawModeFillWhite);
-    if (hud_shows_nav(mode)) {
-        /* speed, heading and heel in fixed-width cells separated by 1px lines; the AWS number sits by the dial */
-        snprintf(line, sizeof line, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
-        text(pd, line, HUD_MODE_W + HUD_PAD, ty);
-        pd->graphics->drawLine(HUD_SPEED_END, top, HUD_SPEED_END, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "HDG %03d", hud_heading_deg(b->heading));
-        text(pd, line, HUD_SPEED_END + HUD_PAD, ty);
-        pd->graphics->drawLine(HUD_HDG_END, top, HUD_HDG_END, CAM_H - 1, 1, kColorWhite);
-        snprintf(line, sizeof line, "HEEL %+.0f", (double)(b->heel * 57.29578f));
-        text(pd, line, HUD_HDG_END + HUD_PAD, ty);
-        snprintf(line, sizeof line, "%.0f", (double)b->aws);
-        text(pd, line, CAM_W - 12 - 8 - 26, ty);
-    } else if (mode == MODE_TRIM || mode == MODE_HOIST) {
-        /* selected sail: its name, then the trim or hoist bar */
-        snprintf(line, sizeof line, "%.8s", n > 0 ? g->boat.sails[si].name : "");
-        text(pd, line, HUD_MODE_W + HUD_PAD, ty);
-        const float f = hud_sail_fraction(mode, &g->boat.sails[si], b->trims[si], b->hoists[si]);
-        pd->graphics->drawRect(HUD_MODE_W + 54, top + 6, 74, 8, kColorWhite);
-        pd->graphics->fillRect(HUD_MODE_W + 56, top + 8, (int)(70.0f * f), 4, kColorWhite);
-    }
-
+    char spd[16], hdg[8], heel[8], aws[8], apt[8];
+    snprintf(spd, sizeof spd, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
+    snprintf(hdg, sizeof hdg, "%03d", hud_heading_deg(b->heading));
+    snprintf(heel, sizeof heel, "%+.0f", (double)(b->heel * 57.29578f));
+    snprintf(aws, sizeof aws, "%.0f", (double)b->aws);
+    snprintf(apt, sizeof apt, "%03d", hud_heading_deg(g->ap.target));
+    /* slots are sized for the widest value of each instrument, so the cluster does not move as digits change;
+       each live number is right-aligned in its slot */
+    const int w_aws = text_w(pd, "888"), w_hdg = text_w(pd, "888"), w_spd = text_w(pd, "88.8kn");
+    const int w_heel = text_w(pd, "+88") > text_w(pd, "-88") ? text_w(pd, "+88") : text_w(pd, "-88");
+    const HudCluster cl = hud_cluster_layout(w_aws, w_heel, w_hdg, w_spd, w_hdg, g->at.on, g->ap.on);
     const int iy = top + HUD_H / 2;
-    if (g->at.on) icon_gear(pd, 274, iy);
+    for (int i = 0; i < cl.nsep; i++) pd->graphics->drawLine(cl.sep[i], top, cl.sep[i], CAM_H - 1, 1, kColorWhite);
+    text(pd, aws, hud_slot_text_x(cl.aws_x, w_aws, text_w(pd, aws)), ty);
+    text(pd, heel, hud_slot_text_x(cl.heel_x, w_heel, text_w(pd, heel)), ty);
+    icon_heel(pd, cl.heel_icon_x, iy);
+    text(pd, hdg, hud_slot_text_x(cl.hdg_x, w_hdg, text_w(pd, hdg)), ty);
+    icon_heading(pd, cl.hdg_icon_x, iy);
+    text(pd, spd, hud_slot_text_x(cl.speed_x, w_spd, text_w(pd, spd)), ty);
+    if (g->at.on) icon_gear(pd, cl.at_icon_x + HUD_ICON_AT_W / 2, iy);
     if (g->ap.on) {
-        icon_compass(pd, 298, iy);
-        snprintf(line, sizeof line, "%03d", hud_heading_deg(g->ap.target));
-        text(pd, line, 308, ty);
+        icon_compass(pd, cl.ap_icon_x + HUD_ICON_AP_W / 2, iy);
+        text(pd, apt, hud_slot_text_x(cl.ap_x, w_hdg, text_w(pd, apt)), ty);
+    }
+    if ((mode == MODE_TRIM || mode == MODE_HOIST) && n > 0) {
+        /* selected sail: its name (when it fits) and the trim or hoist bar, in the room left of the cluster;
+           `cl.left` no longer changes with the digits, so the bar keeps one width */
+        snprintf(line, sizeof line, "%.8s", g->boat.sails[si].name);
+        int bx, bw;
+        if (hud_sail_bar_span(text_w(pd, line), cl.left, &bx, &bw)) text(pd, line, HUD_MODE_W + HUD_PAD, ty);
+        if (bw > 0) {
+            const float f = hud_sail_fraction(mode, &g->boat.sails[si], b->trims[si], b->hoists[si]);
+            pd->graphics->drawRect(bx, top + 6, bw, 8, kColorWhite);
+            pd->graphics->fillRect(bx + 2, top + 8, (int)((bw - 4) * f), 4, kColorWhite);
+        }
     }
 
     /* apparent wind dial, relative to the view: up is where the camera looks, the notch marks the bow and

@@ -60,6 +60,7 @@ parity: $(BUILD)/parity $(BUILD)/parity.js
 
 jstest:
 	$(NODE) --test test/*.test.mjs
+	$(NODE) test/hud-bar.mjs
 
 smoke: all
 	$(NODE) test/smoke.mjs $(DIST)

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "render.h"
+#include "app.h"
 #include "hudinfo.h"
 #include "mathx.h"
 #include "praise.h"
@@ -297,7 +298,7 @@ void hud_prompt(PlaydateAPI *pd, const Game *g) {
         return;
     }
     if (g->run == RUN_SAILING) return;
-    const char *head = g->run == RUN_CAPSIZED ? "CAPSIZED" : "WRECKED";
+    const char *head = "CAPSIZED";
     pd->graphics->fillRect(90, 80, 220, 64, kColorBlack);
     pd->graphics->drawRect(94, 84, 212, 56, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeFillWhite);
@@ -318,19 +319,22 @@ void hud_back_confirm(PlaydateAPI *pd) {
 }
 
 void hud_demo_end(PlaydateAPI *pd) {
-    static const char *const lines[] = { "Thanks for playing the demo", "Back to the home screen...", "A: continue" };
-    pd->graphics->fillRect(60, 76, 280, 72, kColorBlack);
-    pd->graphics->drawRect(64, 80, 272, 64, kColorWhite);
+    static const char *const lines[] = { "Thanks for playing the demo", "If you like it, please consider",
+                                         "purchasing the full version", "A: close now" };
+    const int n = (int)(sizeof lines / sizeof lines[0]);
+    pd->graphics->fillRect(60, 68, 280, 88, kColorBlack);
+    pd->graphics->drawRect(64, 72, 272, 80, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeFillWhite);
-    for (int i = 0; i < 3; i++) text(pd, lines[i], 200 - (int)strlen(lines[i]) * 4, 88 + i * 16);   /* 8 px a character, centred */
+    for (int i = 0; i < n; i++) text(pd, lines[i], 200 - (int)strlen(lines[i]) * 4, 80 + i * 16);   /* 8 px a character, centred */
     pd->graphics->setDrawMode(kDrawModeCopy);
 }
 
 /* Course map in the pause panel: north-up, x north / y east in the track frame. */
 #define MAP_L 2
-#define MAP_T 62
+#define MAP_T map_top
 #define MAP_W 194
-#define MAP_H 174
+#define MAP_H (236 - map_top)
+static int map_top = 62;   /* below the panel's rows: three of them, or four with the demo clock */
 
 typedef struct { float cx, cy, scale, x0, y0; } MapView;
 
@@ -497,6 +501,17 @@ void hud_pause_panel(PlaydateAPI *pd, const Game *g) {
     int y = 6;
     pd->graphics->clear(kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
+    map_top = 62;
+    if (app_is_demo()) {
+        /* the demo clock, from the moment the game was opened, against the demo's limit */
+        char limit[16];
+        hud_fmt_time(app_demo_elapsed(), time, sizeof time);
+        hud_fmt_time(APP_DEMO_SECONDS, limit, sizeof limit);
+        snprintf(line, sizeof line, "Demo %s / %s", time, limit);
+        text(pd, line, 4, y);
+        y += 18;
+        map_top += 18;
+    }
     if (g->mode == GAME_JOURNEY) {
         const Journey *j = &g->journey;
         const JourneyBuoy *b = journey_next(j);

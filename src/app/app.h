@@ -21,22 +21,24 @@
 #define APP_HELP_COLS 44
 
 /* Demo build (compile with -DDEMO; make DEMO=1): only Free Range and the APP_DEMO_TRACK race can be started
- * (Journey and the other courses are shown but locked), and each run lasts APP_DEMO_SECONDS of sailing. Then the thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the
- * game returns to the home screen. The locked rows stay on the menu, dimmed and out of reach. */
-#define APP_DEMO_SECONDS 300.0f
+ * (Journey and the other courses are shown but locked). The demo lasts APP_DEMO_SECONDS from the moment the game
+ * is opened: the home screen, the runs and the pause menu all count. When the time is up, on whatever screen, the
+ * thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the game closes back to the system launcher (the
+ * web build, which cannot close, goes to the home screen). The locked rows stay on the menu, dimmed and out of reach. */
+#define APP_DEMO_SECONDS 60.0f   /* one minute while the limit is being tested; the release demo had 300 */
 #define APP_DEMO_END_SECONDS 6.0f
 #define APP_DEMO_TRACK "Two Buoys 100m"   /* the one course the demo races, by its "name" in tracks/ */
 #define APP_DEMO_MESSAGE "Thanks for playing the demo"
 bool app_is_demo(void);
-/* Sailing seconds left in the demo run; 0 outside a demo build. */
-float app_demo_left(void);
+/* Seconds since the game was opened (the demo clock); 0 outside a demo build. */
+float app_demo_elapsed(void);
 
 typedef enum {
     APP_DRAW_NONE,      /* leave the screen as it is (the menu shows from the next frame) */
     APP_DRAW_MENU,      /* the main menu */
     APP_DRAW_PLAY,      /* the run */
     APP_DRAW_CONFIRM,   /* the run, frozen, with the "go back" box over it */
-    APP_DRAW_DEMO_END   /* the run, frozen, with "Thanks for playing the demo" over it (demo build only) */
+    APP_DRAW_DEMO_END   /* the run, frozen, with "Thanks for playing the demo" over it, then the game closes (demo build only) */
 } AppDraw;
 
 /* Loads tracks, best times, boats, help and the first boat, then opens the main menu. p must outlive the app. */

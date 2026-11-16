@@ -25,6 +25,10 @@ static void pf_close(void *f) { pd->file->close(f); }
 static void pf_list(const char *dir, void (*cb)(const char *, void *), void *ud) { pd->file->listfiles(dir, cb, ud, 0); }
 static void *pf_realloc(void *ptr, size_t size) { return pd->system->realloc(ptr, size); }
 static void pf_reset_time(void) { pd->system->resetElapsedTime(); }
+static uint32_t pf_now_ms(void) { return pd->system->getCurrentTimeMilliseconds(); }
+static void pf_exit_app(void) {
+    if (pd->system->exitToLauncher) pd->system->exitToLauncher();
+}
 static uint32_t pf_seed(uint32_t counter) {
 #ifdef SCENARIO
     return scenario_seed(counter);
@@ -52,7 +56,8 @@ static void pf_sys_menu(bool racing, int boat, int preset) {
 
 static Platform plat = {
     .open = pf_open, .read = pf_read, .write = pf_write, .close = pf_close, .listfiles = pf_list,
-    .realloc = pf_realloc, .seed = pf_seed, .reset_time = pf_reset_time,
+    .realloc = pf_realloc, .seed = pf_seed, .reset_time = pf_reset_time, .now_ms = pf_now_ms,
+    .exit_app = pf_exit_app,
     .audio_set_level = audio_set_level, .audio_set_active = audio_set_active, .audio_update = audio_update,
     .sys_menu = pf_sys_menu,
 };
@@ -184,8 +189,9 @@ static int update(void *ud) {
 #endif
 
     const AppDraw d = app_step((uint32_t)pushed, (uint32_t)cur, crank, dt);
-    if (d == APP_DRAW_MENU) {
+    if (d == APP_DRAW_MENU || (d == APP_DRAW_DEMO_END && !app_playing())) {
         menu_draw(pd, app_menu(), app_tracks(), app_best(), app_boat_best(), app_help());
+        if (d == APP_DRAW_DEMO_END) hud_demo_end(pd);   /* the time ran out on the home screen */
     } else if (d == APP_DRAW_PLAY || d == APP_DRAW_CONFIRM || d == APP_DRAW_DEMO_END) {
 #ifdef SCENARIO
         render_frame(pd, app_game(), fix_on ? &fix_cam : app_camera(), app_ghost_opponent());

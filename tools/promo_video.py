@@ -32,7 +32,7 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W, H, FB_BYTES = 400, 240, 50 * 240
 FPS = 30
-WEATHERS = ["mist", "sunny", "cloudy", "choppy", "rollers", "storm", "hurricane"]   # weather.h order
+WEATHERS = ["mist", "sunny", "hazy", "choppy", "rollers", "storm", "hurricane"]   # weather.h order
 PALETTES = {
     "bw": ((0, 0, 0), (255, 255, 255)),
     # the Playdate's unlit memory-LCD: dark grey-brown on warm grey

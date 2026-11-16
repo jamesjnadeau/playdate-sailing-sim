@@ -49,9 +49,9 @@ static void test_same_seed_identical_different_seed_differs(void) {
     float *a = malloc(sizeof(float) * (size_t)n), *ad = malloc(sizeof(float) * (size_t)n);
     float *b = malloc(sizeof(float) * (size_t)n), *bd = malloc(sizeof(float) * (size_t)n);
     float *c = malloc(sizeof(float) * (size_t)n), *cd = malloc(sizeof(float) * (size_t)n);
-    run(WEATHER_CLOUDY, 42, a, ad, n);
-    run(WEATHER_CLOUDY, 42, b, bd, n);
-    run(WEATHER_CLOUDY, 43, c, cd, n);
+    run(WEATHER_HAZY, 42, a, ad, n);
+    run(WEATHER_HAZY, 42, b, bd, n);
+    run(WEATHER_HAZY, 43, c, cd, n);
     T_ASSERT(memcmp(a, b, sizeof(float) * (size_t)n) == 0);
     T_ASSERT(memcmp(ad, bd, sizeof(float) * (size_t)n) == 0);
     int diff = 0;
@@ -221,7 +221,7 @@ static void test_blend_midpoint_linear(void) {
 static void test_journey_default_mask(void) {
     unsigned m = WEATHER_JOURNEY_DEFAULT;
     T_ASSERT(m & (1u << WEATHER_SUNNY));
-    T_ASSERT(m & (1u << WEATHER_CLOUDY));
+    T_ASSERT(m & (1u << WEATHER_HAZY));
     T_ASSERT(m & (1u << WEATHER_CHOPPY));
     T_ASSERT(m & (1u << WEATHER_ROLLERS));
     T_ASSERT(m & (1u << WEATHER_STORM));

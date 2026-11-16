@@ -2,6 +2,7 @@
 # Build SailingSim.pdx for the Playdate hardware and install it over USB.
 #
 #   tools/deploy.sh [--port /dev/ttyACM0] [--no-run] [--keep-mounted]
+#   DEMO=1 tools/deploy.sh    # the demo build, SailingSimDemo.pdx
 #
 # Needs: arm-none-eabi-gcc (device build), the Playdate SDK (PLAYDATE_SDK_PATH
 # or ~/.Playdate/config), and udisksctl or an already-mounted PLAYDATE volume.
@@ -14,7 +15,7 @@ while [ $# -gt 0 ]; do
         --port) PORT="$2"; shift 2 ;;
         --no-run) RUN=0; shift ;;
         --keep-mounted) KEEP=1; shift ;;
-        -h|--help) sed -n 2,8p "$0"; exit 0 ;;
+        -h|--help) sed -n 2,9p "$0"; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -22,6 +23,8 @@ done
 export PLAYDATE_SDK_PATH="${PLAYDATE_SDK_PATH:-$HOME/Developer/PlaydateSDK-3.1.2}"
 PDUTIL="$PLAYDATE_SDK_PATH/bin/pdutil"
 PDX=SailingSim.pdx
+MAKE_ARGS=()
+if [ "${DEMO:-}" = 1 ]; then PDX=SailingSimDemo.pdx; MAKE_ARGS=(DEMO=1); fi
 LABEL=PLAYDATE
 
 die() { echo "deploy: $*" >&2; exit 1; }
@@ -37,7 +40,7 @@ fi
     die "no Playdate serial port found; plug it in, unlock it, or pass --port"
 
 echo "== building device .pdx"
-make device
+make device "${MAKE_ARGS[@]}"
 [ -d "$PDX" ] || die "$PDX was not produced"
 
 echo "== mounting data disk via $PORT"

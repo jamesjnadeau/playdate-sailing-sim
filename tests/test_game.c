@@ -466,26 +466,26 @@ static void step_until_turning(void) {
 }
 
 static void free_on(int preset) {
-    jfresh(1u << WEATHER_SUNNY | 1u << WEATHER_CLOUDY | 1u << WEATHER_CHOPPY, 1);
+    jfresh(1u << WEATHER_SUNNY | 1u << WEATHER_HAZY | 1u << WEATHER_CHOPPY, 1);
     game_set_preset(&g, preset);
     game_set_track(&g, NULL);
 }
 
 static void test_free_range_holds_its_weather(void) {
-    free_on(WEATHER_CLOUDY);
+    free_on(WEATHER_HAZY);
     T_ASSERT(g.mode == GAME_FREE);
     step_until_turning();
     T_ASSERT(game_weather_turning(&g) == -1);
-    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));
+    T_ASSERT(wx_is(&g, WEATHER_HAZY));
 }
 
 static void test_free_range_turn_blends_then_holds(void) {
-    free_on(WEATHER_CLOUDY);
+    free_on(WEATHER_HAZY);
     game_turn_weather(&g, WEATHER_CHOPPY);
     T_ASSERT(game_weather_turning(&g) == WEATHER_CHOPPY);
-    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));   /* nothing moves until the next frame */
+    T_ASSERT(wx_is(&g, WEATHER_HAZY));   /* nothing moves until the next frame */
     game_update(&g, 0, 0, 0, 1.0f / 30);
-    T_ASSERT(!wx_is(&g, WEATHER_CLOUDY) && !wx_is(&g, WEATHER_CHOPPY));   /* mid-blend */
+    T_ASSERT(!wx_is(&g, WEATHER_HAZY) && !wx_is(&g, WEATHER_CHOPPY));   /* mid-blend */
     for (int i = 0; i < 30 * 3; i++) game_update(&g, 0, 0, 0, 1.0f / 30);   /* blend is 2 s */
     T_ASSERT(game_weather_turning(&g) == -1);
     T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
@@ -497,20 +497,20 @@ static void test_free_range_turn_blends_then_holds(void) {
 
 static void test_free_range_turn_mid_blend_retargets(void) {
     free_on(WEATHER_SUNNY);
-    game_turn_weather(&g, WEATHER_CLOUDY);
+    game_turn_weather(&g, WEATHER_HAZY);
     game_update(&g, 0, 0, 0, 0.5f);
     game_turn_weather(&g, WEATHER_CHOPPY);
-    T_ASSERT(g.shift.from == WEATHER_CLOUDY);
+    T_ASSERT(g.shift.from == WEATHER_HAZY);
     T_ASSERT(game_weather_turning(&g) == WEATHER_CHOPPY);
     for (int i = 0; i < 30 * 3; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
     T_ASSERT(wx_is(&g, WEATHER_CHOPPY));
 }
 
 static void test_free_range_turn_to_same_is_noop(void) {
-    free_on(WEATHER_CLOUDY);
-    game_turn_weather(&g, WEATHER_CLOUDY);
+    free_on(WEATHER_HAZY);
+    game_turn_weather(&g, WEATHER_HAZY);
     T_ASSERT(game_weather_turning(&g) == -1);
-    T_ASSERT(wx_is(&g, WEATHER_CLOUDY));
+    T_ASSERT(wx_is(&g, WEATHER_HAZY));
 }
 
 static void test_journey_start_weather_from_ticks(void) {
@@ -537,10 +537,10 @@ static void test_journey_mask_zero_keeps_preset(void) {
 }
 
 static void test_journey_shift_blends_and_settles(void) {
-    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    const uint32_t mask = (1u << WEATHER_HAZY) | (1u << WEATHER_CHOPPY);
     jfresh(mask, 1);
     const int start = g.preset;
-    const int other = start == WEATHER_CLOUDY ? WEATHER_CHOPPY : WEATHER_CLOUDY;
+    const int other = start == WEATHER_HAZY ? WEATHER_CHOPPY : WEATHER_HAZY;
     const float lo = fminf(g.weather.preset[start].wind_base, g.weather.preset[other].wind_base);
     const float hi = fmaxf(g.weather.preset[start].wind_base, g.weather.preset[other].wind_base);
     const float dir0 = g.wind.dir0;
@@ -574,7 +574,7 @@ static void test_journey_shift_blends_and_settles(void) {
 }
 
 static void test_restart_mid_blend_is_clean(void) {   /* RF1 */
-    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    const uint32_t mask = (1u << WEATHER_HAZY) | (1u << WEATHER_CHOPPY);
     jfresh(mask, 1);
     step_until_turning();
     for (int i = 0; i < 20; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
@@ -587,7 +587,7 @@ static void test_restart_mid_blend_is_clean(void) {   /* RF1 */
 }
 
 static void test_leaving_journey_mid_blend(void) {   /* RF2 */
-    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    const uint32_t mask = (1u << WEATHER_HAZY) | (1u << WEATHER_CHOPPY);
     jfresh(mask, 1);
     step_until_turning();
     for (int i = 0; i < 20; i++) game_update(&g, 0, 0, 0, 1.0f / 30);
@@ -606,7 +606,7 @@ static void test_leaving_journey_mid_blend(void) {   /* RF2 */
 }
 
 static void test_recentre_during_blend(void) {   /* RF3 */
-    const uint32_t mask = (1u << WEATHER_CLOUDY) | (1u << WEATHER_CHOPPY);
+    const uint32_t mask = (1u << WEATHER_HAZY) | (1u << WEATHER_CHOPPY);
     jfresh(mask, 1);
     step_until_turning();
     for (int i = 0; i < 27; i++) game_update(&g, 0, 0, 0, 1.0f / 30);   /* near mid-blend, where k is furthest from both seas */

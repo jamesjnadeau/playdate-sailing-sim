@@ -20,7 +20,7 @@ static void test_neighbour_ends_go_one_way(void) {
 }
 
 static void test_neighbour_single_tick_none(void) {
-    T_ASSERT(wshift_neighbour(BIT(WEATHER_CLOUDY), WEATHER_CLOUDY, 0.3f) == -1);
+    T_ASSERT(wshift_neighbour(BIT(WEATHER_HAZY), WEATHER_HAZY, 0.3f) == -1);
 }
 
 static void test_init_start_is_ticked_and_varies(void) {
@@ -28,7 +28,7 @@ static void test_init_start_is_ticked_and_varies(void) {
     unsigned seen = 0;
     for (uint32_t seed = 1; seed <= 50; seed++) {
         WeatherShift s;
-        int p = wshift_init(&s, m, WEATHER_CLOUDY, seed, 60, 180);
+        int p = wshift_init(&s, m, WEATHER_HAZY, seed, 60, 180);
         T_ASSERT(p >= 0 && p < WEATHER_PRESETS && (m & BIT(p)));
         T_ASSERT(s.from == p && s.to == p && s.progress == 1.0f);
         seen |= BIT(p);
@@ -48,7 +48,7 @@ static void test_init_empty_mask_uses_fallback(void) {
 static void test_gap_within_range(void) {
     for (uint32_t seed = 1; seed <= 200; seed++) {
         WeatherShift s;
-        wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_CLOUDY, seed, 60, 180);
+        wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_HAZY, seed, 60, 180);
         T_ASSERT(s.gap >= 60 && s.gap <= 180);
         int ends = 0;
         for (int i = 0; i < 100000 && ends < 3; i++)
@@ -62,14 +62,14 @@ static void test_gap_within_range(void) {
 
 static void test_single_tick_never_shifts(void) {
     WeatherShift s;
-    wshift_init(&s, BIT(WEATHER_CLOUDY), WEATHER_CLOUDY, 9, 60, 180);
+    wshift_init(&s, BIT(WEATHER_HAZY), WEATHER_HAZY, 9, 60, 180);
     for (int i = 0; i < 30000; i++) T_ASSERT(wshift_step(&s, DT, 60, 180, 10) == WSHIFT_NONE);
-    T_ASSERT(s.from == WEATHER_CLOUDY && s.to == WEATHER_CLOUDY);
+    T_ASSERT(s.from == WEATHER_HAZY && s.to == WEATHER_HAZY);
 }
 
 static void test_blend_lifecycle(void) {
     WeatherShift s;
-    wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_CLOUDY, 4, 5, 5);
+    wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_HAZY, 4, 5, 5);
     float t = 0, started = -1, ended = -1, next = -1;
     for (int i = 0; i < 30 * 40 && next < 0; i++) {
         WShiftEvent e = wshift_step(&s, DT, 5, 5, 2);
@@ -92,7 +92,7 @@ static void test_blend_lifecycle(void) {
 
 static void test_long_frames_clamp_progress(void) {
     WeatherShift s;
-    wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_CLOUDY, 4, 1, 1);
+    wshift_init(&s, WEATHER_JOURNEY_DEFAULT, WEATHER_HAZY, 4, 1, 1);
     int ends = 0;
     while (wshift_step(&s, 0.5f, 1, 1, 0.25f) != WSHIFT_START) {}
     for (int i = 0; i < 50 && !ends; i++) {

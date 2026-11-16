@@ -26,6 +26,10 @@ typedef struct {
     void (*log)(const char *fmt, ...);
     uint32_t (*seed)(uint32_t restart_count);          /* the seed for a fresh run */
     void (*reset_time)(void);                          /* after a slow load, so the next dt is short */
+    /* Milliseconds on a steady clock, for the demo's time limit. NULL: the app adds up the frames' dt instead,
+       which misses whatever reset_time skips. */
+    uint32_t (*now_ms)(void);
+    void (*exit_app)(void);                            /* close the game (the end of the demo); NULL: cannot */
     void (*audio_set_level)(int level);
     void (*audio_set_active)(bool active);
     void (*audio_update)(const Game *g, float dt);     /* g NULL: no run on screen */

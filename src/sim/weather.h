@@ -6,7 +6,7 @@
 #include "mathx.h"
 
 /* Lightest wind first, so the menus read in order of wind speed. */
-enum { WEATHER_MIST, WEATHER_SUNNY, WEATHER_CLOUDY, WEATHER_CHOPPY, WEATHER_ROLLERS, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_PRESETS };
+enum { WEATHER_MIST, WEATHER_SUNNY, WEATHER_HAZY, WEATHER_CHOPPY, WEATHER_ROLLERS, WEATHER_STORM, WEATHER_HURRICANE, WEATHER_PRESETS };
 
 /* Journey's default ticked weathers: all but mist and hurricane. */
 #define WEATHER_JOURNEY_DEFAULT (((1u << WEATHER_PRESETS) - 1u) & ~((1u << WEATHER_MIST) | (1u << WEATHER_HURRICANE)))

@@ -53,7 +53,8 @@ static bool lesson_on;   /* the sailing lesson is the run on screen */
 #else
 #define DEMO_BUILD false
 #endif
-static float demo_left;       /* sailing seconds left in this demo run */
+static float demo_elapsed;    /* seconds since the game was opened */
+static uint32_t demo_start_ms;   /* P->now_ms() when it was, if the platform has a clock */
 static bool track_demo_ok[TRACKS_MAX];   /* demo build: the one course that may be raced */
 static float demo_end_left;   /* seconds left on the thank-you box; > 0 once the demo run is over */
 
@@ -313,6 +314,28 @@ static void journey_cull(Game *g, const CameraPose *c) {
 
 AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     warn_shown = false;
+    if (DEMO_BUILD) demo_elapsed = P->now_ms ? (float)(P->now_ms() - demo_start_ms) / 1000.0f : demo_elapsed + dt;
+    if (DEMO_BUILD && demo_end_left > 0.0f) {
+        /* the demo is over: the thank-you box stays up, then the game closes */
+        demo_end_left -= dt;
+        if ((pushed & BTN_A) || demo_end_left <= 0.0f) {
+            demo_end_left = 0.0f;
+            back_asked = false;
+            if (P->exit_app) {
+                P->exit_app();
+                return APP_DRAW_DEMO_END;   /* the box stays on screen while the system closes the game */
+            }
+            show_menu();   /* a platform that cannot close the game goes home instead */
+            return APP_DRAW_NONE;
+        }
+        return APP_DRAW_DEMO_END;
+    }
+    if (DEMO_BUILD && demo_elapsed >= APP_DEMO_SECONDS) {
+        /* time's up wherever the player is: the screen freezes under the thank-you box, even with "go back" up */
+        demo_end_left = APP_DEMO_END_SECONDS;
+        back_asked = false;
+        return APP_DRAW_DEMO_END;
+    }
     if (app == APP_MENU) {
         MenuAction act = menu_update(&menu, pushed);
         if (menu.sound != sound_level) {
@@ -336,16 +359,12 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             lesson_on = true;
             lesson_place();
             sys_menu_build(true);
-            demo_left = APP_DEMO_SECONDS;
-            demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_FREE) {
             game_set_preset(&game, preset_index);
             game_set_track(&game, NULL);
             sys_menu_build(false);
             camera_snap();
-            demo_left = APP_DEMO_SECONDS;
-            demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_RACE) {
             const bool new_boat = menu.boat != boat_index;
@@ -358,8 +377,6 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             ghost_load();
             sys_menu_build(true);
             camera_snap();
-            demo_left = APP_DEMO_SECONDS;
-            demo_end_left = 0.0f;
             app = APP_PLAY;
         } else if (act == MENU_START_JOURNEY) {
             const bool new_boat = menu.boat != boat_index;
@@ -383,17 +400,6 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
         return APP_DRAW_MENU;
     }
 
-    if (DEMO_BUILD && demo_end_left > 0.0f) {
-        /* the demo run is over: the thank-you box stays up, then the home screen */
-        demo_end_left -= dt;
-        if ((pushed & BTN_A) || demo_end_left <= 0.0f) {
-            demo_end_left = 0.0f;
-            back_asked = false;
-            show_menu();
-            return APP_DRAW_NONE;
-        }
-        return APP_DRAW_DEMO_END;
-    }
 
     if (back_asked) {
         /* the run stays frozen until the player answers: A goes to the home screen, B carries on sailing */
@@ -453,14 +459,6 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
     camera_update(&cam, &game, &game.boat, dt);
     if (game.mode == GAME_JOURNEY) journey_cull(&game, &cam);
     P->audio_update(&game, dt);
-    if (DEMO_BUILD) {
-        demo_left -= dt < 0.1f ? dt : 0.1f;   /* a long pause in the system menu is not sailing time */
-        if (demo_left <= 0.0f) {
-            demo_left = 0.0f;
-            demo_end_left = APP_DEMO_END_SECONDS;
-            return APP_DRAW_DEMO_END;
-        }
-    }
     if (warn_left > 0.0f) {
         warn_left -= dt;
         warn_shown = true;
@@ -472,6 +470,7 @@ const char *app_draw_name(AppDraw d) { return d == APP_DRAW_PLAY || d == APP_DRA
 
 void app_init(const Platform *p) {
     P = p;
+    if (P->now_ms) demo_start_ms = P->now_ms();   /* the demo clock starts as the game opens */
     ntracks = tracks_load_all(P, tracks, TRACKS_MAX, track_warn, sizeof track_warn);
     best_load();
     assets_scan_boats(P);
@@ -503,7 +502,7 @@ void app_init(const Platform *p) {
 }
 
 bool app_is_demo(void) { return DEMO_BUILD; }
-float app_demo_left(void) { return DEMO_BUILD && app == APP_PLAY ? demo_left : 0.0f; }
+float app_demo_elapsed(void) { return DEMO_BUILD ? demo_elapsed : 0.0f; }
 bool app_playing(void) { return app == APP_PLAY; }
 const Game *app_game(void) { return &game; }
 Game *app_game_mut(void) { return &game; }

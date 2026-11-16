@@ -11,7 +11,8 @@
 # Every shot is centred on a 1920x1080 canvas WITHOUT scaling when the source is smaller (the promo clips
 # are 1600x960, an exact 4x of the 400x240 screen, so the 1-bit pixels stay crisp) and downscaled only
 # if it is larger. Captions use the game's own Silkscreen font and fade in and out. Shots are joined
-# with hard cuts. Output is H.264 1080p 30 fps; with --music, a track is faded in and out under it.
+# with hard cuts. Output is H.264 1080p 30 fps; with --music, a track replaces the clips' sound, faded in and out.
+# The clips' own sound (the game's sea noise, recorded by promo_video.py) is kept; cards are silent.
 #
 # Options:
 #   --clips DIR      where the clips live (default build/promo)
@@ -77,9 +78,17 @@ shot() {
     vf="$vf,drawtext=fontfile=$FONT:textfile=$cap_file:fontsize=$size:fontcolor=white:line_spacing=12"
     vf="$vf:box=1:boxcolor=black@0.6:boxborderw=18:x=(w-tw)/2:y=$y:alpha='$fade'"
   fi
+  # Sound: a clip's own track gets a short fade at each cut (no clicks); cards and silent clips get silence,
+  # so every shot has the same 48 kHz stereo AAC track and the shots can be joined without re-encoding.
+  local af="afade=t=in:d=0.15,afade=t=out:st=$(awk -v d="$DUR" 'BEGIN{print d - 0.15}'):d=0.15"
   # shellcheck disable=SC2086
-  ffmpeg -nostdin -v error -y $INPUT -t "$DUR" -vf "$vf" -an -c:v libx264 -crf "$CRF" -pix_fmt yuv420p \
-    -preset medium "$WORK/$NAME.mp4"
+  if [ "$HAS_AUDIO" = 1 ]; then
+    ffmpeg -nostdin -v error -y $INPUT -t "$DUR" -vf "$vf" -af "$af" -ar 48000 -ac 2 -c:v libx264 -crf "$CRF" \
+      -pix_fmt yuv420p -preset medium -c:a aac -b:a 192k "$WORK/$NAME.mp4"
+  else
+    ffmpeg -nostdin -v error -y $INPUT -f lavfi -i anullsrc=r=48000:cl=stereo -t "$DUR" -vf "$vf" -shortest \
+      -c:v libx264 -crf "$CRF" -pix_fmt yuv420p -preset medium -c:a aac -b:a 192k "$WORK/$NAME.mp4"
+  fi
 }
 
 # render W H OUTFILE: build every shot at that size and join them
@@ -93,6 +102,7 @@ render() {
     read -r clip start dur cap <<<"$line"
     [ -n "${dur:-}" ] || die "bad storyboard line (want CLIP START DURATION [CAPTION]): $line"
     n=$((n + 1)); NAME="s$(printf %03d "$n")_${W}"; CAP="$cap"; DUR="$dur"
+    HAS_AUDIO=0
     if [ "$clip" = card ]; then
       KIND=card
       INPUT="-f lavfi -i color=c=$PAD:s=${W}x${H}:r=30:d=$dur"
@@ -103,6 +113,7 @@ render() {
       awk -v s="$start" -v d="$dur" -v l="$len" 'BEGIN{exit !(s + d <= l + 0.05)}' \
         || die "$clip is ${len}s long; $start + $dur runs past the end"
       INPUT="-ss $start -i $CLIPS/$clip"
+      [ -n "$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$CLIPS/$clip" </dev/null)" ] && HAS_AUDIO=1
     fi
     echo "  shot $n: $clip ${start}s +${dur}s ${cap:+\"$cap\"}"
     shot

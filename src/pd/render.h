@@ -53,7 +53,7 @@ void hud_lesson(PlaydateAPI *pd, const char *text);
 void hud_back_confirm(PlaydateAPI *pd);
 /* "Thanks for playing the demo" box over the frozen run (demo build). */
 void hud_demo_end(PlaydateAPI *pd);
-/* System pause-menu panel: race time and next-mark info; blank in free sail. */
+/* System pause-menu panel: race time and next-mark info, blank in free sail; the demo build adds its clock on top. */
 void hud_pause_panel(PlaydateAPI *pd, const Game *g);
 
 #endif

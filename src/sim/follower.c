@@ -84,6 +84,19 @@ bool follower_pose(const Follower *f, float behind_m, FollowPose *out) {
     return true;
 }
 
+bool follower_pose_clear(const Follower *f, float behind_m, double cam_x, double cam_y, float min_m, FollowPose *out) {
+    if (f->n < 2) return false;
+    const FollowPose *boat = &f->smp[f->head].p;
+    FollowPose p;
+    for (float d = behind_m; follower_pose(f, d, &p); d += FOLLOW_SLIDE_STEP_M) {
+        if (!follower_near_eye(&p, cam_x, cam_y, min_m) && !follower_near_eye(&p, boat->x, boat->y, min_m)) {
+            *out = p;
+            return true;
+        }
+    }
+    return false;
+}
+
 void follower_shift(Follower *f, double dx, double dy) {
     for (int i = 0; i < f->n; i++) {
         FollowSample *s = &f->smp[wrap_idx(f->head - i)];

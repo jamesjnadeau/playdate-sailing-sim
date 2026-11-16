@@ -354,8 +354,8 @@ AppDraw app_step(uint32_t pushed, uint32_t cur, float crank, float dt) {
             if (new_boat) begin(true);
             else game_set_preset(&game, preset_index);
             game_set_track(&game, &tracks[menu.track]);
+            race_attempt();   /* first: the saved ghost is matched against the course seed it sets */
             ghost_load();
-            race_attempt();
             sys_menu_build(true);
             camera_snap();
             demo_left = APP_DEMO_SECONDS;

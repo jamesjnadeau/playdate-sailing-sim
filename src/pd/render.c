@@ -1683,8 +1683,9 @@ void render_frame(PlaydateAPI *pd, const Game *g, const CameraPose *c, Ghost *gh
     draw_spray(pd, g, c);
     if (ghost && g->mode == GAME_RACE) draw_ghost(pd, g, c, ghost);
     FollowPose follow_pose;
-    if (follower_on && g->mode != GAME_RACE && follower_pose(&g->follow, FOLLOW_DISTANCE_M, &follow_pose) &&
-        !follower_near_eye(&follow_pose, c->x, c->y, FOLLOW_EYE_MIN_M))
+    /* the trailing ghost drops further back rather than sit on the boat or fill the view; the race ghost may come close */
+    if (follower_on && g->mode != GAME_RACE &&
+        follower_pose_clear(&g->follow, FOLLOW_DISTANCE_M, c->x, c->y, FOLLOW_EYE_MIN_M, &follow_pose))
         draw_ghost_pose(pd, g, c, &follow_pose);
     /* the promo buoy goes behind the boat when it is farther away than the boat's centre, else on top */
     MarkDraw prop;

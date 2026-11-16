@@ -132,6 +132,46 @@ static void test_too_close_to_the_camera(void) {
     T_ASSERT(follower_near_eye(&p, 0.0, 0.0, FOLLOW_EYE_MIN_M));
 }
 
+/* Out along y = 0, a 4 m jog, then back towards the start: 30 m of path behind lands near the boat and the camera. */
+static void out_and_back(Follower *f) {
+    follower_clear(f);
+    for (double x = 10.0; x <= 50.0 + 1e-9; x += 0.25) rec(f, x, 0, 0);
+    for (double y = 0.25; y <= 4.0 + 1e-9; y += 0.25) rec(f, 50.0, y, 1.57f);
+    for (double x = 49.75; x >= 42.0 - 1e-9; x -= 0.25) rec(f, x, 4.0, 3.14f);
+}
+
+static void test_clear_pose_slides_back_from_the_boat_and_camera(void) {
+    Follower f;
+    FollowPose p;
+    out_and_back(&f);
+    T_ASSERT(follower_pose(&f, 30, &p));
+    T_ASSERT(follower_near_eye(&p, 50.0, 4.0, FOLLOW_EYE_MIN_M));   /* the plain pose is too close */
+    T_ASSERT(follower_pose_clear(&f, 30, 50.0, 4.0, FOLLOW_EYE_MIN_M, &p));
+    T_ASSERT(!follower_near_eye(&p, 50.0, 4.0, FOLLOW_EYE_MIN_M));
+    T_ASSERT(!follower_near_eye(&p, 42.0, 4.0, FOLLOW_EYE_MIN_M));
+    T_NEAR(p.y, 0.0, 1e-6);
+    T_ASSERT(p.x > 20.0 && p.x < 23.0);   /* only as far back as it needs */
+}
+
+static void test_clear_pose_matches_the_plain_one_on_a_straight(void) {
+    Follower f;
+    FollowPose a, b;
+    follower_clear(&f);
+    run_x(&f, 0.1, 50.0, 0.1);
+    T_ASSERT(follower_pose(&f, 30, &a));
+    T_ASSERT(follower_pose_clear(&f, 30, 42.0, 0.0, FOLLOW_EYE_MIN_M, &b));
+    T_NEAR(b.x, a.x, 1e-9);
+}
+
+static void test_clear_pose_gives_up_when_the_trail_runs_out(void) {
+    Follower f;
+    FollowPose p;
+    follower_clear(&f);
+    for (double x = 0.25; x <= 20.0 + 1e-9; x += 0.25) rec(&f, x, 0, 0);
+    for (double x = 19.75; x >= 0.0 - 1e-9; x -= 0.25) rec(&f, x, 1.0, 3.14f);   /* back alongside its own track */
+    T_ASSERT(!follower_pose_clear(&f, 30, 5.0, 1.0, FOLLOW_EYE_MIN_M, &p));
+}
+
 static Game g;
 static BoatCfg bc;
 static WeatherCfg wcfg;
@@ -232,6 +272,9 @@ int main(void) {
     T_RUN(test_dense_records_overwrite_the_head);
     T_RUN(test_ring_wraps);
     T_RUN(test_at_rest_stays_put);
+    T_RUN(test_clear_pose_slides_back_from_the_boat_and_camera);
+    T_RUN(test_clear_pose_matches_the_plain_one_on_a_straight);
+    T_RUN(test_clear_pose_gives_up_when_the_trail_runs_out);
     T_RUN(test_shift_moves_the_trail);
     T_RUN(test_too_close_to_the_camera);
     T_RUN(test_journey_records_and_ghost_appears);

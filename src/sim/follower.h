@@ -11,6 +11,7 @@
 #define FOLLOW_STEP_M 0.25
 #define FOLLOW_DISTANCE_M 30.0f
 #define FOLLOW_EYE_MIN_M 20.0f   /* nearer the camera than this, the ghost would fill the view */
+#define FOLLOW_SLIDE_STEP_M 2.0f /* how far back along the trail each try for a clear spot moves */
 
 typedef struct {
     double x, y;                       /* m, local (game) frame */
@@ -31,6 +32,10 @@ void follower_clear(Follower *f);
 void follower_record(Follower *f, const BoatState *b);
 /* Pose `behind_m` of path length behind the newest sample; false until the trail is that long. */
 bool follower_pose(const Follower *f, float behind_m, FollowPose *out);
+/* Like follower_pose, but where that spot is within `min_m` of the camera or of the boat (the newest sample),
+ * the ghost drops further back along the trail until it is clear of both; false when the trail has no clear
+ * spot (a tight turn back alongside its own track) or is not yet `behind_m` long. */
+bool follower_pose_clear(const Follower *f, float behind_m, double cam_x, double cam_y, float min_m, FollowPose *out);
 /* Floating-origin shift: subtract (dx, dy) from every held sample. */
 void follower_shift(Follower *f, double dx, double dy);
 

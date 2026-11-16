@@ -100,3 +100,17 @@ float hud_dial_angle(float angle_from_bow, float look_yaw) {
     if (!isfinite(look_yaw)) look_yaw = 0.0f;
     return wrap_pi(angle_from_bow - look_yaw);
 }
+
+float hud_true_wind_from_bow(float heading, float wind_dir) {
+    if (!isfinite(heading) || !isfinite(wind_dir)) return 0.0f;
+    return wrap_pi(wind_dir + 3.14159265f - heading);
+}
+
+bool hud_no_go_pixel(int dx, int dy, int r, float center, float half) {
+    if (!isfinite(center) || !isfinite(half) || half <= 0.0f) return false;
+    if (dx == 0 && dy == 0) return false;
+    if (dx * dx + dy * dy >= (r - 1) * (r - 1)) return false;
+    if (((dx + dy) & 1) != 0) return false;
+    /* small slack so pixels exactly on an edge (diagonals at 45 deg) count the same whichever way the wedge faces */
+    return fabsf(wrap_pi(atan2f((float)dx, (float)-dy) - center)) < half + 1e-4f;
+}

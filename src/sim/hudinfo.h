@@ -66,5 +66,12 @@ const char *hud_engine_text(bool running);
  * `angle_from_bow` (rad, + = starboard of the bow) while the view faces `look_yaw` (rad, + = toward
  * starboard). Non-finite look_yaw counts as 0; non-finite angle_from_bow -> 0. */
 float hud_dial_angle(float angle_from_bow, float look_yaw);
+/* True wind's from-direction relative to the bow, in (-pi, pi]: 0 = head to wind.
+ * wind_dir is where the wind blows toward. 0 for a non-finite input. */
+float hud_true_wind_from_bow(float heading, float wind_dir);
+/* Is pixel (dx, dy) off the dial centre (screen y down) part of the no-go wedge?
+ * centre: wedge direction on the dial (0 = up, clockwise); half: half-angle.
+ * Lights a 50% checkerboard strictly inside a ring of radius r. */
+bool hud_no_go_pixel(int dx, int dy, int r, float center, float half);
 
 #endif

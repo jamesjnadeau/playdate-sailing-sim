@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include "hudinfo.h"
+#include "boat.h"
 #include "mathx.h"
 
 static void test_heading_wraps_and_rounds(void) {
@@ -111,6 +112,71 @@ static void test_dial_angle_non_finite(void) {
     T_NEAR(hud_dial_angle(0.7f, INFINITY), 0.7, 1e-6);
 }
 
+static void test_true_wind_matches_apparent_when_stopped(void) {
+    const float headings[] = { 0.4f, -2.5f };
+    for (int i = 0; i < 2; i++) {
+        BoatState b; memset(&b, 0, sizeof b);
+        b.heading = headings[i];
+        Wind w; memset(&w, 0, sizeof w);
+        w.dir = 2.0f; w.speed = 6.0f;
+        float awa, aws;
+        boat_apparent_wind(&b, &w, &awa, &aws);
+        T_NEAR(hud_true_wind_from_bow(headings[i], 2.0f), awa, 1e-5);
+    }
+}
+
+static void test_true_wind_head_to_wind(void) {
+    T_NEAR(hud_true_wind_from_bow(1.0f, wrap_pi(1.0f + 3.14159265f)), 0.0, 1e-5);
+}
+
+static void test_true_wind_non_finite(void) {
+    T_NEAR(hud_true_wind_from_bow(NAN, 1.0f), 0.0, 1e-6);
+    T_NEAR(hud_true_wind_from_bow(0.5f, INFINITY), 0.0, 1e-6);
+}
+
+/* count lit wedge pixels over the dial's square; side < 0: all lit pixels must have dy < 0, > 0: dy > 0 */
+static int count_no_go(int r, float center, float half, int side) {
+    int n = 0;
+    for (int dy = -r; dy <= r; dy++)
+        for (int dx = -r; dx <= r; dx++)
+            if (hud_no_go_pixel(dx, dy, r, center, half)) {
+                n++;
+                if (side < 0) T_ASSERT(dy < 0);
+                if (side > 0) T_ASSERT(dy > 0);
+            }
+    return n;
+}
+
+static void test_no_go_pixels_42_deg_on_playdate_dial(void) {
+    T_ASSERT(count_no_go(8, 0.0f, deg2rad(42.0f), -1) > 0);
+}
+
+static void test_no_go_pixels_symmetric_across_wrap(void) {
+    int down = count_no_go(8, 3.14159265f, deg2rad(45.0f), 1);
+    T_ASSERT(down > 0);
+    T_ASSERT(down == count_no_go(8, 0.0f, deg2rad(45.0f), -1));
+    T_ASSERT(count_no_go(8, -3.14159265f, deg2rad(45.0f), 1) == down);
+}
+
+static void test_no_go_pixels_stay_inside_ring(void) {
+    const int r = 8;
+    for (int dy = -r; dy <= r; dy++)
+        for (int dx = -r; dx <= r; dx++)
+            if (hud_no_go_pixel(dx, dy, r, 0.3f, deg2rad(90.0f)))
+                T_ASSERT(dx * dx + dy * dy < (r - 1) * (r - 1));
+    T_ASSERT(!hud_no_go_pixel(0, 0, r, 0.0f, deg2rad(90.0f)));
+}
+
+static void test_no_go_pixels_degenerate(void) {
+    T_ASSERT(count_no_go(8, 0.0f, 0.0f, 0) == 0);
+    T_ASSERT(count_no_go(8, 0.0f, NAN, 0) == 0);
+    T_ASSERT(count_no_go(8, NAN, deg2rad(45.0f), 0) == 0);
+    T_ASSERT(count_no_go(8, 3.14159265f / 2.0f, 3.14159265f / 2.0f, 0) > 0);
+    int side_lit = 0;   /* a 90-degree half facing up also lights pixels level with the centre's sides... */
+    for (int dx = -8; dx <= 8; dx++) side_lit += hud_no_go_pixel(dx, 1, 8, 0.0f, 3.14159265f / 2.0f);
+    T_ASSERT(side_lit == 0);  /* ...but none below them */
+}
+
 static void test_engine_text_while_running(void) {
     T_ASSERT(hud_engine_text(true) != NULL);
     T_ASSERT(strstr(hud_engine_text(true), "ENGINE ENGAGED") != NULL);
@@ -200,5 +266,12 @@ int main(void) {
     T_RUN(test_dial_angle_rotates_against_the_look);
     T_RUN(test_dial_angle_behind_and_wraps);
     T_RUN(test_dial_angle_non_finite);
+    T_RUN(test_true_wind_matches_apparent_when_stopped);
+    T_RUN(test_true_wind_head_to_wind);
+    T_RUN(test_true_wind_non_finite);
+    T_RUN(test_no_go_pixels_42_deg_on_playdate_dial);
+    T_RUN(test_no_go_pixels_symmetric_across_wrap);
+    T_RUN(test_no_go_pixels_stay_inside_ring);
+    T_RUN(test_no_go_pixels_degenerate);
     return T_DONE();
 }

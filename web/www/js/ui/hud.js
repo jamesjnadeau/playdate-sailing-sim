@@ -21,15 +21,22 @@ export class Hud {
       <div class="hud-box" hidden><div class="head"></div><div class="line"></div><div class="act"></div></div>
       <div class="hud-bar">
         <div class="cell mode"><span class="word"></span><span class="vert" title="crank raises and lowers the view">&#8597;</span></div>
-        <div class="nav">
-          <div class="cell"><span class="speed"></span><small>kn</small></div>
-          <div class="cell"><small>HDG</small><span class="hdg"></span></div>
-          <div class="cell"><small>HEEL</small><span class="heel"></span></div>
-        </div>
-        <div class="sail"><span class="sail-name"></span><div class="sail-bar"><div class="fill"></div></div></div>
+        <div class="sail" hidden><span class="sail-name"></span><div class="sail-bar"><div class="fill"></div></div></div>
         <div class="spacer"></div>
-        <div class="cell icon at" title="Auto trim on">&#9881;</div>
-        <div class="cell icon ap" title="Autopilot on"><span class="needle">&#10148;</span><span class="ap-target"></span></div>
+        <div class="cell icon at" title="Auto trim on" hidden>&#9881;</div>
+        <div class="cell icon ap" title="Autopilot on" hidden><span class="needle">&#10148;</span><span class="ap-target"></span></div>
+        <div class="cell"><span class="speed"></span><small>kn</small></div>
+        <div class="cell">
+          <svg class="ico hdg-icon" viewBox="0 0 11 11" aria-label="heading">
+            <polygon points="5.5,0.5 0.5,10.5 5.5,7.5" fill="currentColor"/>
+            <polyline points="5.5,0.5 10.5,10.5 5.5,7.5 5.5,0.5" fill="none" stroke="currentColor" stroke-width="1"/>
+          </svg><span class="hdg"></span>
+        </div>
+        <div class="cell">
+          <svg class="ico heel-icon" viewBox="0 0 12 12" aria-label="heel">
+            <path d="M0.5 10.5H11.5M0.5 10.5L10.5 4.5M5.5 10.5A5 5 0 0 0 4.8 7.9" fill="none" stroke="currentColor" stroke-width="1"/>
+          </svg><span class="heel"></span>
+        </div>
         <div class="cell dial-cell">
           <span class="aws"></span><small>kn</small>
           <svg class="dial" viewBox="-12 -12 24 24" aria-label="apparent wind">
@@ -40,7 +47,7 @@ export class Hud {
         </div>
       </div>`;
     this.el = {
-      bar: $(root, '.hud-bar'), word: $(root, '.word'), vert: $(root, '.vert'), nav: $(root, '.nav'),
+      bar: $(root, '.hud-bar'), word: $(root, '.word'), vert: $(root, '.vert'),
       speed: $(root, '.speed'), hdg: $(root, '.hdg'), heel: $(root, '.heel'),
       sail: $(root, '.sail'), sailName: $(root, '.sail-name'), sailFill: $(root, '.sail-bar .fill'),
       at: $(root, '.at'), ap: $(root, '.ap'), apTarget: $(root, '.ap-target'),
@@ -69,8 +76,7 @@ export class Hud {
     const e = this.el;
     this.text(e.word, 'word', h.mode);
     this.show(e.vert, 'vert', h.vertical);
-    this.show(e.nav, 'nav', h.nav);
-    this.show(e.sail, 'sailShow', !h.nav && h.sails > 0);
+    this.show(e.sail, 'sailShow', h.sailMode && h.sails > 0);
     this.text(e.speed, 'speed', h.speed);
     this.text(e.hdg, 'hdg', h.hdg);
     this.text(e.heel, 'heel', h.heel + '°');

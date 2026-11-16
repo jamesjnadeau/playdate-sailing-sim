@@ -6,10 +6,6 @@
 
 #define R2D 57.29578f
 
-bool hud_shows_nav(Mode m) {
-    return m == MODE_WHEEL || m == MODE_CAMERA;
-}
-
 #define CL_GAP_ICON 3     /* icon to its text */
 #define CL_GAP_SEP_L 5    /* separator to the cell on its right edge... */
 #define CL_GAP_SEP_R 4    /* ...and to the text on its left */

@@ -4,13 +4,6 @@
 #include "hudinfo.h"
 #include "mathx.h"
 
-static void test_shows_nav_for_wheel_and_look(void) {
-    T_ASSERT(hud_shows_nav(MODE_WHEEL));
-    T_ASSERT(!hud_shows_nav(MODE_TRIM));
-    T_ASSERT(!hud_shows_nav(MODE_HOIST));
-    T_ASSERT(hud_shows_nav(MODE_CAMERA));
-}
-
 static void test_heading_wraps_and_rounds(void) {
     T_ASSERT(hud_heading_deg(0.0f) == 0);
     T_ASSERT(hud_heading_deg(deg2rad(359.6f)) == 0);
@@ -171,7 +164,6 @@ static void test_sail_bar_span(void) {
 }
 
 int main(void) {
-    T_RUN(test_shows_nav_for_wheel_and_look);
     T_RUN(test_cluster_matches_mockup);
     T_RUN(test_cluster_worst_case_left_edge);
     T_RUN(test_cluster_never_overlaps);

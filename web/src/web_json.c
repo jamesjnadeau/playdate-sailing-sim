@@ -294,7 +294,7 @@ static void hud(const Game *g, Ghost *ghost) {
     obj("hud");
     str("mode", mode_word(g->ctl.mode));
     boolean("vertical", g->ctl.mode == MODE_CAMERA && g->ctl.camera_vertical);
-    boolean("nav", hud_shows_nav(g->ctl.mode));
+    boolean("sailMode", g->ctl.mode == MODE_TRIM || g->ctl.mode == MODE_HOIST);
     snprintf(line, sizeof line, "%.1f", fabsf(b->u) * 1.94384f);
     str("speed", line);
     snprintf(line, sizeof line, "%03d", hud_heading_deg(b->heading));

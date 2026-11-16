@@ -7,9 +7,6 @@
 
 /* Presentation-free HUD decisions, so the headless tests can cover them. */
 
-/* true for MODE_WHEEL and MODE_CAMERA: speed/heading/heel/AWS cells are shown. */
-bool hud_shows_nav(Mode m);
-
 /* Right-justified instrument cluster of the status bar. Positions are the left pixel of each text or
  * icon; widths are measured by the caller. Right to left: wind dial, wind speed, heel (icon + number),
  * heading (icon + number), boat speed, then the AP and AT icons, with 1 px separators. */

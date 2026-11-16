@@ -643,6 +643,26 @@ static void test_race_weather_untouched(void) {
     }
 }
 
+static void test_head_to_wind_and_stopped_reports_irons(void) {
+    fresh(3);
+    for (int i = 0; i < 30 * 5; i++) {   /* the start is not in irons */
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+        T_ASSERT(!g.irons.on);
+    }
+    fresh(3);
+    for (int i = 0; i < 30 * 4; i++) {   /* held head to wind, dead in the water */
+        g.b.heading = wrap_pi(g.wind.dir + (float)M_PI);
+        g.b.u = g.b.v = g.b.r = 0.0f;
+        game_update(&g, 0, 0, 0, 1.0f / 30);
+    }
+    T_ASSERT(g.irons.on);
+    g.en.on = true;                      /* the engine is the way out: no longer "stuck" */
+    game_update(&g, 0, 0, 0, 1.0f / 30);
+    T_ASSERT(!g.irons.on);
+    game_restart(&g, 4);
+    T_ASSERT(!g.irons.on);
+}
+
 int main(void) {
     T_RUN(test_huge_dt_is_bounded_and_finite);
     T_RUN(test_first_frame_zero_dt_is_safe);
@@ -689,5 +709,6 @@ int main(void) {
     T_RUN(test_leaving_journey_mid_blend);
     T_RUN(test_recentre_during_blend);
     T_RUN(test_race_weather_untouched);
+    T_RUN(test_head_to_wind_and_stopped_reports_irons);
     T_DONE();
 }

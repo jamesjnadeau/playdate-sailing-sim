@@ -48,6 +48,7 @@ static void reset(Game *g) {
                      g->b.x, g->b.y, g->b.heading, wrap_pi(g->wind.dir + (float)M_PI),
                      g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f);
     g->praise_left = 0.0f;
+    irons_init(&g->irons);
     g->t = 0.0;
     g->run = RUN_SAILING;
     g->substeps = 0;
@@ -194,6 +195,18 @@ static void aim_camera(Game *g) {
     g->ctl.buoy_id = id;
 }
 
+/* In irons only counts while the sails are the boat's only drive: not capsized, engine off, not anchored,
+   some sail up. */
+static void update_irons(Game *g, float dt) {
+    float hoist = 0.0f;
+    for (int i = 0; i < g->boat.sail_count && i < BOAT_MAX_SAILS; i++)
+        if (g->b.hoists[i] > hoist) hoist = g->b.hoists[i];
+    const bool sailing = g->run == RUN_SAILING && !g->in.engine && !g->in.anchor && hoist > 0.2f;
+    const float off_wind = fabsf(wrap_pi(g->b.heading - wrap_pi(g->wind.dir + (float)M_PI)));
+    irons_update(&g->irons, off_wind, g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f,
+                 g->b.u, sailing, dt);
+}
+
 void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, float frame_dt) {
     float dt = isfinite(frame_dt) ? frame_dt : 1.0f / 30.0f;
     dt = clampf(dt, GAME_DT_MIN, GAME_DT_MAX);
@@ -241,6 +254,7 @@ void game_update(Game *g, uint32_t pressed, uint32_t held, float crank_delta, fl
         g->praise_left = PRAISE_SECONDS;
     }
     if (g->praise_left > 0.0f) g->praise_left -= dt;
+    update_irons(g, dt);
     if (g->run == RUN_SAILING &&
         fabsf(g->b.heel) > g->boat.hull.capsize_deg * (float)M_PI / 180.0f)
         g->run = RUN_CAPSIZED;

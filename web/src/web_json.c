@@ -317,8 +317,9 @@ static void hud(const Game *g, Ghost *ghost) {
     numx("bowDial", hud_dial_angle(0.0f, g->ctl.camera_yaw));
     numx("awa", b->awa);
     arr("banners");
-    const char *banners[2] = { hud_assist_text(b->rudder_assist, b->wheel), hud_engine_text(g->in.engine) };
-    for (int i = 0; i < 2; i++) if (banners[i]) str_v(banners[i]);
+    const char *banners[3] = { irons_text(g->irons.on), hud_assist_text(b->rudder_assist, b->wheel),
+                               hud_engine_text(g->in.engine) };
+    for (int i = 0; i < 3; i++) if (banners[i]) str_v(banners[i]);
     arr_end();
     str("praise", g->praise_left > 0.0f ? praise_text(g->praise) : NULL);
 

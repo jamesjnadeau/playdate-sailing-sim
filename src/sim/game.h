@@ -7,6 +7,7 @@
 #include "boatcfg.h"
 #include "engine.h"
 #include "follower.h"
+#include "irons.h"
 #include "controls.h"
 #include "journey.h"
 #include "race.h"
@@ -54,6 +55,7 @@ typedef struct {
     uint32_t praise_rng;    /* picks each praise message */
     int praise;             /* index of the message on screen, see praise.h */
     float praise_left;      /* s the message stays on screen; 0 when none */
+    Irons irons;            /* stuck head to wind, see irons.h */
 } Game;
 
 void game_init(Game *g, const BoatCfg *boat, const WeatherCfg *weather, const WorldCfg *world,

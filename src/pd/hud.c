@@ -22,7 +22,7 @@ static int text_w(PlaydateAPI *pd, const char *s) {
 #define MSG_BACK_DY 1
 
 /* Centred on-screen message: black text over a white layer offset behind it. The one place the style of
-   praise and the assist/engine banners lives. */
+   praise and the irons/assist/engine banners lives. */
 static void message(PlaydateAPI *pd, const char *s, int y) {
     const int w = pd->graphics->getTextWidth(NULL, s, strlen(s), kASCIIEncoding, 0);   /* NULL: the current font */
     int x = (CAM_W - w) / 2;
@@ -160,10 +160,11 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
                            1, kColorWhite);
     pd->graphics->setDrawMode(kDrawModeCopy);
 
-    /* the rudder flow floor is helping a slow boat steer: say so, above the status bar */
-    const char *banners[2] = { hud_assist_text(b->rudder_assist, b->wheel), hud_engine_text(g->in.engine) };
+    /* banners above the status bar: stuck in irons, the rudder flow floor helping a slow boat steer, the engine */
+    const char *banners[3] = { irons_text(g->irons.on), hud_assist_text(b->rudder_assist, b->wheel),
+                               hud_engine_text(g->in.engine) };
     int row = 0;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         if (!banners[i]) continue;
         message(pd, banners[i], top - 16 - 16 * row++ + 1);
     }

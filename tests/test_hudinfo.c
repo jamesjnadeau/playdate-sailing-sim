@@ -238,6 +238,38 @@ static void test_sail_bar_span_name_yields_to_bar(void) {
     T_ASSERT(w == 0);
 }
 
+static void test_helm_span(void) {
+    int x, w;
+    T_ASSERT(hud_helm_span(173, &x, &w) && x == 60 && w == 79);   /* capped at 80, then made odd */
+    T_ASSERT(hud_helm_span(105, &x, &w) && x == 60 && w == 39);   /* already odd */
+    T_ASSERT(hud_helm_span(82, &x, &w) && w == 15);               /* 16 -> 15: smallest shown */
+    T_ASSERT(!hud_helm_span(80, &x, &w) && w == 0);               /* 14 -> 13: hidden */
+    T_ASSERT(!hud_helm_span(70, &x, &w) && w == 0);
+}
+
+static void test_helm_span_always_odd_and_clear_of_cluster(void) {
+    for (int left = 60; left < 300; left++) {
+        int x, w;
+        if (!hud_helm_span(left, &x, &w)) continue;
+        T_ASSERT(w % 2 == 1 && w <= 80 && x + w <= left - 6);
+    }
+}
+
+static void test_helm_marker_x(void) {
+    T_ASSERT(hud_helm_marker_x(60, 79, 0.0f) == 99);              /* centre */
+    T_ASSERT(hud_helm_marker_x(60, 79, 1.0f) == 138);             /* full starboard: right end */
+    T_ASSERT(hud_helm_marker_x(60, 79, -1.0f) == 60);             /* full port: left end */
+    T_ASSERT(hud_helm_marker_x(60, 79, 0.5f) == 119);
+    T_ASSERT(hud_helm_marker_x(60, 79, -0.5f) == 79);             /* symmetric about centre */
+}
+
+static void test_helm_marker_clamps_and_survives_non_finite(void) {
+    T_ASSERT(hud_helm_marker_x(60, 79, 3.0f) == 138);
+    T_ASSERT(hud_helm_marker_x(60, 79, -3.0f) == 60);
+    T_ASSERT(hud_helm_marker_x(60, 79, NAN) == 99);
+    T_ASSERT(hud_helm_marker_x(60, 79, INFINITY) == 99);
+}
+
 static void test_slot_text_is_right_aligned_and_stable(void) {
     /* a number narrower than its slot hugs the slot's right edge; the slot never moves with the digits */
     T_ASSERT(hud_slot_text_x(100, 30, 14) == 116);
@@ -251,6 +283,10 @@ int main(void) {
     T_RUN(test_cluster_never_overlaps);
     T_RUN(test_sail_bar_span);
     T_RUN(test_sail_bar_span_name_yields_to_bar);
+    T_RUN(test_helm_span);
+    T_RUN(test_helm_span_always_odd_and_clear_of_cluster);
+    T_RUN(test_helm_marker_x);
+    T_RUN(test_helm_marker_clamps_and_survives_non_finite);
     T_RUN(test_slot_text_is_right_aligned_and_stable);
     T_RUN(test_heading_wraps_and_rounds);
     T_RUN(test_heading_non_finite_is_zero);

@@ -54,6 +54,22 @@ bool hud_sail_bar_span(int name_w, int left, int *x, int *w) {
     return false;
 }
 
+bool hud_helm_span(int left, int *x, int *w) {
+    *x = 60;
+    int span = left - 6 - 60;
+    if (span > 80) span = 80;
+    if (span % 2 == 0) span--;
+    if (span < 15) { *w = 0; return false; }
+    *w = span;
+    return true;
+}
+
+int hud_helm_marker_x(int x, int w, float wheel) {
+    const int half = w / 2;
+    if (!isfinite(wheel)) return x + half;
+    return x + half + (int)lroundf(clampf(wheel, -1.0f, 1.0f) * (float)half);
+}
+
 int hud_slot_text_x(int slot_x, int slot_w, int text_w) {
     return text_w >= slot_w ? slot_x : slot_x + slot_w - text_w;
 }

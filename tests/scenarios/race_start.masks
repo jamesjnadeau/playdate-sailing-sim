@@ -1,7 +1,13 @@
 # snapshot x y w h: text regions masked (stub draws no text)
-race_sailing 4 219 268 20
-race_sailing 350 219 28 20
-race_start 4 219 268 20
-race_start 350 219 28 20
+race_sailing 4 219 48 20
+race_sailing 172 219 57 20
+race_sailing 248 219 36 20
+race_sailing 304 219 34 20
+race_sailing 343 219 36 20
+race_start 4 219 48 20
+race_start 172 219 57 20
+race_start 248 219 36 20
+race_start 304 219 34 20
+race_start 343 219 36 20
 race_sailing 296 74 44 18
 race_start 296 74 44 18

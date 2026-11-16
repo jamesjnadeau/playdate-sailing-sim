@@ -47,10 +47,13 @@ $(BUILD)/harness: $(SRC) $(wildcard $(ROOT)/src/*/*.h) pdstub.h
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $(SRC) -lm
 
-# the same boats/config/tracks the root Makefile stages into Source/
-$(BUILD)/assets: $(wildcard $(ROOT)/boats/* $(ROOT)/config/* $(ROOT)/tracks/*)
-	rm -rf $@ && mkdir -p $@
+# the same boats/config/tracks the root Makefile stages into Source/, plus font metrics for the stub's
+# getTextWidth: the game's own .fnt files and the SDK's system fonts (fonts/system/)
+$(BUILD)/assets: $(wildcard $(ROOT)/boats/* $(ROOT)/config/* $(ROOT)/tracks/* $(ROOT)/Source/fonts/*.fnt)
+	rm -rf $@ && mkdir -p $@/fonts/system
 	cp -r $(ROOT)/boats $(ROOT)/config $(ROOT)/tracks $@/
+	cp $(ROOT)/Source/fonts/*.fnt $@/fonts/
+	-find "$(SDK)/Resources/Fonts" -name '*.fnt' -exec cp {} $@/fonts/system/ \;
 	@touch $@
 assets: $(BUILD)/assets
 

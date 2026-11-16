@@ -29,14 +29,15 @@ heel always visible, so the player can watch them while adjusting sails.
 - Heading icon: glyph ➢ rotated to point up, ~11x11 px, left half filled, right half outlined. Number is 3 digits (`hud_heading_deg`), ~21 px. Cell about x 279..313.
 - Heel icon: glyph ∢ with a horizontal base, ~12x12 px, second leg fixed at 30 degrees, small arc between the legs. Number is signed (`%+.0f`), ~19 px. Cell about x 322..355.
 - Wind speed number moves to x 364..376 (right edge 376), adjoining the dial (x 380..396, unchanged).
-- Separators: 1 px lines at about x 359 and x 317, and x 274 when AP/AT is shown.
-- AP (compass + target heading) and AT (gear) icons move left of the cluster; worst case they start at x 218.
-- Sail info area: x 54..279 normally, x 54..218 with AP and AT on. Today's trim bar ends at x 181, so it fits.
-- Speed (`6.2kn`) stays in the left area in wheel/camera mode and is not drawn in TRIM/HOIST, as now.
-- Camera mode: shows the same cluster (my call; it already showed nav).
+- Boat speed (`6.2kn`) joins the cluster, left of heading: ~36 px, x 234..270, with a 1 px separator at about x 274 (user requirement: every instrument visible in every mode).
+- Separators: 1 px lines at about x 359, 317 and 274, plus one more left of speed when AP/AT is shown.
+- AP (compass + target heading) and AT (gear) icons sit left of the speed cell; worst case they start at x 173.
+- Sail info area (TRIM/HOIST): x 54..234 normally, x 54..173 with AP and AT on. Today's trim bar (x 108..181) is too wide for the worst case, so the bar moves to x 100..163 (64 px wide, my call), leaving ~10 px clear.
+- All instruments (boat speed, heading, heel, wind speed, wind dial, AP, AT) are visible in every mode, including camera mode. Nothing is hidden by mode any more.
+- In wheel and camera mode the left area x 54..234 is empty (was speed/heading/heel). Left as is; the builder may propose a use.
 
 ## Left to the builder
 - Exact pixel positions: compute from `getTextWidth` at run time and right-align, don't hard-code the mockup's numbers.
 - Final bitmaps for the two icons at the sizes above; keep the heading arrow visually distinct from the AP compass.
 - Update `tests/` / golden frames and `web/www/js/ui/hud.js`, which mirrors the HUD in the web build.
-- Keep `hud_shows_nav()` only if it is still used for the left-hand speed cell.
+- `hud_shows_nav()` becomes unused for the HUD; remove it and its test if nothing else calls it.

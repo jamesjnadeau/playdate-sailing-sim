@@ -277,7 +277,7 @@ static void test_longship_json(void) {
     T_ASSERT(c.sails[0].awa_min_deg >= 40 && c.sails[0].awa_min_deg <= 70);
     T_ASSERT(c.sails[0].awa_max_deg == 180);
     T_ASSERT(fabsf(c.look.mast_x) < 0.5f * c.hull.length);   /* mast inside the hull */
-    T_ASSERT(c.controls.autopilot_no_go_deg >= 60);          /* A never steers into the no-go zone */
+    T_ASSERT(c.controls.no_go_deg >= 60);          /* A never steers into the no-go zone */
     T_ASSERT(c.boat_class == BOAT_CLASS_CRUISER);            /* cannot sail upwind, free range only */
 }
 

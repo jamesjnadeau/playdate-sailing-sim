@@ -46,7 +46,7 @@ static void reset(Game *g) {
     if (g->mode == GAME_JOURNEY)
         journey_init(&g->journey, g->world.journey_min_m, g->world.journey_max_m, g->seed,
                      g->b.x, g->b.y, g->b.heading, wrap_pi(g->wind.dir + (float)M_PI),
-                     g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f);
+                     g->boat.controls.no_go_deg * (float)M_PI / 180.0f);
     g->praise_left = 0.0f;
     irons_init(&g->irons);
     g->t = 0.0;
@@ -203,7 +203,7 @@ static void update_irons(Game *g, float dt) {
         if (g->b.hoists[i] > hoist) hoist = g->b.hoists[i];
     const bool sailing = g->run == RUN_SAILING && !g->in.engine && !g->in.anchor && hoist > 0.2f;
     const float off_wind = fabsf(wrap_pi(g->b.heading - wrap_pi(g->wind.dir + (float)M_PI)));
-    irons_update(&g->irons, off_wind, g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f,
+    irons_update(&g->irons, off_wind, g->boat.controls.no_go_deg * (float)M_PI / 180.0f,
                  g->b.u, sailing, dt);
 }
 

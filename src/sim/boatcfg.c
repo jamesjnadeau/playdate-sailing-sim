@@ -113,7 +113,7 @@ static const Field CONTROLS_F[] = {
     FF(ControlsCfg, weather_helm, 0.5f, 0, 1),
     FF(ControlsCfg, anchor_time, 2.5f, 0.1f, 30),
     FF(ControlsCfg, camera_hold_s, 0.75f, 0.1f, 3),
-    FF(ControlsCfg, autopilot_no_go_deg, 45, 0, 90),
+    FF(ControlsCfg, no_go_deg, 45, 0, 90),
     FF(ControlsCfg, autopilot_crank_deg, 10, 0, 90),
     FF(ControlsCfg, autopilot_kp, 2.0f, 0, 20),
     FF(ControlsCfg, autopilot_kd, 1.0f, 0, 20),

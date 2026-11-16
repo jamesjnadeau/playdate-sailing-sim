@@ -47,7 +47,7 @@
     "weather_helm": 0.5,
     "anchor_time": 2.5,
     "camera_hold_s": 0.75,
-    "autopilot_no_go_deg": 45,
+    "no_go_deg": 45,
     "autopilot_crank_deg": 10,
     "autopilot_kp": 2,
     "autopilot_kd": 1,

@@ -38,7 +38,7 @@ static BaselineResult sail(Game *g, Ghost *gh, const char *boat_name, const Tack
 
     while (!g->race.finished && g->run == RUN_SAILING && g->race.t < GHOST_MAX_SECONDS) {
         const float wind_from = wrap_pi(g->wind.dir + (float)M_PI);
-        const float no_go = g->boat.controls.autopilot_no_go_deg * (float)M_PI / 180.0f;
+        const float no_go = g->boat.controls.no_go_deg * (float)M_PI / 180.0f;
         const float want = nav_heading(&nav, &g->track, g->race.next, g->b.x, g->b.y, g->race.ox, g->race.oy,
                                        wind_from, no_go);
         /* The autopilot never turns through the no-go zone from outside it (it gybes the long way round), so a

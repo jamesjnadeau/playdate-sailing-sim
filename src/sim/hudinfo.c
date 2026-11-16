@@ -16,16 +16,16 @@ HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int
     c.ap_x = c.ap_icon_x = c.at_icon_x = -1;
     c.aws_x = 376 - w_aws;
     c.sep[c.nsep++] = c.aws_x - CL_GAP_SEP_L;
+    c.speed_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_speed;
+    c.sep[c.nsep++] = c.speed_x - CL_GAP_SEP_L;
     c.heel_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_heel;
     c.heel_icon_x = c.heel_x - CL_GAP_ICON - HUD_ICON_HEEL_W;
     c.sep[c.nsep++] = c.heel_icon_x - CL_GAP_SEP_L;
     c.hdg_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_hdg;
     c.hdg_icon_x = c.hdg_x - CL_GAP_ICON - HUD_ICON_HDG_W;
-    c.sep[c.nsep++] = c.hdg_icon_x - CL_GAP_SEP_L;
-    c.speed_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_speed;
-    c.left = c.speed_x;
-    if (ap || at) c.sep[c.nsep++] = c.speed_x - CL_GAP_SEP_L;
-    int edge = c.speed_x - CL_GAP_SEP_L - CL_GAP_SEP_R;   /* right edge of the next element */
+    c.left = c.hdg_icon_x;
+    if (ap || at) c.sep[c.nsep++] = c.hdg_icon_x - CL_GAP_SEP_L;
+    int edge = c.hdg_icon_x - CL_GAP_SEP_L - CL_GAP_SEP_R;   /* right edge of the next element */
     if (ap) {
         c.ap_x = edge - w_ap;
         c.ap_icon_x = c.ap_x - CL_GAP_ICON - HUD_ICON_AP_W;

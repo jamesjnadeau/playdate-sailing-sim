@@ -1,14 +1,14 @@
 # snapshot x y w h: text regions masked (stub draws no text)
 boat_changed 4 219 48 20
-boat_changed 172 219 57 20
-boat_changed 248 219 36 20
-boat_changed 304 219 34 20
-boat_changed 343 219 36 20
+boat_changed 292 219 56 20
+boat_changed 204 219 37 20
+boat_changed 261 219 26 20
+boat_changed 353 219 26 20
 weather_changed 4 219 48 20
-weather_changed 172 219 57 20
-weather_changed 248 219 36 20
-weather_changed 304 219 34 20
-weather_changed 343 219 36 20
+weather_changed 292 219 56 20
+weather_changed 204 219 37 20
+weather_changed 261 219 26 20
+weather_changed 353 219 26 20
 home 12 36 140 18
 home 12 54 140 58
 home 12 120 140 36

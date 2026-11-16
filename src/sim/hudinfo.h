@@ -8,8 +8,8 @@
 /* Presentation-free HUD decisions, so the headless tests can cover them. */
 
 /* Right-justified instrument cluster of the status bar. Positions are the left pixel of each text or
- * icon; widths are measured by the caller. Right to left: wind dial, wind speed, heel (icon + number),
- * heading (icon + number), boat speed, then the AP and AT icons, with 1 px separators. */
+ * icon; widths are measured by the caller. Right to left: wind dial, wind speed, boat speed, heel (icon +
+ * number), heading (icon + number), then the AP and AT icons, with 1 px separators. */
 #define HUD_DIAL_CX 388
 #define HUD_ICON_HDG_W 11
 #define HUD_ICON_HEEL_W 12

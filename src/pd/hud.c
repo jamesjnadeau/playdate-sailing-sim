@@ -107,19 +107,21 @@ void hud_draw(PlaydateAPI *pd, const Game *g) {
         pd->graphics->drawLine(hx, top + 4, hx + 3, top + 8, 1, kColorBlack);
     }
 
-    /* every instrument, right-justified, in every mode: boat speed, heading, heel, wind speed, then AP and AT
-       icons to their left; positions come from the measured text widths */
+    /* every instrument, right-justified, in every mode, left to right: AT and AP icons, heading, heel,
+       boat speed, wind speed; positions come from the measured text widths */
     pd->graphics->setDrawMode(kDrawModeFillWhite);
     char spd[16], hdg[8], heel[8], aws[8], apt[8];
     snprintf(spd, sizeof spd, "%.1fkn", (double)(fabsf(b->u) * 1.94384f));
     snprintf(hdg, sizeof hdg, "%03d", hud_heading_deg(b->heading));
-    snprintf(heel, sizeof heel, "%+.0f", (double)(b->heel * 57.29578f));
-    snprintf(aws, sizeof aws, "%.0f", (double)b->aws);
+    /* two digits each: heel is unsigned and held to 99 (a J/24 knocked flat can reach 105); the wind never
+       reaches 100 */
+    snprintf(heel, sizeof heel, "%.0f", (double)fminf(99.0f, fabsf(b->heel) * 57.29578f));
+    snprintf(aws, sizeof aws, "%.0f", (double)fminf(99.0f, b->aws));
     snprintf(apt, sizeof apt, "%03d", hud_heading_deg(g->ap.target));
     /* slots are sized for the widest value of each instrument, so the cluster does not move as digits change;
        each live number is right-aligned in its slot */
-    const int w_aws = text_w(pd, "888"), w_hdg = text_w(pd, "888"), w_spd = text_w(pd, "88.8kn");
-    const int w_heel = text_w(pd, "+88") > text_w(pd, "-88") ? text_w(pd, "+88") : text_w(pd, "-88");
+    const int w_aws = text_w(pd, "88"), w_hdg = text_w(pd, "888"), w_spd = text_w(pd, "88.8kn");
+    const int w_heel = text_w(pd, "88");
     const HudCluster cl = hud_cluster_layout(w_aws, w_heel, w_hdg, w_spd, w_hdg, g->at.on, g->ap.on);
     const int iy = top + HUD_H / 2;
     for (int i = 0; i < cl.nsep; i++) pd->graphics->drawLine(cl.sep[i], top, cl.sep[i], CAM_H - 1, 1, kColorWhite);

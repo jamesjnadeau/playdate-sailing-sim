@@ -10,6 +10,30 @@
 /* true for MODE_WHEEL and MODE_CAMERA: speed/heading/heel/AWS cells are shown. */
 bool hud_shows_nav(Mode m);
 
+/* Right-justified instrument cluster of the status bar. Positions are the left pixel of each text or
+ * icon; widths are measured by the caller. Right to left: wind dial, wind speed, heel (icon + number),
+ * heading (icon + number), boat speed, then the AP and AT icons, with 1 px separators. */
+#define HUD_DIAL_CX 388
+#define HUD_ICON_HDG_W 11
+#define HUD_ICON_HEEL_W 12
+#define HUD_ICON_AT_W 12
+#define HUD_ICON_AP_W 12
+typedef struct {
+    int aws_x;                  /* wind-speed text; its right edge is x 376 */
+    int heel_x, heel_icon_x;
+    int hdg_x, hdg_icon_x;
+    int speed_x;
+    int ap_x, ap_icon_x;        /* -1 when AP is off */
+    int at_icon_x;              /* -1 when AT is off */
+    int sep[5]; int nsep;       /* x of each 1 px separator */
+    int left;                   /* leftmost pixel used by the cluster */
+} HudCluster;
+HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int w_ap, bool at, bool ap);
+
+/* Start and width of the trim/hoist bar: after the sail name (width name_w, which starts at x 60), at x 100
+ * or later, at most 64 wide, ending 6 px before `left`. Width 0 (no bar) when under 24 px would be left. */
+void hud_sail_bar_span(int name_w, int left, int *x, int *w);
+
 /* Radians to whole degrees 0..359: rounded, wrapped, non-finite -> 0. */
 int hud_heading_deg(float rad);
 

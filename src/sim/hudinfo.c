@@ -1,3 +1,4 @@
+#include <string.h>
 #include "hudinfo.h"
 #include <math.h>
 #include <stdio.h>
@@ -7,6 +8,47 @@
 
 bool hud_shows_nav(Mode m) {
     return m == MODE_WHEEL || m == MODE_CAMERA;
+}
+
+#define CL_GAP_ICON 3     /* icon to its text */
+#define CL_GAP_SEP_L 5    /* separator to the cell on its right edge... */
+#define CL_GAP_SEP_R 4    /* ...and to the text on its left */
+
+HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int w_ap, bool at, bool ap) {
+    HudCluster c;
+    memset(&c, 0, sizeof c);
+    c.ap_x = c.ap_icon_x = c.at_icon_x = -1;
+    c.aws_x = 376 - w_aws;
+    c.sep[c.nsep++] = c.aws_x - CL_GAP_SEP_L;
+    c.heel_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_heel;
+    c.heel_icon_x = c.heel_x - CL_GAP_ICON - HUD_ICON_HEEL_W;
+    c.sep[c.nsep++] = c.heel_icon_x - CL_GAP_SEP_L;
+    c.hdg_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_hdg;
+    c.hdg_icon_x = c.hdg_x - CL_GAP_ICON - HUD_ICON_HDG_W;
+    c.sep[c.nsep++] = c.hdg_icon_x - CL_GAP_SEP_L;
+    c.speed_x = c.sep[c.nsep - 1] - CL_GAP_SEP_R - w_speed;
+    c.left = c.speed_x;
+    if (ap || at) c.sep[c.nsep++] = c.speed_x - CL_GAP_SEP_L;
+    int edge = c.speed_x - CL_GAP_SEP_L - CL_GAP_SEP_R;   /* right edge of the next element */
+    if (ap) {
+        c.ap_x = edge - w_ap;
+        c.ap_icon_x = c.ap_x - CL_GAP_ICON - HUD_ICON_AP_W;
+        edge = c.ap_icon_x - CL_GAP_SEP_R;
+        c.left = c.ap_icon_x;
+    }
+    if (at) {
+        c.at_icon_x = edge - HUD_ICON_AT_W;
+        c.left = c.at_icon_x;
+    }
+    return c;
+}
+
+void hud_sail_bar_span(int name_w, int left, int *x, int *w) {
+    *x = 60 + name_w + 4;
+    if (*x < 100) *x = 100;
+    *w = left - 6 - *x;
+    if (*w > 64) *w = 64;
+    if (*w < 24) *w = 0;
 }
 
 int hud_heading_deg(float rad) {

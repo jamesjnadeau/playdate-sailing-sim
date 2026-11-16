@@ -124,8 +124,58 @@ static void test_engine_text_while_running(void) {
     T_ASSERT(hud_engine_text(false) == NULL);
 }
 
+static int within(int v, int target, int tol) { return v >= target - tol && v <= target + tol; }
+
+static void test_cluster_matches_mockup(void) {
+    HudCluster c = hud_cluster_layout(12, 19, 21, 36, 21, false, false);
+    T_ASSERT(c.aws_x + 12 == 376);
+    T_ASSERT(within(c.speed_x, 234, 2));
+    T_ASSERT(within(c.hdg_x, 292, 2));
+    T_ASSERT(within(c.heel_x, 336, 2));
+    T_ASSERT(within(c.left, 234, 2));
+    T_ASSERT(c.ap_x == -1 && c.at_icon_x == -1);
+}
+
+static void test_cluster_worst_case_left_edge(void) {
+    HudCluster c = hud_cluster_layout(12, 19, 21, 36, 21, true, true);
+    T_ASSERT(within(c.left, 173, 2));
+    T_ASSERT(c.at_icon_x < c.ap_icon_x && c.ap_icon_x < c.ap_x && c.ap_x < c.speed_x);
+}
+
+static void test_cluster_never_overlaps(void) {
+    for (int wh = 14; wh <= 30; wh++)
+        for (int wa = 8; wa <= 30; wa++)
+            for (int flags = 0; flags < 4; flags++) {
+                const bool at = flags & 1, ap = flags & 2;
+                HudCluster c = hud_cluster_layout(wa, wh, 21, 36, 21, at, ap);
+                T_ASSERT(c.aws_x + wa <= HUD_DIAL_CX - 8 - 2);
+                T_ASSERT(c.heel_x + wh < c.aws_x);
+                T_ASSERT(c.heel_icon_x + HUD_ICON_HEEL_W < c.heel_x);
+                T_ASSERT(c.hdg_x + 21 < c.heel_icon_x);
+                T_ASSERT(c.hdg_icon_x + HUD_ICON_HDG_W < c.hdg_x);
+                T_ASSERT(c.speed_x + 36 < c.hdg_icon_x);
+                if (ap) T_ASSERT(c.ap_x + 21 < c.speed_x && c.ap_icon_x < c.ap_x);
+                if (at) T_ASSERT(c.at_icon_x + 12 < (ap ? c.ap_icon_x : c.speed_x));
+                T_ASSERT(c.left <= c.speed_x);
+            }
+}
+
+static void test_sail_bar_span(void) {
+    int x, w;
+    hud_sail_bar_span(24, 173, &x, &w);
+    T_ASSERT(x == 100 && w == 64);
+    hud_sail_bar_span(50, 173, &x, &w);
+    T_ASSERT(x >= 60 + 50 + 4 && x + w <= 173 - 6);
+    hud_sail_bar_span(50, 150, &x, &w);
+    T_ASSERT(w == 0 || w >= 24);
+}
+
 int main(void) {
     T_RUN(test_shows_nav_for_wheel_and_look);
+    T_RUN(test_cluster_matches_mockup);
+    T_RUN(test_cluster_worst_case_left_edge);
+    T_RUN(test_cluster_never_overlaps);
+    T_RUN(test_sail_bar_span);
     T_RUN(test_heading_wraps_and_rounds);
     T_RUN(test_heading_non_finite_is_zero);
     T_RUN(test_sail_fraction_trim);

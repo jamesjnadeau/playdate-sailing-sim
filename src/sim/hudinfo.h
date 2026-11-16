@@ -33,6 +33,16 @@ HudCluster hud_cluster_layout(int w_aws, int w_heel, int w_hdg, int w_speed, int
  * (no bar) when under 16 px would be left. */
 bool hud_sail_bar_span(int name_w, int left, int *x, int *w);
 
+/* Helm indicator track in HELM mode, in the same gap the sail bar uses: starts at x 60, ends 6 px before
+ * `left`, at most 80 px, and always an odd width so the track has a true centre pixel. Returns false
+ * (with *w = 0) when under 15 px would be left. */
+bool hud_helm_span(int left, int *x, int *w);
+
+/* Centre pixel of the rudder marker on a track [x, x + w): x + w / 2 for a centred helm, one half-width
+ * right at wheel +1 (bow turning to starboard) and left at -1, rounded. `wheel` is clamped to -1..1;
+ * non-finite -> centre. */
+int hud_helm_marker_x(int x, int w, float wheel);
+
 /* Left edge for a live text of width text_w right-aligned in a slot [slot_x, slot_x + slot_w): the slot is
  * sized for the widest value, so the numbers stay put as the digits change. A text wider than the slot
  * starts at the slot's left edge. */

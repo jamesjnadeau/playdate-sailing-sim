@@ -44,7 +44,7 @@ make DEMO=1             # build SailingSimDemo.pdx, the demo (below)
 
 In the launcher the demo is "Crank'n Sail Demo" (its own bundle id, so it installs beside the full game) with a DEMO tag on its card (`assets/launcher-demo/`, rebuilt with `DEMO=1 tools/launcher_art.sh`), and the title screen shows DEMO above the name.
 
-`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The menus still list everything, but locked rows are dimmed and skipped by the cursor: Journey is locked, and of the race courses only Two Buoys 100m can be picked (`APP_DEMO_TRACK`), so the demo offers Free Range and that one race. The demo lasts `APP_DEMO_SECONDS` (`src/app/app.h`, one minute while it is being tested) from the moment the game opens, home screen and pause menu included; the pause menu shows the time used. Then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game closes to the Playdate launcher (the web build goes to the home screen).
+`make DEMO=1` (and `make -C web DEMO=1` for the browser) compiles the game with `-DDEMO`. The menus still list everything, but locked rows are dimmed and skipped by the cursor: Journey is locked, and of the race courses only Two Buoys 100m can be picked (`APP_DEMO_TRACK`), so the demo offers Free Range and that one race. The demo lasts five minutes (`APP_DEMO_SECONDS` in `src/app/app.h`) from the moment the game opens, home screen and pause menu included; the pause menu shows the time used. Then "Thanks for playing the demo" shows for a few seconds (A skips it) and the game closes to the Playdate launcher (the web build goes to the home screen).
 
 ## Web version
 

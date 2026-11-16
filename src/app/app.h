@@ -25,7 +25,7 @@
  * is opened: the home screen, the runs and the pause menu all count. When the time is up, on whatever screen, the
  * thank-you box shows for APP_DEMO_END_SECONDS (A skips it) and the game closes back to the system launcher (the
  * web build, which cannot close, goes to the home screen). The locked rows stay on the menu, dimmed and out of reach. */
-#define APP_DEMO_SECONDS 60.0f   /* one minute while the limit is being tested; the release demo had 300 */
+#define APP_DEMO_SECONDS 300.0f   /* five minutes */
 #define APP_DEMO_END_SECONDS 6.0f
 #define APP_DEMO_TRACK "Two Buoys 100m"   /* the one course the demo races, by its "name" in tracks/ */
 #define APP_DEMO_MESSAGE "Thanks for playing the demo"
